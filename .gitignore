@@ -3,56 +3,39 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
+yarn.lock
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-.env.production
-.env.development
+
+# Secrets and credentials (IMPORTANT)
+*.pem
+*.key
+*.crt
+*.p12
+serviceAccount.json
+*.serviceAccount.json
+src/config/tizzygo/serviceAccount.json
+google-cloud-credentials.json
 
 # Build outputs
 dist/
 build/
-.next/
 out/
-.wrangler/
-
-# Secret files (CRITICAL - NEVER COMMIT)
-*.pem
-*.key
-*.crt
-*.json
-!package.json
-!tsconfig.json
-!tsconfig.*.json
-serviceAccount.json
-google-credentials.json
-firebase-credentials.json
-
-# Config with secrets
-config/*.key
-config/*.pem
-config/*.json
-!config/default.json
-!config/development.json
-!config/production.json
+*.tsbuildinfo
 
 # Logs
 logs/
 *.log
-pids/
-*.pid
-*.seed
-*.pid.lock
+log/
 
-# Runtime data
-tmp/
-temp/
-
-# Coverage
-coverage/
-.nyc_output/
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # IDE files
 .vscode/
@@ -63,39 +46,44 @@ coverage/
 .project
 .classpath
 
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
+# Temporary files
+tmp/
+temp/
+*.tmp
 
-# TypeScript
-*.tsbuildinfo
-
-# Uploads
-uploads/
-public/uploads/
-temp-uploads/
-
-# Redis
-dump.rdb
-
-# PM2
-.pm2/
-
-# dotenv environment variables files
-.env*
-!.env.example
-
-# Database
-*.sqlite
-*.db
-
-# Testing
-/coverage
+# Coverage
+coverage/
+.nyc_output/
 
 # Debug
 debug.log
 
-# Misc
-.cache/
-.temp/
+# Uploads
+uploads/
+files/
+media/
+
+# Database
+*.sqlite
+*.db
+*.sql
+
+# Firebase
+firebase-debug.log
+.firebase/
+*.firebaserc
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+test-results/
+jest-report.html
+
+# Config files with secrets
+config.json
+config.local.json
+*.local.json
