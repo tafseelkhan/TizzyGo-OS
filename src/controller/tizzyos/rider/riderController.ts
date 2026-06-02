@@ -1,19 +1,18 @@
 import { Request, Response } from 'express';
 import Rider from '../../../models/tizzyos/rider/Rider';
-import { upload } from '../../../utils/tizzyos/rider/multerConfig';
 import { sendEmail } from '../../../utils/tizzyos/rider/sendEmail';
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 export const applyRider = [
-  upload.fields([
-    { name: "aadhaarFrontImage", maxCount: 1 },
-    { name: "aadhaarBackImage", maxCount: 1 },
-    { name: "panFrontImage", maxCount: 1 },
-    { name: "panBackImage", maxCount: 1 },
-    { name: "drivingLicensePhoto", maxCount: 1 },
-    { name: "vehicleInsuranceCopy", maxCount: 1 },
-  ]),
+  // upload.fields([
+  //   { name: "aadhaarFrontImage", maxCount: 1 },
+  //   { name: "aadhaarBackImage", maxCount: 1 },
+  //   { name: "panFrontImage", maxCount: 1 },
+  //   { name: "panBackImage", maxCount: 1 },
+  //   { name: "drivingLicensePhoto", maxCount: 1 },
+  //   { name: "vehicleInsuranceCopy", maxCount: 1 },
+  // ]),
   async (req: Request, res: Response): Promise<void> => {
     try {
       // 🔑 Get userId from JWT (safe way)

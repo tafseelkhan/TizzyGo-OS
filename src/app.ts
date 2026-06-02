@@ -30,8 +30,6 @@ import orderfetchRoutes from "./routes/tizzygo/orders/orderRoutes";
 import yourorderRoutes from "./routes/tizzygo/orders/yourOrderRoutes";
 
 // TizzyOS Imports (If any) here
-import authsRoutes from "./routes/tizzyos/auths/authRoutes";
-import profilesRoutes from "./routes/tizzyos/auths/profileRoutes";
 import userRoutes from "./routes/tizzyos/user/meRoutes";
 import sellerRoutes from "./routes/tizzyos/seller/sellerRoutes";
 import sellerStatusRoutes from "./routes/tizzyos/seller/statusRoutes";
@@ -100,8 +98,6 @@ app.use("/api/orders", orderfetchRoutes);
 app.use("/api/orders/yourorder", yourorderRoutes);
 
 // TizzyOS Routes
-app.use("/api/auth", authsRoutes);
-app.use("/api/profile", profilesRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/seller", sellerStatusRoutes);

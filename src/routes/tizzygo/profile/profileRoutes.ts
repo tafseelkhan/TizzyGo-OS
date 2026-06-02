@@ -1,30 +1,29 @@
 import express from "express"; 
 import { 
   getProfile, 
-  getUserProfile, 
   updateProfile, 
-  getUsersByIds 
+  getUsersByIds, 
+  deleteProfileImage
 } from "../../../controller/tizzygo/profile/profileController";
 import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
-import { uploadProfilePhoto } from "../../../middleware/tizzygo/upload";
 
 const router = express.Router();
 
 // 🔐 Private profile (login user ka profile)
-router.get("/me", authMiddleware, getProfile);
+// cast handler to RequestHandler to satisfy Express/TypeScript overloads
+router.get("/me", authMiddleware, getProfile as unknown as express.RequestHandler);
 
 // 🔐 Update profile (login user)
 router.put(
-  "/me", 
+  "/update", 
   authMiddleware, 
-  uploadProfilePhoto.single("image"), 
-  updateProfile
+  updateProfile as unknown as express.RequestHandler
 );
-
-// 🌍 Public profile (by Mongo _id)
-router.get("/public/:userId", getUserProfile);
 
 // 👥 Multiple users by IDs
 router.post("/users/batch", getUsersByIds);
+
+// Delete profile image only
+router.delete('/delete-image', authMiddleware, deleteProfileImage);
 
 export default router;

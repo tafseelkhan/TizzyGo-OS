@@ -32,21 +32,21 @@ const userSchema = new Schema<IUser>(
       sparse: true,
       trim: true,
     },
+    image: {
+      type: String,
+      default: "/images/default-profile.png",
+    },
     theme: {
       type: String,
       enum: ["light", "dark", "system"],
       default: "system",
     },
-    image: {
+    vendorCodeUID: {
       type: String,
-      default: "/images/default-profile.png",
     },
     color: {
       type: String,
-      default: "#ffffff",
-    },
-    vendorCodeUID: {
-      type: String,
+      required: false,
     },
     isEmailVerified: {
       type: Boolean,
