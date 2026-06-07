@@ -57,6 +57,7 @@ export interface IOrder extends Document {
 
   // 🚚 Delivery (RIDER FLOW FIXED)
   deliveryStatus:
+    | "pending_rider_accept"
     | "waiting_for_rider"
     | "waiting_for_seller"
     | "assigned"
@@ -206,6 +207,7 @@ const OrderSchema: Schema<IOrder> = new Schema(
     deliveryStatus: {
       type: String,
       enum: [
+        "pending_rider_accept",
         "waiting_for_seller",
         "waiting_for_rider",
         "assigned",

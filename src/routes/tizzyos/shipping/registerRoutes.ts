@@ -1,5 +1,13 @@
 import express from "express";
-import { registerShipping, getPendingShipping, updateShippingStatus, getShippingById, checkShippingForm, getApprovedShippingRiders, setRiderOnlineOffline } from "../../../controller/tizzyos/shipping/registerController";
+import {
+  registerShipping,
+  getPendingShipping,
+  updateShippingStatus,
+  getShippingById,
+  checkShippingForm,
+  getApprovedShippingRiders,
+  setRiderOnlineOffline,
+} from "../../../controller/tizzyos/shipping/registerController";
 import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
 
 const router = express.Router();
