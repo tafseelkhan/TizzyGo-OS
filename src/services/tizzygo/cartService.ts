@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Cart from "../../models/tizzygo/cart/Cart";
+import { Product } from "../../models/tizzyos/seller/AddProducts/Products";
 import {
   findVariantById,
   checkStock,
@@ -20,6 +21,23 @@ interface UpdateQuantityParams {
   productId: string;
   quantity: number;
   selectedVariant?: any;
+}
+
+interface FindOrCreateCartItemParams {
+  userId: string;
+  productId: string;
+  vendorCodeUID: string;
+  sellerId: string;
+  productDataId: string;
+  quantity: number;
+}
+
+interface UpdateCartCalculationsParams {
+  cartItem: any;
+  calculated: any;
+  quantity: number;
+  couponCode?: string;
+  discountAmount?: number;
 }
 
 export const addToCart = async ({
@@ -48,7 +66,9 @@ export const addToCart = async ({
     const foundVariant = findVariantById(productData, variantId);
 
     if (!foundVariant) {
-      throw new Error(`Selected variant not found in product data. ID: ${variantId}`);
+      throw new Error(
+        `Selected variant not found in product data. ID: ${variantId}`,
+      );
     }
 
     variantToSave = cleanVariantObject(foundVariant, selectedVariant);
@@ -104,7 +124,8 @@ export const updateCartQuantity = async ({
   }
 
   const activeItem = item.selectedVariant || item.productData;
-  const stockAvailable = activeItem?.quantityAvailable || activeItem?.stock || 999;
+  const stockAvailable =
+    activeItem?.quantityAvailable || activeItem?.stock || 999;
   const inStock = activeItem?.inStock !== false;
 
   if (!inStock && stockAvailable === 0) {
@@ -157,7 +178,7 @@ export const createBuyNowCartItem = async (
   userId: string,
   productData: any,
   selectedVariant: any,
-  quantity: number
+  quantity: number,
 ) => {
   const mongoProductId = productData._id;
   const minimalProductData = createMinimalProductData(productData);
@@ -180,10 +201,8 @@ export const createBuyNowCartItem = async (
     variantToSave = cleanVariantObject(foundVariant, selectedVariant);
   }
 
-  // Delete any existing cart item to avoid validation issues
   await Cart.deleteOne({ userId, productId: mongoProductId });
 
-  // Create new cart item
   const newCartData: any = {
     userId: new mongoose.Types.ObjectId(userId),
     productId: new mongoose.Types.ObjectId(mongoProductId),
@@ -222,4 +241,190 @@ export const clearBuyNowItem = async (userId: string, productId: string) => {
 export const getCartCount = async (userId: string) => {
   const count = await Cart.countDocuments({ userId });
   return count;
+};
+
+// ============================================================
+// ✅ CHECKOUT FUNCTIONS - FULLY FIXED
+// ============================================================
+
+export const findOrCreateCartItem = async ({
+  userId,
+  productId,
+  vendorCodeUID,
+  sellerId,
+  productDataId,
+  quantity,
+}: FindOrCreateCartItemParams) => {
+  console.log("🔍 findOrCreateCartItem called:", {
+    userId,
+    productId,
+    vendorCodeUID,
+    sellerId,
+    productDataId,
+    quantity,
+  });
+
+  let cartItem = await Cart.findOne({
+    userId,
+    productId,
+  });
+
+  if (cartItem) {
+    console.log("📦 Existing cart item found, updating quantity");
+    cartItem.quantity = quantity;
+    await cartItem.save();
+    return cartItem;
+  }
+
+  console.log("🆕 No existing cart item, creating new one");
+
+  const product = await Product.findOne({
+    productId: productDataId,
+    sellerId,
+    vendorCodeUID,
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  // ✅ Get the variant (first variant or product itself)
+  const variant: any = product.variants?.[0] || product;
+
+  console.log("📦 Selected variant data from product:", {
+    variantId: variant.variantId,
+    gstType: variant.gstType,
+    gstRate: variant.gstRate,
+    weight: variant.weight,
+    weightUnit: variant.weightUnit,
+    length: variant.length,
+    width: variant.width,
+    height: variant.height,
+    dimensionUnit: variant.dimensionUnit,
+  });
+
+  // ✅ Create minimal productData as per schema
+  const minimalProductData = {
+    productDataId: product.productId || product._id,
+    vendorCodeUID: vendorCodeUID,
+    sellerId: new mongoose.Types.ObjectId(sellerId),
+    title: product.title || "",
+    category: product.category || "",
+  };
+
+  // ✅ Create complete selectedVariant object with ALL fields
+  const completeSelectedVariant = {
+    // Basic Info
+    variantId: variant.variantId,
+    _id: variant._id,
+    combinationKey: variant.combinationKey || null,
+    fields: variant.fields || [],
+
+    // Pricing
+    mrp: variant.mrp || 0,
+    price: variant.price || 0,
+    finalPrice: variant.finalPrice || variant.price || 0,
+    savedAmount: variant.savedAmount || 0,
+    discount: variant.discount || 0,
+
+    // GST Fields - ⭐ CRITICAL
+    gstRate: variant.gstRate || 18,
+    gstType: variant.gstType || "INCLUSIVE",
+    gstAmount: variant.gstAmount || 0,
+    gstSource: variant.gstSource || "auto",
+
+    // Weight Fields - ⭐ CRITICAL
+    weight: variant.weight || 0,
+    weightUnit: variant.weightUnit || "KG",
+
+    // Dimension Fields - ⭐ CRITICAL
+    length: variant.length || 0,
+    width: variant.width || 0,
+    height: variant.height || 0,
+    dimensionUnit: variant.dimensionUnit || "CM",
+
+    // Stock Fields
+    inStock: variant.inStock !== false,
+    quantityAvailable: variant.quantityAvailable || 0,
+    sku: variant.sku,
+
+    // Media
+    images: variant.images || [],
+    video: variant.video || null,
+    isDefault: variant.isDefault || false,
+
+    // Timestamps
+    createdAt: variant.createdAt || new Date(),
+    updatedAt: variant.updatedAt || new Date(),
+  };
+
+  // ✅ Create new cart item with COMPLETE data
+  const newCartData: any = {
+    userId: new mongoose.Types.ObjectId(userId),
+    productId: new mongoose.Types.ObjectId(productId),
+    quantity,
+    productData: minimalProductData,
+    selectedVariant: completeSelectedVariant, // ⭐ CRITICAL FIX
+  };
+
+  cartItem = await Cart.create(newCartData);
+
+  console.log("✅ New cart item created:", {
+    id: cartItem._id,
+    hasSelectedVariant: !!cartItem.selectedVariant,
+    gstType: cartItem.selectedVariant?.gstType,
+    gstRate: cartItem.selectedVariant?.gstRate,
+    weightUnit: cartItem.selectedVariant?.weightUnit,
+    dimensionUnit: cartItem.selectedVariant?.dimensionUnit,
+  });
+
+  return cartItem;
+};
+
+// ✅ FIXED: Save calculated data properly
+export const updateCartCalculations = async ({
+  cartItem,
+  calculated,
+  quantity,
+  couponCode,
+  discountAmount,
+}: UpdateCartCalculationsParams) => {
+  console.log("📊 updateCartCalculations called");
+  console.log("  - cartItem ID:", cartItem._id);
+  console.log("  - quantity:", quantity);
+  console.log("  - calculated.gstType:", calculated?.gstType);
+  console.log("  - calculated.grandTotal:", calculated?.grandTotal);
+  console.log("  - couponCode:", couponCode);
+  console.log("  - discountAmount:", discountAmount);
+
+  cartItem.quantity = quantity;
+
+  // ✅ Save calculated data
+  cartItem.calculated = calculated;
+
+  if (couponCode) {
+    cartItem.couponCode = couponCode;
+    cartItem.discountApplied = discountAmount || 0;
+  }
+
+  try {
+    await cartItem.save();
+    console.log("✅ Cart item updated successfully");
+    console.log(
+      "  - Saved calculated.grandTotal:",
+      cartItem.calculated?.grandTotal,
+    );
+    console.log("  - Saved calculated.gstType:", cartItem.calculated?.gstType);
+  } catch (saveError: any) {
+    console.error("❌ Save failed:", saveError.message);
+    // Try saving without validation if needed
+    if (saveError.name === "ValidationError") {
+      await cartItem.save({ validateBeforeSave: false });
+      console.log("✅ Cart item saved without validation");
+    } else {
+      throw saveError;
+    }
+  }
+
+  return cartItem;
 };

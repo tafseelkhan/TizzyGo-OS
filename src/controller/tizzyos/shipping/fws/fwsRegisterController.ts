@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import Shipping from "../../../models/tizzyos/shipping/register";
+import Shipping from "../../../models/tizzyos/shipping/fws/register";
 import mongoose from "mongoose";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
-import { bucket } from "../../../firebase/firebase"; // upar wala file
+import { AuthRequest } from "../../../../middleware/tizzygo/authMiddleware";
+import { bucket } from "../../../../firebase/firebase"; // upar wala file
 
 /* =========================
    FIREBASE UPLOAD HELPER

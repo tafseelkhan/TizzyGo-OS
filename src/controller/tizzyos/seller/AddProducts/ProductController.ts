@@ -1,37 +1,10 @@
+// File: controllers/tizzyos/seller/createProduct.ts
+
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { Product } from "../../../../models/tizzyos/seller/AddProducts/Products";
 import { generateProductId } from "../../../../utils/tizzyos/seller/generateCustomId";
 import User from "../../../../models/tizzyos/auths/User";
-import { GST_RATES } from "../../../../config/tizzygo/gstRates";
-
-// ================= GST HELPER =================
-const getGSTRate = (category: string, subcategory: string): number => {
-  const cat = GST_RATES.find((c) => c.category === category);
-  if (!cat) return 18;
-
-  return cat.subcategories?.[subcategory] ?? cat.defaultRate ?? 18;
-};
-
-// ================= PRICE CALCULATION =================
-const calculatePricing = (mrp: number, price: number) => {
-  if (!mrp || !price) {
-    return {
-      savedAmount: 0,
-      discount: 0,
-      finalPrice: price || 0,
-    };
-  }
-
-  const savedAmount = mrp - price;
-  const discount = (savedAmount / mrp) * 100;
-
-  return {
-    savedAmount: Number(savedAmount.toFixed(2)),
-    discount: Number(discount.toFixed(2)),
-    finalPrice: Number(price.toFixed(2)),
-  };
-};
 
 const createCombinationKey = (fields: Record<string, string>): string => {
   return Object.entries(fields)
@@ -82,7 +55,6 @@ const generateSKU = (title: string, variantIndex: number): string => {
   return `TZ-${cleanTitle || "PROD"}-${timestamp}-${random}-${variantIndex + 1}`;
 };
 
-// ================= MAIN CONTROLLER =================
 export const createProduct = async (req: Request, res: Response) => {
   try {
     console.log("🚀 CREATE PRODUCT API");
@@ -103,6 +75,16 @@ export const createProduct = async (req: Request, res: Response) => {
 
     const body = req.body;
 
+    // Validate fulfillmentType
+    const fulfillmentType = body.fulfillmentType;
+    if (!fulfillmentType || !["SELLER", "FWS"].includes(fulfillmentType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid or missing fulfillmentType. Must be 'SELLER' or 'FWS'",
+      });
+    }
+
     // Get seller location from request body
     const sellerLocation = {
       address: body.sellerLocation?.address || "",
@@ -120,6 +102,10 @@ export const createProduct = async (req: Request, res: Response) => {
       }
     }
 
+    // ✅ FIX 1: REMOVED productGstType - ab har variant ka apna GST type hoga
+    // No longer using product level GST type
+
+    // Frontend will send pre-calculated values
     const processedVariants = [];
     const combinationKeys = new Set();
     const skus = new Set();
@@ -174,10 +160,42 @@ export const createProduct = async (req: Request, res: Response) => {
         });
       }
 
-      // ================= PRICE AUTO CALC =================
-      const pricing = calculatePricing(variant.mrp, variant.price);
+      // Validate and store numeric dimension fields
+      const weight = Number(variant.weight || 0);
+      const weightUnit = variant.weightUnit || "GRAM";
+      if (!["GRAM", "KG"].includes(weightUnit)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid weightUnit. Must be 'GRAM' or 'KG'",
+        });
+      }
 
-      const variantData = {
+      const length = Number(variant.length || 0);
+      const width = Number(variant.width || 0);
+      const height = Number(variant.height || 0);
+      const dimensionUnit = variant.dimensionUnit || "CM";
+      if (!["CM", "INCH"].includes(dimensionUnit)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid dimensionUnit. Must be 'CM' or 'INCH'",
+        });
+      }
+
+      // ✅ FIX 2: HAR VARIANT KA APNA GST TYPE USE KARO
+      const variantGstType = variant.gstType || "EXCLUSIVE";
+      if (!["INCLUSIVE", "EXCLUSIVE"].includes(variantGstType)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid gstType for variant ${i + 1}. Must be 'INCLUSIVE' or 'EXCLUSIVE'`,
+        });
+      }
+
+      console.log(
+        `💰 Variant ${i + 1} - GST Type: ${variantGstType}, GST Rate: ${variant.gstRate || 18}%`,
+      );
+
+      // FRONTEND SENDS PRE-CALCULATED VALUES (NO CALCULATION HERE)
+      const variantData: any = {
         fields: fieldsObj,
         combinationKey,
         sku,
@@ -185,15 +203,24 @@ export const createProduct = async (req: Request, res: Response) => {
         mrp: variant.mrp,
         price: variant.price,
 
-        savedAmount: pricing.savedAmount,
-        discount: pricing.discount,
-        finalPrice: pricing.finalPrice,
+        // These values come from frontend (calculated via pricing API)
+        savedAmount: variant.savedAmount || 0,
+        discount: variant.discount || 0,
+        finalPrice: variant.finalPrice || variant.price,
 
-        // ✅ FIX: Store dimensions properly
-        weight: variant.weight || "",
-        height: variant.height || "",
-        width: variant.width || "",
-        length: variant.length || "",
+        // Dimension fields
+        weight,
+        weightUnit,
+        length,
+        width,
+        height,
+        dimensionUnit,
+
+        // ✅ FIX 3: VARIANT LEVEL GST FIELDS - har variant ka apna
+        gstRate: variant.gstRate || 18,
+        gstType: variantGstType, // ← YAHAN PEHLE productGstType tha, ab variant ka apna
+        gstSource: variant.gstSource || "manual",
+        gstAmount: variant.gstAmount || 0, // Always include gstAmount
 
         inStock: variant.inStock ?? true,
         quantityAvailable: variant.quantityAvailable || 0,
@@ -214,10 +241,7 @@ export const createProduct = async (req: Request, res: Response) => {
 
     const defaultVariant = processedVariants.find((v) => v.isDefault);
 
-    // ================= GST AUTO CALC =================
-    const gstRate = getGSTRate(body.category, body.subcategory);
-
-    // ✅ FIX: Process specs and highlights properly
+    // Process specs and highlights
     const processedSpecs =
       body.specs && typeof body.specs === "object"
         ? Object.keys(body.specs).reduce(
@@ -235,7 +259,7 @@ export const createProduct = async (req: Request, res: Response) => {
       ? body.highlights.filter((h: string) => h && h.trim())
       : [];
 
-    // ================= PRODUCT =================
+    // ================= CREATE PRODUCT =================
     const product = new Product({
       sellerId: new mongoose.Types.ObjectId(sellerId),
       vendorCodeUID: seller.vendorCodeUID,
@@ -243,37 +267,50 @@ export const createProduct = async (req: Request, res: Response) => {
 
       title: body.title,
       brand: body.brand,
+      description: body.description || "",
       category: body.category,
       subcategory: body.subcategory,
 
-      // ✅ FIX: Save specs and highlights
+      deliveryTime: body.deliveryTime || "",
+      warranty: body.warranty || "",
+      returnPolicy: body.returnPolicy || "",
+
+      shortDescription: body.shortDescription || "",
+      fullDescription: body.fullDescription || "",
+
+      fulfillmentType: fulfillmentType,
+
       specs: processedSpecs,
       highlights: processedHighlights,
 
       variants: processedVariants,
 
-      // PRODUCT LEVEL PRICING (from default variant)
-      mrp: defaultVariant?.mrp || 0,
-      price: defaultVariant?.price || 0,
-      savedAmount: defaultVariant?.savedAmount || 0,
-      discount: defaultVariant?.discount || 0,
-      finalPrice: defaultVariant?.finalPrice || 0,
-
       sellerLocation: sellerLocation,
-
-      gstRate,
-      gstSource: "auto",
-
-      inStock: defaultVariant?.inStock || false,
-      quantityAvailable: defaultVariant?.quantityAvailable || 0,
 
       variantOptions,
       variantValues: variantValuesMap,
+
+      protectPromiseFees: body.protectPromiseFees || false,
+      freeDelivery: body.freeDelivery || false,
+      fastDelivery: body.fastDelivery || false,
+      safety: body.safety || false,
+      productQuality: body.productQuality || false,
+      paymentOptions: body.paymentOptions || false,
+      manufacturer: body.manufacturer || false,
+      cashOnDelivery: body.cashOnDelivery || false,
+      deliveryVehicleType: body.deliveryVehicleType || false,
 
       verified: false,
     });
 
     await product.save();
+
+    console.log(`✅ Product created with ${processedVariants.length} variants`);
+    processedVariants.forEach((v, idx) => {
+      console.log(
+        `   Variant ${idx + 1}: GST Type = ${v.gstType}, GST Rate = ${v.gstRate}%`,
+      );
+    });
 
     return res.status(201).json({
       success: true,
@@ -281,6 +318,7 @@ export const createProduct = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error: any) {
+    console.error("Create product error:", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Failed to create product.",
@@ -318,6 +356,130 @@ export const getProductById = async (req: Request, res: Response) => {
     res.status(200).json({ success: true, product });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch product" });
+  }
+};
+
+export const getProductDetailsForBuyNow = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { productId, variantId } = req.params;
+
+    console.log("========== BUY NOW API CALLED ==========");
+    console.log("📦 Received productId:", productId);
+    console.log("🔖 Received variantId:", variantId);
+
+    // ✅ Dono se find karo - _id ya productId
+    const product = await Product.findOne({
+      $or: [
+        { _id: productId }, // MongoDB _id se find
+        { productId: productId }, // productId field se find
+      ],
+    }).lean();
+
+    console.log("🔍 Product found in DB:", product ? "YES" : "NO");
+
+    if (!product) {
+      console.log("❌ Product not found for ID:", productId);
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    console.log("📋 Product Title:", product.title);
+    console.log("🏷️ Product Brand:", product.brand);
+    console.log("📦 Total Variants:", product.variants?.length || 0);
+
+    const selectedVariant =
+      product.variants?.find((variant) => variant.variantId === variantId) ||
+      null;
+
+    console.log("🎯 Selected Variant found:", selectedVariant ? "YES" : "NO");
+
+    if (!selectedVariant) {
+      console.log("❌ Variant not found for variantId:", variantId);
+      console.log(
+        "Available variantIds:",
+        product.variants?.map((v) => v.variantId),
+      );
+      return res.status(404).json({
+        success: false,
+        message: "Variant not found",
+      });
+    }
+
+    console.log("💰 Selected Variant Price:", selectedVariant.price);
+    console.log("💵 Selected Variant Final Price:", selectedVariant.finalPrice);
+    console.log(
+      "📸 Selected Variant Images:",
+      selectedVariant.images?.length || 0,
+    );
+
+    const productData = {
+      _id: product._id,
+      productId: product.productId,
+      title: product.title,
+      brand: product.brand,
+      description: product.description,
+      category: product.category,
+      subcategory: product.subcategory,
+
+      shortDescription: product.shortDescription,
+      fullDescription: product.fullDescription,
+      highlights: product.highlights,
+
+      sellerId: product.sellerId,
+      sellerLocation: product.sellerLocation,
+
+      deliveryTime: product.deliveryTime,
+      warranty: product.warranty,
+      returnPolicy: product.returnPolicy,
+
+      fulfillmentType: product.fulfillmentType,
+
+      freeDelivery: product.freeDelivery,
+      fastDelivery: product.fastDelivery,
+      cashOnDelivery: product.cashOnDelivery,
+
+      verified: product.verified,
+    };
+
+    console.log("📤 Sending response to frontend...");
+    console.log("Response Data:", {
+      success: true,
+      productId: productData.productId,
+      productTitle: productData.title,
+      selectedVariantId: selectedVariant.variantId,
+      selectedVariantPrice: selectedVariant.price,
+    });
+    console.log("========== API RESPONSE SENT ==========");
+    console.log(
+      "📤 Full Response being sent:",
+      JSON.stringify(
+        {
+          success: true,
+          product: productData,
+          selectedVariant,
+        },
+        null,
+        2,
+      ),
+    );
+    return res.status(200).json({
+      success: true,
+      product: productData,
+      selectedVariant,
+    });
+  } catch (error) {
+    console.error("❌ Get Product Details Error:", error);
+    console.error("Error details:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch product details",
+    });
   }
 };
 

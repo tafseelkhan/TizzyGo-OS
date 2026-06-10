@@ -1,8 +1,8 @@
 import express from "express";
 import {
   riderOnlineStatusController,
-} from "../../../controller/tizzyos/shipping/riderOnlineStatusController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
+} from "../../../../controller/tizzyos/shipping/fws/fwsRiderOnlineStatusController";
+import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
 
 const router = express.Router();
 

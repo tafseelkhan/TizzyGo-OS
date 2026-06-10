@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import Shipper from "../../../models/tizzygo/order/order";
-import User from "../../../models/tizzygo/auths/User";
-import { haversineDistance } from "../../../utils/tizzyos/shippings/haversine";
+import Shipper from "../../../../models/tizzygo/order/order";
+import User from "../../../../models/tizzygo/auths/User";
+import { haversineDistance } from "../../../../utils/tizzyos/shippings/haversine";
 
 export const getRiderLiveCoordinates = async (req: Request, res: Response) => {
   try {

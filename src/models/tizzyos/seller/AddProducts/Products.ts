@@ -23,11 +23,19 @@ interface IProductVariant {
   offerText?: string;
   finalPrice: number;
 
-  // Physical specs per variant
-  weight?: string;
-  height?: string;
-  width?: string;
-  length?: string;
+  weight: number;
+  weightUnit: "GRAM" | "KG";
+
+  length: number;
+  width: number;
+  height: number;
+
+  dimensionUnit: "CM" | "INCH";
+
+  gstAmount?: number;
+  gstRate: number;
+  gstType: "INCLUSIVE" | "EXCLUSIVE";
+  gstSource: "auto" | "manual";
 
   // Stock
   inStock: boolean;
@@ -77,10 +85,9 @@ interface IProduct extends Document {
   variantOptions: string[]; // e.g., ["Storage", "RAM", "Color"]
   variantValues: Map<string, string[]>; // e.g., { "Storage": ["128GB", "256GB"] }
   variants: IProductVariant[];
-  gstRate: number;
-  gstSource: string; // "auto" or "manual"
-  // 🏭 Fulfillment (SELLER + FFC FLOW FIXED)
-  fulfillmentType: "SELLER" | "FFC";
+
+  // 🏭 Fulfillment (SELLER + FWS FLOW FIXED)
+  fulfillmentType: "SELLER" | "FWS";
   // Extra boolean flags
   protectPromiseFees: boolean;
   freeDelivery: boolean;
@@ -149,10 +156,63 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     },
 
     // Physical Specs - Variant ke andar
-    weight: { type: String },
-    height: { type: String },
-    width: { type: String },
-    length: { type: String },
+    weight: {
+      type: Number,
+      required: true,
+    },
+
+    weightUnit: {
+      type: String,
+      enum: ["GRAM", "KG"],
+      required: true,
+      default: "GRAM",
+    },
+
+    length: {
+      type: Number,
+      required: true,
+    },
+
+    width: {
+      type: Number,
+      required: true,
+    },
+
+    height: {
+      type: Number,
+      required: true,
+    },
+
+    dimensionUnit: {
+      type: String,
+      enum: ["CM", "INCH"],
+      required: true,
+      default: "CM",
+    },
+
+    gstAmount: {
+      type: Number,
+      required: false,
+    },
+
+    gstRate: {
+      type: Number,
+      required: true,
+    },
+
+    gstType: {
+      type: String,
+      enum: ["INCLUSIVE", "EXCLUSIVE"],
+      required: true,
+      default: "INCLUSIVE",
+    },
+
+    gstSource: {
+      type: String,
+      enum: ["auto", "manual"],
+      required: true,
+      default: "auto",
+    },
 
     // Stock - Variant ke andar
     inStock: {
@@ -265,19 +325,11 @@ const ProductSchema = new Schema<IProduct>(
       required: true,
     },
     variants: [ProductVariantSchema],
-    gstRate: {
-      type: Number,
-      required: true,
-    },
-    gstSource: {
-      type: String,
-      required: true,
-      enum: ["auto", "manual"],
-    },
+
     // 🏭 Fulfillment FIXED
     fulfillmentType: {
       type: String,
-      enum: ["SELLER", "FFC"],
+      enum: ["SELLER", "FWS"],
       required: true,
     },
     // Extra boolean flags

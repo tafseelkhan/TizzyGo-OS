@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 
 // Find variant - works with both variantId and _id
-export function findVariantById(productData: any, variantId: string): any | null {
+export function findVariantById(
+  productData: any,
+  variantId: string,
+): any | null {
   if (!productData?.variants?.length || !variantId) return null;
 
   return productData.variants.find(
@@ -24,35 +27,66 @@ export function checkStock(
   };
 }
 
-// Clean variant object for saving
-export function cleanVariantObject(variant: any, selectedVariantFromBody: any): any {
+// Clean variant object for saving - FIXED with all fields
+export function cleanVariantObject(
+  variant: any,
+  selectedVariantFromBody: any,
+): any {
   return {
+    // Basic Info
     variantId: variant.variantId || variant._id,
     _id: variant._id || variant.variantId,
+    combinationKey: variant.combinationKey || null,
+    fields: variant.fields || [],
+
+    // Pricing
     mrp: variant.mrp || variant.price || 0,
     price: variant.price || 0,
     finalPrice: variant.finalPrice || variant.price || 0,
     savedAmount: variant.savedAmount || 0,
     discount: variant.discount || 0,
-    fields: variant.fields || [],
-    images: variant.images || [],
-    video: variant.video,
+
+    // GST Fields - ⭐ IMPORTANT
+    gstRate: variant.gstRate || 18,
+    gstType: variant.gstType || "INCLUSIVE",
+    gstAmount: variant.gstAmount || 0,
+    gstSource: variant.gstSource || "auto",
+
+    // Weight Fields - ⭐ IMPORTANT
+    weight: variant.weight || 0,
+    weightUnit: variant.weightUnit || "KG",
+
+    // Dimension Fields - ⭐ IMPORTANT
+    length: variant.length || 0,
+    width: variant.width || 0,
+    height: variant.height || 0,
+    dimensionUnit: variant.dimensionUnit || "CM",
+
+    // Stock Fields
     inStock: variant.inStock !== false,
     quantityAvailable: variant.quantityAvailable || 0,
     sku: variant.sku || selectedVariantFromBody?.variantSku,
-    weight: variant.weight,
-    height: variant.height,
-    width: variant.width,
-    length: variant.length,
+
+    // Media
+    images: variant.images || [],
+    video: variant.video || null,
+    isDefault: variant.isDefault || false,
+
+    // Timestamps
+    createdAt: variant.createdAt || new Date(),
+    updatedAt: variant.updatedAt || new Date(),
   };
 }
 
-// Create minimal productData for cart
+// Create minimal productData for cart - FIXED
 export function createMinimalProductData(productData: any): any {
   return {
     productDataId: productData.productId || productData._id,
     vendorCodeUID: productData.vendorCodeUID || "",
     sellerId: productData.sellerId || "",
+    title: productData.title || "",
+    category: productData.category || "",
+    subcategory: productData.subcategory || "",
   };
 }
 
@@ -72,7 +106,8 @@ export function formatCartItem(item: any): any {
       mrp,
       finalPrice,
       savedAmount: mrp - finalPrice,
-      discountPercent: mrp > 0 ? (((mrp - finalPrice) / mrp) * 100).toFixed(2) : 0,
+      discountPercent:
+        mrp > 0 ? (((mrp - finalPrice) / mrp) * 100).toFixed(2) : 0,
       totalPrice: finalPrice * item.quantity,
     },
   };
@@ -86,7 +121,7 @@ export function calculateCartSummary(items: any[]): any {
     (sum, item) => sum + (item.pricing.totalPrice || 0),
     0,
   );
-  
+
   return {
     totalItems,
     totalQuantity,
@@ -100,10 +135,11 @@ export function calculateCartSummary(items: any[]): any {
 export function getBuyNowCheckoutSummary(
   variant: any,
   quantity: number,
-  productData: any
+  productData: any,
 ): any {
   const mrp = variant?.mrp || variant?.price || productData?.price || 0;
-  const finalPrice = variant?.finalPrice || variant?.price || productData?.price || 0;
+  const finalPrice =
+    variant?.finalPrice || variant?.price || productData?.price || 0;
   const savedAmount = mrp - finalPrice;
   const discountPercent = mrp > 0 ? (savedAmount / mrp) * 100 : 0;
 

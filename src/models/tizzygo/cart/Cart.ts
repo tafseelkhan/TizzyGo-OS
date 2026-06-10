@@ -28,6 +28,7 @@ export interface ICart extends Document {
 
     // GST (category/subcategory based)
     gstRate: number;
+    gstType: string;
     gstAmount: number;
     perProductGst: number;
 
@@ -37,7 +38,8 @@ export interface ICart extends Document {
     volumetricWeight: number;
     actualWeight: number;
     chargeableWeight: number;
-    deliveryRatePerKmPerKg: number;
+    deliveryRatePerKm: number;
+    deliveryRatePerKg: number;
     deliveryCalculationBreakdown: {
       formula: string;
       distance: number;
@@ -135,6 +137,7 @@ const cartItemSchema = new Schema<ICart>(
 
       // GST
       gstRate: { type: Number, default: 0 },
+      gstType: { type: String },
       gstAmount: { type: Number, default: 0 },
       perProductGst: { type: Number, default: 0 },
 
@@ -144,7 +147,8 @@ const cartItemSchema = new Schema<ICart>(
       volumetricWeight: { type: Number, default: 0 },
       actualWeight: { type: Number, default: 0 },
       chargeableWeight: { type: Number, default: 0 },
-      deliveryRatePerKmPerKg: { type: Number, default: 8 },
+      deliveryRatePerKm: { type: Number, default: 0 },
+      deliveryRatePerKg: { type: Number, default: 0 },
       deliveryCalculationBreakdown: {
         formula: { type: String, default: "" },
         distance: { type: Number, default: 0 },

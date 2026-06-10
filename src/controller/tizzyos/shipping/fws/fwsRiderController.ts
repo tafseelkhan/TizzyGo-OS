@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
 import mongoose, { ClientSession } from "mongoose";
-import Shipper from "../../../models/tizzygo/order/order";
-import Register from "../../../models/tizzyos/shipping/register";
-import ShipperRiderLocation from "../../../models/tizzyos/shipping/shipperRiderLocation";
-import { getDistanceAndDuration, geocodeAddress } from "../../../utils/tizzyos/shippings/googleAPI";
-import User from "../../../models/tizzygo/auths/User";
-import Otp from '../../../models/tizzygo/order/orderOtp';
-import { generateOtp } from '../../../utils/tizzygo/orderOtp';
-import { sendSms } from '../../../utils/tizzygo/twilio';
-import { sendEmail } from '../../../utils/tizzygo/email';
+import Shipper from "../../../../models/tizzygo/order/order";
+import Register from "../../../../models/tizzyos/shipping/fws/fwsRegistration";
+import ShipperRiderLocation from "../../../../models/tizzyos/shipping/fws/fwsRiderLocation";
+import { getDistanceAndDuration, geocodeAddress } from "../../../../utils/tizzyos/shippings/googleAPI";
+import User from "../../../../models/tizzygo/auths/User";
+import Otp from '../../../../models/tizzygo/order/orderOtp';
+import { generateOtp } from '../../../../utils/tizzygo/orderOtp';
+import { sendSms } from '../../../../utils/tizzygo/twilio';
+import { sendEmail } from '../../../../utils/tizzygo/email';
 
 // ========== TYPE DEFINITIONS ==========
 

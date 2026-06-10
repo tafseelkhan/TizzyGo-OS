@@ -31,135 +31,208 @@ export const createPaymentIntent = async ({
   paymentMethod,
   session,
 }: CreatePaymentIntentParams) => {
-  // Get cart items
-  const cartItems = await Cart.find({ userId }).lean();
+  console.log("========================================");
+  console.log("💰 [PaymentService] createPaymentIntent STARTED");
+  console.log("========================================");
+  console.log("👤 User ID:", userId);
+  console.log("💳 Payment Method:", paymentMethod);
+  console.log("📍 Address:", address?.address || address);
 
-  if (!cartItems || cartItems.length === 0) {
-    throw new Error("Cart is empty");
-  }
+  try {
+    console.log("🛒 Fetching cart items for user:", userId);
+    const cartItems = await Cart.find({ userId }).lean();
 
-  const cartItem = cartItems[0];
-  const productData = cartItem?.productData || {};
-  const calculatedData = cartItem?.calculated || {};
+    if (!cartItems || cartItems.length === 0) {
+      console.log("❌ Cart is empty");
+      throw new Error("Cart is empty");
+    }
 
-  // Validate product ID
-  const customProductId = getProductId(cartItem, productData);
-  if (!customProductId) {
-    throw new Error("Product ID missing");
-  }
+    console.log(`✅ Found ${cartItems.length} cart item(s)`);
 
-  // Check COD availability
-  const isCodAvailable = productData?.cashOnDelivery === true;
-  if (paymentMethod === "cod" && !isCodAvailable) {
-    throw new Error("Cash on Delivery not available");
-  }
+    const cartItem = cartItems[0];
+    const productData = cartItem?.productData || {};
 
-  // Get final amount
-  const finalAmount = getFinalAmount(calculatedData);
-  if (!finalAmount || finalAmount <= 0) {
-    throw new Error("Invalid final amount");
-  }
+    // ✅ FIX: Check both 'calculated' and 'calculatedData' fields
+    const calculatedData =
+      cartItem?.calculated || cartItem?.calculatedData || {};
 
-  // Get user details
-  const userDetails = await User.findById(userId).lean();
+    console.log("📊 Cart Item:", {
+      id: cartItem?._id,
+      productId: cartItem?.productId,
+      quantity: cartItem?.quantity,
+      hasCalculated: !!cartItem?.calculated,
+      hasCalculatedData: !!cartItem?.calculatedData,
+      calculatedGrandTotal: calculatedData?.grandTotal,
+    });
 
-  // Create cart snapshot
-  const cartSnapshot = createCartSnapshot(
-    cartItem,
-    calculatedData,
-    finalAmount,
-  );
+    const customProductId = getProductId(cartItem, productData);
+    if (!customProductId) {
+      console.log("❌ Product ID missing");
+      throw new Error("Product ID missing");
+    }
+    console.log("✅ Product ID:", customProductId);
 
-  // Generate IDs
-  const orderId = generateOrderId();
-  const checkoutSessionId = generateCheckoutSessionId();
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const isCodAvailable = productData?.cashOnDelivery === true;
+    if (paymentMethod === "cod" && !isCodAvailable) {
+      console.log("❌ COD not available for this product");
+      throw new Error("Cash on Delivery not available");
+    }
 
-  // Create order
-  const order = new Order({
-    orderId,
-    buyerId: userId,
-    buyerName: (userDetails as any)?.name || "Customer",
-    sellerId: productData?.sellerId || productData?.seller?._id || null,
-    items: cartSnapshot.items.map((item: any) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      selectedVariant: item.selectedVariant,
-      sellerId:
-        item?.productData?.sellerId || item?.productData?.seller?._id || null,
-      productData: {
-        ...item.productData,
-        buyerId: userId,
-        buyerName: (userDetails as any)?.name || "Customer",
-      },
-    })),
-    productId: customProductId,
-    productPrice:
-      Number(productData?.price) ||
-      Number(productData?.finalPrice) ||
+    // ✅ FIX: Get final amount with multiple fallback sources
+    let finalAmount = getFinalAmount(calculatedData);
+
+    // Fallback 1: Try from selectedVariant
+    if (!finalAmount || finalAmount <= 0) {
+      console.log("⚠️ getFinalAmount returned:", finalAmount);
+      const selectedVariant = cartItem.selectedVariant;
+      const quantity = cartItem?.quantity || 1;
+
+      if (selectedVariant?.finalPrice) {
+        finalAmount = selectedVariant.finalPrice * quantity;
+        console.log("💰 Amount from selectedVariant.finalPrice:", finalAmount);
+      } else if (selectedVariant?.price) {
+        finalAmount = selectedVariant.price * quantity;
+        console.log("💰 Amount from selectedVariant.price:", finalAmount);
+      } else if (productData?.finalPrice) {
+        finalAmount = productData.finalPrice * quantity;
+        console.log("💰 Amount from productData.finalPrice:", finalAmount);
+      } else if (productData?.price) {
+        finalAmount = productData.price * quantity;
+        console.log("💰 Amount from productData.price:", finalAmount);
+      } else {
+        // Fallback: use selectedVariant.mrp
+        const mrp = selectedVariant?.mrp || productData?.mrp || 0;
+        finalAmount = mrp * quantity;
+        console.log("💰 Amount from mrp fallback:", finalAmount);
+      }
+    }
+
+    // ✅ Final validation
+    if (!finalAmount || finalAmount <= 0) {
+      console.error("❌ Invalid final amount:", finalAmount);
+      console.error("Cart item selectedVariant:", cartItem.selectedVariant);
+      console.error("Cart item productData:", productData);
+      throw new Error(
+        `Invalid final amount: ${finalAmount}. Please check cart calculations.`,
+      );
+    }
+
+    finalAmount = Math.round(finalAmount * 100) / 100;
+    console.log("✅ Final amount validated:", finalAmount);
+
+    const userDetails = (await User.findById(userId).lean()) as any;
+    if (!userDetails) {
+      console.log("❌ User not found");
+      throw new Error("User not found");
+    }
+    console.log("✅ User found:", userDetails?.name || userDetails?.email);
+
+    const cartSnapshot = createCartSnapshot(
+      cartItem,
+      calculatedData,
       finalAmount,
-    finalAmount,
-    deliveryCharge: cartSnapshot.calculatedData.deliveryCharge,
-    platformFee: cartSnapshot.calculatedData.platformFee,
-    productGst: cartSnapshot.calculatedData.productGst,
-    productGstRate: cartSnapshot.calculatedData.productGstRate,
-    paymentMethod: paymentMethod === "cod" ? "cod" : paymentMethod,
-    paymentGateway: paymentMethod === "cod" ? null : "zeptpay",
-    status: paymentMethod === "cod" ? "confirmed" : "processing",
-    paymentStatus: paymentMethod === "cod" ? "pending_cod" : "pending",
-    buyerAddress: address,
-    sellerAddress: productData?.sellerLocation || {
-      address: "Unknown",
-      latitude: 0,
-      longitude: 0,
-    },
-    couponUsed: cartSnapshot.calculatedData.couponUsed,
-    couponData: cartSnapshot.calculatedData.couponData,
-    coFundApplied: cartSnapshot.calculatedData.coFundApplied,
-    fundSplit: cartSnapshot.calculatedData.fundSplit,
-    paymentAttempts: [],
-    checkoutSessionId,
-    fulfillmentType: productData?.fulfillmentType || "SELLER",
-    token: generateToken(),
-  });
+    );
+    console.log("📸 Cart snapshot created");
 
-  await order.save({ session });
+    const orderId = generateOrderId();
+    const checkoutSessionId = generateCheckoutSessionId();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    console.log("📦 Order ID:", orderId);
+    console.log("🔑 Checkout Session ID:", checkoutSessionId);
 
-  // Create checkout session
-  const checkoutSession = new CheckoutSession({
-    checkoutSessionId,
-    orderId: order._id,
-    userId,
-    cartSnapshot,
-    address: {
-      address: address?.address || address?.fullAddress || String(address),
-      latitude: Number(address?.latitude || 0),
-      longitude: Number(address?.longitude || 0),
-      googlePlaceId: address?.googlePlaceId || "",
-    },
-    paymentMethod,
-    status: paymentMethod === "cod" ? "completed" : "pending",
-    paymentGateway: paymentMethod === "cod" ? null : "zeptpay",
-    paymentIntentId: null,
-    qrCodeId: null,
-    expiresAt,
-  });
+    const order = new Order({
+      orderId,
+      buyerId: userId,
+      buyerName: (userDetails as any)?.name || "Customer",
+      sellerId: productData?.sellerId || productData?.seller?._id || null,
+      items: cartSnapshot.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        selectedVariant: item.selectedVariant,
+        sellerId:
+          item?.productData?.sellerId || item?.productData?.seller?._id || null,
+        productData: {
+          ...item.productData,
+          buyerId: userId,
+          buyerName: (userDetails as any)?.name || "Customer",
+        },
+      })),
+      productId: customProductId,
+      productPrice:
+        Number(productData?.price) ||
+        Number(productData?.finalPrice) ||
+        finalAmount,
+      finalAmount,
+      deliveryCharge: cartSnapshot.calculatedData.deliveryCharge || 0,
+      platformFee: cartSnapshot.calculatedData.platformFee || 0,
+      productGst: cartSnapshot.calculatedData.productGst || 0,
+      productGstRate: cartSnapshot.calculatedData.productGstRate || 0,
+      paymentMethod: paymentMethod === "cod" ? "cod" : "online",
+      paymentGateway: paymentMethod === "cod" ? null : "zeptpay",
+      status: paymentMethod === "cod" ? "confirmed" : "processing",
+      paymentStatus: paymentMethod === "cod" ? "pending_cod" : "pending",
+      buyerAddress: address,
+      sellerAddress: productData?.sellerLocation || {
+        address: "Unknown",
+        latitude: 0,
+        longitude: 0,
+      },
+      couponUsed: cartSnapshot.calculatedData.couponUsed,
+      couponData: cartSnapshot.calculatedData.couponData,
+      coFundApplied: cartSnapshot.calculatedData.coFundApplied,
+      fundSplit: cartSnapshot.calculatedData.fundSplit,
+      paymentAttempts: [],
+      checkoutSessionId,
+      fulfillmentType: productData?.fulfillmentType || "SELLER",
+      token: generateToken(),
+    });
 
-  await checkoutSession.save({ session });
+    await order.save({ session });
+    console.log("✅ Order saved:", order._id);
 
-  // Clear cart for COD
-  if (paymentMethod === "cod") {
-    await Cart.deleteMany({ userId }, { session });
+    const checkoutSession = new CheckoutSession({
+      checkoutSessionId,
+      orderId: order._id,
+      userId,
+      cartSnapshot,
+      address: {
+        address: address?.address || address?.fullAddress || String(address),
+        latitude: Number(address?.latitude || 0),
+        longitude: Number(address?.longitude || 0),
+        googlePlaceId: address?.googlePlaceId || "",
+      },
+      paymentMethod,
+      status: paymentMethod === "cod" ? "completed" : "pending",
+      paymentGateway: paymentMethod === "cod" ? null : "zeptpay",
+      paymentIntentId: null,
+      qrCodeId: null,
+      expiresAt,
+    });
+
+    await checkoutSession.save({ session });
+    console.log("✅ Checkout session saved:", checkoutSession._id);
+
+    if (paymentMethod === "cod") {
+      await Cart.deleteMany({ userId }, { session });
+      console.log("🗑️ Cart cleared for COD order");
+    }
+
+    console.log("✅ Payment intent created successfully");
+    console.log("========================================");
+
+    return {
+      order,
+      checkoutSession,
+      checkoutSessionId,
+      orderId: order.orderId,
+      finalAmount,
+      expiresAt,
+      productData,
+      userDetails,
+    };
+  } catch (error: any) {
+    console.error("❌ Payment Service Error:", error.message);
+    console.error("Stack:", error.stack);
+    throw error;
   }
-
-  return {
-    order,
-    checkoutSession,
-    checkoutSessionId,
-    orderId: order.orderId,
-    finalAmount,
-    expiresAt,
-    productData,
-    userDetails,
-  };
 };

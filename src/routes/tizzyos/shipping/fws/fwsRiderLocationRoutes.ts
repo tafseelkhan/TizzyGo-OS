@@ -1,5 +1,5 @@
 import express from "express";
-import { getRiderLiveCoordinates } from "../../../controller/tizzyos/shipping/getRiderLocationController";
+import { getRiderLiveCoordinates } from "../../../../controller/tizzyos/shipping/fws/fwsRiderLocationController";
 
 const router = express.Router();
 

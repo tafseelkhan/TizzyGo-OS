@@ -41,30 +41,18 @@ export interface IOrder extends Document {
   finalAmount: number;
 
   // Order main status
-  status: "created" | "processing" | "authorized" | "captured" | "failed" | "cancelled" | "refunded" | "cod_confirmed";
-
-  // 🏭 Fulfillment (SELLER + FFC FLOW FIXED)
-  fulfillmentType: "SELLER" | "FFC";
-
-  fulfillmentStatus:
+  status:
+    | "created"
     | "processing"
-    | "waiting_for_seller"
-    | "in_seller_handover"
-    | "received_at_warehouse"
-    | "quality_check"
-    | "packed"
-    | "ready_for_dispatch";
+    | "authorized"
+    | "captured"
+    | "failed"
+    | "cancelled"
+    | "refunded"
+    | "cod_confirmed";
 
-  // 🚚 Delivery (RIDER FLOW FIXED)
-  deliveryStatus:
-    | "pending_rider_accept"
-    | "waiting_for_rider"
-    | "waiting_for_seller"
-    | "assigned"
-    | "picked_up"
-    | "in_transit"
-    | "out_for_delivery"
-    | "delivered";
+  // 🏭 Fulfillment (SELLER + FWS FLOW FIXED)
+  fulfillmentType: "SELLER" | "FWS";
 
   paymentIntentId?: string;
   token: string;
@@ -82,14 +70,6 @@ export interface IOrder extends Document {
     googlePlaceId?: string;
     latitude: number;
     longitude: number;
-  };
-
-  riderLocation?: {
-    address?: string;
-    latitude?: number;
-    longitude?: number;
-    googlePlaceId?: string;
-    updatedAt: Date;
   };
 
   // Coupon
@@ -185,38 +165,8 @@ const OrderSchema: Schema<IOrder> = new Schema(
     // 🏭 Fulfillment FIXED
     fulfillmentType: {
       type: String,
-      enum: ["SELLER", "FFC"],
+      enum: ["SELLER", "FWS"],
       required: true,
-    },
-
-    fulfillmentStatus: {
-      type: String,
-      enum: [
-        "processing",
-        "waiting_for_seller",
-        "in_seller_handover",
-        "received_at_warehouse",
-        "quality_check",
-        "packed",
-        "ready_for_dispatch",
-      ],
-      default: "processing",
-    },
-
-    // 🚚 Delivery FIXED
-    deliveryStatus: {
-      type: String,
-      enum: [
-        "pending_rider_accept",
-        "waiting_for_seller",
-        "waiting_for_rider",
-        "assigned",
-        "picked_up",
-        "in_transit",
-        "out_for_delivery",
-        "delivered",
-      ],
-      default: "waiting_for_seller",
     },
 
     paymentIntentId: { type: String },
@@ -234,14 +184,6 @@ const OrderSchema: Schema<IOrder> = new Schema(
       googlePlaceId: { type: String },
       latitude: { type: Number, required: true },
       longitude: { type: Number, required: true },
-    },
-
-    riderLocation: {
-      address: { type: String },
-      latitude: { type: Number },
-      longitude: { type: Number },
-      googlePlaceId: { type: String },
-      updatedAt: { type: Date, default: Date.now },
     },
 
     couponUsed: { type: String },

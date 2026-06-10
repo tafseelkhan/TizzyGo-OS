@@ -6,8 +6,8 @@ import {
   riderConfirmDelivery,
   riderLocationController,
   getRiderPendingOrders,
-} from "../../../controller/tizzyos/shipping/shipperController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
+} from "../../../../controller/tizzyos/shipping/fws/fwsRiderController";
+import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
 
 const router = express.Router();
 

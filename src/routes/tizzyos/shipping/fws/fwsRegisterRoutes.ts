@@ -7,8 +7,8 @@ import {
   checkShippingForm,
   getApprovedShippingRiders,
   setRiderOnlineOffline,
-} from "../../../controller/tizzyos/shipping/registerController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+} from "../../../../controller/tizzyos/shipping/fws/fwsRegisterController";
+import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
 
 const router = express.Router();
 

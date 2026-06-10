@@ -2,7 +2,7 @@ import { Response } from "express";
 import axios from "axios";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
 import Order from "../../../models/tizzygo/order/order";
-import DeliveryTracking from "../../../models/tizzygo/order/DeliveryTracking";
+import DeliveryTracking from "../../../models/tizzygo/order/deliveryTracking";
 
 interface DistanceMatrixResponse {
   rows: {

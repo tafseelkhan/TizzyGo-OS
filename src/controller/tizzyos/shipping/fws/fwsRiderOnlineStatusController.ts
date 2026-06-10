@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Register from "../../../models/tizzyos/shipping/register";
+import Register from "../../../../models/tizzyos/shipping/fws/fwsRegistration";
 
 export const riderOnlineStatusController = async (
   req: Request,

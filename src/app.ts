@@ -28,6 +28,7 @@ import orderRoutes from "./routes/tizzygo/orders/deliveryRoutes";
 import liveTrackingRoutes from "./routes/tizzygo/orders/deliveryTrackingRoutes";
 import orderfetchRoutes from "./routes/tizzygo/orders/orderRoutes";
 import yourorderRoutes from "./routes/tizzygo/orders/yourOrderRoutes";
+import UserLocation from "./routes/tizzygo/locations/locationsRoutes";
 
 // TizzyOS Imports (If any) here
 import userRoutes from "./routes/tizzyos/user/meRoutes";
@@ -36,17 +37,18 @@ import sellerStatusRoutes from "./routes/tizzyos/seller/statusRoutes";
 import riderRoutes from "./routes/tizzyos/rider/riderRoutes";
 import adminRoutes from "./routes/tizzyos/rider/adminRoutes";
 import storyRoutes from "./routes/tizzyos/story/storyRoutes";
+import priceCalculationRoutes from "./routes/tizzyos/seller/AddProducts/pricingCalculationRoutes";
 import createProductsRoutes from "./routes/tizzyos/seller/AddProducts/ProductRoutes";
 import category from "./routes/tizzyos/category";
 import uploadRoutes from "./routes/tizzyos/seller/AddProducts/uploadRoutes";
 import deleteProduct from "./routes/tizzyos/Products/ProductRoutes";
 import themesRoutes from "./routes/tizzyos/theme/theme";
 import ordersRoutes from "./routes/tizzyos/seller/Order/orderRoutes";
-import shipregisterRoutes from "./routes/tizzyos/shipping/registerRoutes";
-import Shipper from "./routes/tizzyos/shipping/shipperRoutes";
-import onlineRoutes from "./routes/tizzyos/shipping/onlineRoutes";
-import riderIdRoutes from "./routes/tizzyos/shipping/searchRiderIdRoutes";
-import getRiderLocationRoutes from "./routes/tizzyos/shipping/riderLocationRoutes";
+import shipregisterRoutes from "./routes/tizzyos/shipping/fws/fwsRegisterRoutes";
+import Shipper from "./routes/tizzyos/shipping/fws/fwsRiderRoutes";
+import onlineRoutes from "./routes/tizzyos/shipping/fws/fwsRiderOnlineRoutes";
+import riderIdRoutes from "./routes/tizzyos/shipping/fws/fwsSearchRiderIdRoutes";
+import getRiderLocationRoutes from "./routes/tizzyos/shipping/fws/fwsRiderLocationRoutes";
 // import sellerPaymentRoutes from "./routes/tizzyos/seller/PayOut/Portal/wallet";
 import walletSetupRoutes from "./routes/tizzyos/seller/PayOut/walletSetupRoutes";
 
@@ -95,6 +97,7 @@ app.use("/api/orders/delivery", orderRoutes);
 app.use("/api/orders/tracking", liveTrackingRoutes);
 app.use("/api/orders", orderfetchRoutes);
 app.use("/api/orders/yourorder", yourorderRoutes);
+app.use("/api/user/address", UserLocation);
 
 // TizzyOS Routes
 app.use("/api/user", userRoutes);
@@ -103,6 +106,7 @@ app.use("/api/seller", sellerStatusRoutes);
 app.use("/api/rider", riderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/stories", storyRoutes);
+app.use("/api/seller/product", priceCalculationRoutes);
 app.use("/api/seller/forms/categories", createProductsRoutes);
 app.use("/api/categories", category);
 app.use("/api/upload", uploadRoutes);

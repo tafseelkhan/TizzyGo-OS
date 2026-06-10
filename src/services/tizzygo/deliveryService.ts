@@ -1,5 +1,11 @@
 import axios from "axios";
-import { calculateVolumetricWeight, getChargeableWeight, calculateDeliveryChargeWithBreakdown } from "../../utils/tizzygo/calculations";
+import {
+  calculateVolumetricWeight,
+  getChargeableWeight,
+  calculateDeliveryChargeWithBreakdown,
+  convertWeightToKg,
+  convertDimensionToCm,
+} from "../../utils/tizzygo/calculations";
 
 export const getDistanceFromGoogle = async (
   originLat: number,
@@ -35,24 +41,56 @@ export const calculateDelivery = async (
   sellerLng: number,
   buyerLat: number | null,
   buyerLng: number | null,
-  variant: any
+  variant: any,
 ) => {
-  let actualWeightGram = Number(variant.weight) || 500;
-  let actualWeightKg = actualWeightGram / 1000;
+  // Get weight with unit conversion
+  let weight = Number(variant.weight) || 0.5;
+  const weightUnit = variant.weightUnit || "KG";
+  const actualWeightKg = convertWeightToKg(weight, weightUnit);
 
-  const lengthCm = Number(variant.length) || 10;
-  const widthCm = Number(variant.width) || 10;
-  const heightCm = Number(variant.height) || 10;
+  // Get dimensions with unit conversion
+  let length = Number(variant.length) || 10;
+  let width = Number(variant.width) || 10;
+  let height = Number(variant.height) || 10;
+  const dimensionUnit = variant.dimensionUnit || "CM";
 
-  const volumetricWeight = calculateVolumetricWeight(lengthCm, widthCm, heightCm);
-  const chargeableWeight = getChargeableWeight(actualWeightKg, volumetricWeight);
+  const lengthCm = convertDimensionToCm(length, dimensionUnit);
+  const widthCm = convertDimensionToCm(width, dimensionUnit);
+  const heightCm = convertDimensionToCm(height, dimensionUnit);
+
+  console.log("📦 Delivery calculation with converted units:", {
+    originalWeight: weight,
+    weightUnit,
+    actualWeightKg,
+    originalDimensions: { length, width, height },
+    dimensionUnit,
+    convertedCm: { lengthCm, widthCm, heightCm },
+  });
+
+  const volumetricWeight = calculateVolumetricWeight(
+    lengthCm,
+    widthCm,
+    heightCm,
+  );
+  const chargeableWeight = getChargeableWeight(
+    actualWeightKg,
+    volumetricWeight,
+  );
 
   let distanceKm: number = 5;
   if (sellerLat && sellerLng && buyerLat && buyerLng) {
-    distanceKm = await getDistanceFromGoogle(sellerLat, sellerLng, buyerLat, buyerLng);
+    distanceKm = await getDistanceFromGoogle(
+      sellerLat,
+      sellerLng,
+      buyerLat,
+      buyerLng,
+    );
   }
 
-  const { deliveryCharge, breakdown } = calculateDeliveryChargeWithBreakdown(distanceKm, chargeableWeight);
+  const { deliveryCharge, breakdown } = calculateDeliveryChargeWithBreakdown(
+    distanceKm,
+    chargeableWeight,
+  );
 
   return {
     distanceKm,

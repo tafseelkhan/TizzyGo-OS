@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import Register from '../../../models/tizzyos/shipping/register'; // rider model
+import Register from '../../../../models/tizzyos/shipping/fws/fwsRegistration'; // rider model
 import jwt from 'jsonwebtoken';
 
 export const getRiderIdFromToken = async (req: Request, res: Response) => {
