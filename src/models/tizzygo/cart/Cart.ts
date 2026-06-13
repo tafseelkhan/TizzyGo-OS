@@ -32,6 +32,10 @@ export interface ICart extends Document {
     gstAmount: number;
     perProductGst: number;
 
+    // Platform & Shipping fee
+    platformFee: number;
+    packagingFee: number;
+
     // Delivery with full breakdown
     deliveryCharge: number;
     distanceKm: number;
@@ -40,13 +44,6 @@ export interface ICart extends Document {
     chargeableWeight: number;
     deliveryRatePerKm: number;
     deliveryRatePerKg: number;
-    deliveryCalculationBreakdown: {
-      formula: string;
-      distance: number;
-      rate: number;
-      weight: number;
-      subtotal: number;
-    };
 
     // Totals
     subtotal: number;
@@ -141,6 +138,9 @@ const cartItemSchema = new Schema<ICart>(
       gstAmount: { type: Number, default: 0 },
       perProductGst: { type: Number, default: 0 },
 
+      platformFee: { type: Number, default: 0 },
+      packagingFee: { type: Number, default: 0 },
+
       // Delivery
       deliveryCharge: { type: Number, default: 0 },
       distanceKm: { type: Number, default: 0 },
@@ -149,13 +149,6 @@ const cartItemSchema = new Schema<ICart>(
       chargeableWeight: { type: Number, default: 0 },
       deliveryRatePerKm: { type: Number, default: 0 },
       deliveryRatePerKg: { type: Number, default: 0 },
-      deliveryCalculationBreakdown: {
-        formula: { type: String, default: "" },
-        distance: { type: Number, default: 0 },
-        rate: { type: Number, default: 0 },
-        weight: { type: Number, default: 0 },
-        subtotal: { type: Number, default: 0 },
-      },
 
       // Totals
       subtotal: { type: Number, default: 0 },

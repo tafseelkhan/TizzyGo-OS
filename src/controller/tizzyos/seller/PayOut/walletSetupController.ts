@@ -4,7 +4,9 @@ import { ZeptPay } from "@flixora/zeptpay";
 
 // 🔒 Backend keys from .env
 const ZEPTPAY_SECRET_KEY = process.env.ZEPTPAY_SECRET_KEY || "";
-const ZEPTPAY_CLIENT_KEY = process.env.ZEPTPAY_CLIENT_KEY || "";
+const ZEPTPAY_CLIENT_KEY =
+  process.env.ZEPTPAY_CLIENT_KEY ||
+  "ck-flixora_test_@zeptpay:tizzy-flixora-ecosystem_ae784c477ea88edec582ac2bb593195032dc203eacd4e375";
 
 if (!ZEPTPAY_SECRET_KEY)
   throw new Error("ZEPTPAY_SECRET_KEY is not defined in .env");

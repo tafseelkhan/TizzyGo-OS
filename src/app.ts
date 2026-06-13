@@ -25,10 +25,11 @@ import codRoutes from "./routes/tizzygo/buynow/confirm-codRoutes";
 import themeRoutes from "./routes/tizzygo/theme/theme";
 import confirmOrderRouter from "./routes/tizzygo/buynow/confirm-codRoutes";
 import orderRoutes from "./routes/tizzygo/orders/deliveryRoutes";
-import liveTrackingRoutes from "./routes/tizzygo/orders/deliveryTrackingRoutes";
-import orderfetchRoutes from "./routes/tizzygo/orders/orderRoutes";
+import liveTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
+import orderfetchRoutes from "./routes/tizzyos/shipping/orders/orderRoutes";
 import yourorderRoutes from "./routes/tizzygo/orders/yourOrderRoutes";
 import UserLocation from "./routes/tizzygo/locations/locationsRoutes";
+import deliveryTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
 
 // TizzyOS Imports (If any) here
 import userRoutes from "./routes/tizzyos/user/meRoutes";
@@ -45,7 +46,6 @@ import deleteProduct from "./routes/tizzyos/Products/ProductRoutes";
 import themesRoutes from "./routes/tizzyos/theme/theme";
 import ordersRoutes from "./routes/tizzyos/seller/Order/orderRoutes";
 import shipregisterRoutes from "./routes/tizzyos/shipping/fws/fwsRegisterRoutes";
-import Shipper from "./routes/tizzyos/shipping/fws/fwsRiderRoutes";
 import onlineRoutes from "./routes/tizzyos/shipping/fws/fwsRiderOnlineRoutes";
 import riderIdRoutes from "./routes/tizzyos/shipping/fws/fwsSearchRiderIdRoutes";
 import getRiderLocationRoutes from "./routes/tizzyos/shipping/fws/fwsRiderLocationRoutes";
@@ -98,6 +98,7 @@ app.use("/api/orders/tracking", liveTrackingRoutes);
 app.use("/api/orders", orderfetchRoutes);
 app.use("/api/orders/yourorder", yourorderRoutes);
 app.use("/api/user/address", UserLocation);
+app.use("/api/delivery/tracking", deliveryTrackingRoutes);
 
 // TizzyOS Routes
 app.use("/api/user", userRoutes);
@@ -114,7 +115,6 @@ app.use("/api/delete", deleteProduct);
 app.use("/api/user", themesRoutes);
 app.use("/api/seller/orders", ordersRoutes);
 app.use("/api/shipping", shipregisterRoutes);
-app.use("/api/shipping", Shipper);
 app.use("/api", onlineRoutes);
 app.use("/api", riderIdRoutes);
 app.use("/api/track", getRiderLocationRoutes);

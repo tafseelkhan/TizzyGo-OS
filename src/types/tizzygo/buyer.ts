@@ -20,6 +20,8 @@ export interface CalculatedData {
   gstType: string;
   gstAmount: number;
   perProductGst: number;
+  platformFee: number;
+  packagingFee: number;
   deliveryCharge: number;
   distanceKm: number;
   volumetricWeight: number;
@@ -27,7 +29,6 @@ export interface CalculatedData {
   chargeableWeight: number;
   deliveryRatePerKm: number;
   deliveryRatePerKg: number;
-  deliveryCalculationBreakdown: DeliveryBreakdown;
   subtotal: number;
   totalBeforeCoupon: number;
   discountAppliedAmount: number;

@@ -5,6 +5,7 @@ import { createPaymentIntent } from "../../../services/tizzygo/paymentService";
 import CheckoutSession, {
   ICheckoutSession,
 } from "../../../models/tizzygo/checkout/CheckoutSession";
+import Order from "../../../models/tizzyos/shipping/order/order";
 
 export const createPaymentIntentHandler = async (
   req: AuthRequest,
@@ -19,57 +20,99 @@ export const createPaymentIntentHandler = async (
 
   try {
     const user = req.user;
-    const { address, paymentMethod = "online" } = req.body;
+    // 🔥 FIX: Add idempotencyKey from request body
+    const { address, paymentMethod = "online", idempotencyKey } = req.body;
 
     console.log("📥 Request received:");
     console.log("  - User ID:", user?.userId);
     console.log("  - Payment Method:", paymentMethod);
-    console.log(
-      "  - Address:",
-      address ? JSON.stringify(address).substring(0, 200) : "MISSING",
-    );
+    console.log("  - Idempotency Key:", idempotencyKey);
+    console.log("  - Has Address:", !!address);
 
     // Validation
     if (!user?.userId) {
-      console.log("❌ Unauthorized - No user ID");
       await mongoSession.abortTransaction();
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     if (!address) {
-      console.log("❌ Address is required - No address provided");
       await mongoSession.abortTransaction();
       return res
         .status(400)
         .json({ success: false, error: "Address is required" });
     }
 
-    console.log("✅ Validation passed, creating payment intent...");
+    // 🔥 FIX: Check for duplicate order using idempotency key
+    if (idempotencyKey) {
+      console.log("🔍 Checking for existing order with idempotency key...");
 
-    // Create payment intent
+      const existingOrder = await Order.findOne({
+        "metadata.idempotencyKey": idempotencyKey,
+      }).session(mongoSession);
+
+      if (existingOrder) {
+        console.log(
+          "⚠️ Duplicate request detected! Returning existing order:",
+          existingOrder.orderId,
+        );
+
+        const existingCheckoutSession = await CheckoutSession.findOne({
+          orderId: existingOrder._id,
+        }).session(mongoSession);
+
+        await mongoSession.commitTransaction();
+        mongoSession.endSession();
+
+        return res.status(200).json({
+          success: true,
+          message: "Order already exists",
+          checkoutSessionId: existingCheckoutSession?.checkoutSessionId,
+          orderId: existingOrder.orderId,
+          paymentMethod:
+            existingCheckoutSession?.paymentMethod || paymentMethod,
+          finalAmount: existingOrder.finalAmount,
+          currency: "INR",
+          expiresAt: existingCheckoutSession?.expiresAt,
+          vendorCodeUID: existingOrder.vendorCodeUID || null,
+          appName: "TizzyGo",
+          payer: {
+            userId: user.userId,
+            name: existingOrder.buyerName || "Customer",
+            email: "",
+          },
+          isDuplicate: true,
+          order: {
+            _id: existingOrder._id,
+            orderId: existingOrder.orderId,
+            status: existingOrder.status,
+          },
+        });
+      }
+    }
+
+    // Create payment intent with idempotency key
     const result = await createPaymentIntent({
       userId: user.userId,
       address,
       paymentMethod,
       session: mongoSession,
+      idempotencyKey, // 🔥 Pass idempotency key to service
     });
-
-    console.log("✅ Payment intent created successfully");
-    console.log("  - Checkout Session ID:", result.checkoutSessionId);
-    console.log("  - Order ID:", result.orderId);
-    console.log("  - Final Amount:", result.finalAmount);
-    console.log("  - Vendor Code UID:", result.productData?.vendorCodeUID);
 
     // Commit transaction
     await mongoSession.commitTransaction();
     mongoSession.endSession();
-    console.log("✅ Transaction committed");
+
+    const userDetails = Array.isArray(result.userDetails)
+      ? result.userDetails[0]
+      : result.userDetails;
 
     // Return response
     return res.status(200).json({
       success: true,
-      message:
-        paymentMethod === "cod"
+      message: result.isDuplicate
+        ? "Order already exists"
+        : paymentMethod === "cod"
           ? "✅ COD order created successfully"
           : "✅ Order created successfully",
       checkoutSessionId: result.checkoutSessionId,
@@ -78,46 +121,39 @@ export const createPaymentIntentHandler = async (
       finalAmount: result.finalAmount,
       currency: "INR",
       expiresAt: result.expiresAt,
-      vendorCodeUID: result.productData?.vendorCodeUID || null,
+      vendorCodeUID:
+        result.vendorCodeUID || result.productData?.vendorCodeUID || null,
       appName: result.productData?.appName || "TizzyGo",
       payer: {
         userId: user.userId,
-        name: (result.userDetails as any)?.name || "Customer",
-        email: (result.userDetails as any)?.email || "",
+        name: userDetails?.name || "Customer",
+        email: userDetails?.email || "",
       },
+      isDuplicate: result.isDuplicate || false,
       order: {
         _id: result.order._id,
         orderId: result.order.orderId,
         status: result.order.status,
-        paymentStatus: result.order.paymentStatus,
       },
     });
   } catch (err: any) {
-    console.error("💥 CREATE PAYMENT INTENT ERROR:");
-    console.error("  - Error message:", err.message);
-    console.error("  - Error stack:", err.stack);
+    console.error("💥 CREATE PAYMENT INTENT ERROR:", err.message);
+    console.error("  - Stack:", err.stack);
 
     await mongoSession.abortTransaction();
     mongoSession.endSession();
-    console.log("❌ Transaction aborted");
 
-    // Handle specific errors
     let errorMessage = err.message;
     let statusCode = 500;
 
-    if (errorMessage.includes("Cart is empty")) {
+    if (errorMessage.includes("Cart is empty")) statusCode = 400;
+    else if (errorMessage.includes("Product ID missing")) statusCode = 400;
+    else if (errorMessage.includes("Cash on Delivery not available"))
       statusCode = 400;
-      console.log("⚠️ Cart is empty error");
-    } else if (errorMessage.includes("Product ID missing")) {
-      statusCode = 400;
-      console.log("⚠️ Product ID missing error");
-    } else if (errorMessage.includes("Cash on Delivery not available")) {
-      statusCode = 400;
-      console.log("⚠️ COD not available error");
-    } else if (errorMessage.includes("Invalid final amount")) {
-      statusCode = 400;
-      console.log("⚠️ Invalid final amount error");
-    }
+    else if (errorMessage.includes("Invalid final amount")) statusCode = 400;
+    else if (errorMessage.includes("active order already exists"))
+      statusCode = 409;
+    else if (errorMessage.includes("User not found")) statusCode = 404;
 
     return res.status(statusCode).json({
       success: false,
@@ -169,9 +205,16 @@ export const getSessionStatusHandler = async (
       });
     }
 
+    // 🔥 FIX: Also fetch order details
+    const order = await Order.findById(session.orderId).lean();
+
+    // normalize order in case mongoose returns an array for some queries
+    const orderDoc = Array.isArray(order) ? order[0] : order;
+
     console.log("✅ Session found:");
     console.log("  - Status:", session.status);
     console.log("  - Payment Method:", session.paymentMethod);
+    console.log("  - Order Status:", orderDoc?.status);
     console.log("  - Expires At:", session.expiresAt);
 
     return res.status(200).json({
@@ -183,6 +226,14 @@ export const getSessionStatusHandler = async (
         paymentIntentId: session.paymentIntentId,
         expiresAt: session.expiresAt,
       },
+      order: orderDoc
+        ? {
+            _id: (orderDoc as any)._id,
+            orderId: (orderDoc as any).orderId,
+            status: (orderDoc as any).status,
+            finalAmount: (orderDoc as any).finalAmount,
+          }
+        : null,
     });
   } catch (err: any) {
     console.error("💥 SESSION STATUS ERROR:");

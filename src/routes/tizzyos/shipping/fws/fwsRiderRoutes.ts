@@ -4,7 +4,6 @@ import {
   riderAcceptOrder,
   riderConfirmPickup,
   riderConfirmDelivery,
-  riderLocationController,
   getRiderPendingOrders,
 } from "../../../../controller/tizzyos/shipping/fws/fwsRiderController";
 import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
@@ -24,11 +23,6 @@ router.post("/rider/pickup", authMiddleware, riderConfirmPickup);
 
 // Rider confirms delivery
 router.post("/rider/deliver", authMiddleware, riderConfirmDelivery);
-
-// ================== RIDER LOCATION ==================
-
-// Start/stop/update/get rider location
-router.post("/rider/location", authMiddleware, riderLocationController);
 
 // ================== RIDER ORDERS ==================
 

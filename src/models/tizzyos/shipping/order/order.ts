@@ -6,20 +6,17 @@ export interface IOrder extends Document {
   productId: string;
 
   sellerId?: string;
-  riderId?: string;
+  sellerName: string;
+  trackingId: string;
   buyerId?: string;
   buyerName: string;
 
   items: {
     quantity: number;
     selectedVariant?: Record<string, any>;
-    productData: Record<string, any> & {
-      buyerId?: string;
-      buyerName?: string;
-      sellerLocation?: any;
-      buyerLocation?: any;
+    productData: {
+      productDataId: string;
     };
-    sellerId: string;
   }[];
 
   // Pricing
@@ -38,6 +35,7 @@ export interface IOrder extends Document {
   totalBeforeCoupon: number;
   discountApplied: number;
   platformFee: number;
+  packagingFee: number;
   finalAmount: number;
 
   // Order main status
@@ -53,6 +51,22 @@ export interface IOrder extends Document {
 
   // 🏭 Fulfillment (SELLER + FWS FLOW FIXED)
   fulfillmentType: "SELLER" | "FWS";
+
+  // For idempotency / arbitrary metadata
+  metadata?: Record<string, any>;
+
+  shippingLabel?: {
+    qrCodeUrl?: string;
+
+    qrData: {
+      orderId: string;
+
+      sellerId?: string;
+      buyerId?: string;
+
+      generatedAt: Date;
+    };
+  };
 
   paymentIntentId?: string;
   token: string;
@@ -88,11 +102,6 @@ export interface IOrder extends Document {
     merchant: number;
   };
 
-  // Tracking timestamps
-  assignedAt?: Date;
-  pickedUpAt?: Date;
-  deliveredAt?: Date;
-
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,7 +113,8 @@ const OrderSchema: Schema<IOrder> = new Schema(
     productId: { type: String, required: true },
 
     sellerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
-    riderId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    sellerName: { type: String, required: false },
+    trackingId: { type: String, ref: "Tracking", index: true },
     buyerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
 
     buyerName: { type: String, required: true },
@@ -113,16 +123,9 @@ const OrderSchema: Schema<IOrder> = new Schema(
       {
         quantity: { type: Number, required: true },
 
-        productData: { type: Schema.Types.Mixed, required: true },
+        productData: { productDataId: { type: String, required: true } },
 
         selectedVariant: { type: Schema.Types.Mixed },
-
-        sellerId: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-          index: true,
-        },
       },
     ],
 
@@ -143,6 +146,10 @@ const OrderSchema: Schema<IOrder> = new Schema(
     totalBeforeCoupon: { type: Number, default: 0 },
     discountApplied: { type: Number, default: 0 },
     platformFee: { type: Number, default: 0 },
+    packagingFee: {
+      type: Number,
+      default: 0,
+    },
 
     finalAmount: { type: Number, required: true },
 
@@ -167,6 +174,40 @@ const OrderSchema: Schema<IOrder> = new Schema(
       type: String,
       enum: ["SELLER", "FWS"],
       required: true,
+    },
+
+    // 🔥 For idempotency
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
+    shippingLabel: {
+      qrCodeUrl: {
+        type: String,
+      },
+
+      qrData: {
+        orderId: {
+          type: String,
+          required: true,
+        },
+
+        sellerId: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+
+        buyerId: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+
+        generatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
     },
 
     paymentIntentId: { type: String },
@@ -201,10 +242,6 @@ const OrderSchema: Schema<IOrder> = new Schema(
       bank: { type: Number, default: 0 },
       merchant: { type: Number, default: 0 },
     },
-
-    assignedAt: Date,
-    pickedUpAt: Date,
-    deliveredAt: Date,
   },
   { timestamps: true },
 );

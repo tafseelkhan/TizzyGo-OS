@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+
 export function generateCheckoutSessionId(): string {
   return `CHK-${Date.now()}-${Math.random()
     .toString(36)
@@ -13,7 +15,7 @@ export function generateOrderId(): string {
 }
 
 export function generateToken(): string {
-  return `ORDTOKEN-${Date.now()}`;
+  return `ORDTOKEN-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }
 
 export function getProductId(cartItem: any, productData: any): string | null {
@@ -38,39 +40,30 @@ export function getFinalAmount(calculated: any): number {
   );
 }
 
-export const createCartSnapshot = (
-  cartItem: any,
-  calculatedData: any,
-  finalAmount: number,
-) => {
-  const productData = cartItem?.productData || {};
-  const selectedVariant = cartItem?.selectedVariant || {};
+export async function generateQrCodeUrl(
+  orderId: string,
+  buyerId: string,
+  sellerId: string,
+): Promise<string> {
+  try {
+    const qrData = JSON.stringify({
+      orderId,
+      buyerId,
+      sellerId,
+      timestamp: Date.now(),
+      type: "SHIPPING_LABEL",
+    });
 
-  return {
-    items: [
-      {
-        productId: getProductId(cartItem, productData),
-        quantity: Number(cartItem?.quantity || 1),
-        selectedVariant,
-        productData,
-      },
-    ],
-    calculatedData: {
-      totalBeforeCoupon:
-        Number(calculatedData?.totalBeforeCoupon) ||
-        Number(calculatedData?.finalPrice) ||
-        finalAmount,
-      discountApplied: Number(calculatedData?.discountApplied) || 0,
-      deliveryCharge: Number(calculatedData?.deliveryCharge) || 0,
-      productGst: Number(calculatedData?.productGst) || 0,
-      productGstRate: Number(calculatedData?.productGstRate) || 0,
-      platformFee: Number(calculatedData?.platformFee) || 0,
-      finalAmount,
-      distanceKm: Number(calculatedData?.distanceKm) || 0,
-      couponUsed: calculatedData?.couponUsed || null,
-      couponData: calculatedData?.couponData || null,
-      coFundApplied: calculatedData?.coFundApplied || false,
-      fundSplit: calculatedData?.fundSplit || { bank: 0, merchant: 0 },
-    },
-  };
-};
+    // Generate QR code as data URL
+    const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+      errorCorrectionLevel: "H",
+      margin: 2,
+      width: 300,
+    });
+
+    return qrCodeDataUrl;
+  } catch (error) {
+    console.error("QR Code generation failed:", error);
+    return ""; // Return empty string if QR generation fails
+  }
+}

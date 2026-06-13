@@ -1,9 +1,12 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export interface IShipperRiderLocation extends Document {
-  riderId?: string; // top-level riderId
+export interface IShippingLocation extends Document {
+  userId: mongoose.Types.ObjectId;
+  shippingId?: string; // top-level riderId
 
   isTrackingOn: boolean; // location ON / OFF
+
+  shippingType: "RIDER" | "TRUCK";
 
   location?: {
     latitude: number;
@@ -17,17 +20,30 @@ export interface IShipperRiderLocation extends Document {
   updatedAt: Date;
 }
 
-const ShipperRiderLocationSchema = new Schema<IShipperRiderLocation>(
+const ShippingLocationSchema = new Schema<IShippingLocation>(
   {
-    riderId: {
+    userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: true,
+      unique: true,
+    },
+
+    shippingId: {
+      type: String,
+      required: true,
       index: true,
     },
 
     isTrackingOn: {
       type: Boolean,
       default: false, // start / stop action se control hoga
+    },
+
+    shippingType: {
+      type: String,
+      enum: ["RIDER", "TRUCK"],
+      required: true,
     },
 
     location: {
@@ -41,18 +57,19 @@ const ShipperRiderLocationSchema = new Schema<IShipperRiderLocation>(
       },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /* 🔥 INDEXES */
-ShipperRiderLocationSchema.index({ riderId: 1 });
-ShipperRiderLocationSchema.index({
+ShippingLocationSchema.index({ shippingId: 1 });
+ShippingLocationSchema.index({ userId: 1 });
+ShippingLocationSchema.index({
   "location.latitude": 1,
   "location.longitude": 1,
 });
 
-export default mongoose.model<IShipperRiderLocation>(
-  "ShipperRiderLocation",
-  ShipperRiderLocationSchema,
-  "shipper_rider_locations"
+export default mongoose.model<IShippingLocation>(
+  "ShippingLocation",
+  ShippingLocationSchema,
+  "fwsshippinglocations",
 );

@@ -6,6 +6,8 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IShipping extends Document {
   userId: mongoose.Types.ObjectId;
+  // Unique Shipping ID
+  shippingId: string;
   name: string;
 
   // Vehicle
@@ -14,6 +16,7 @@ export interface IShipping extends Document {
   vehicleModel: string;
   vehicleNumber: string;
   vehicleImage: string;
+  shippingType: "RIDER" | "TRUCK";
 
   // 📦 Capacity
   maxOrdersPerDay: number;
@@ -25,6 +28,10 @@ export interface IShipping extends Document {
     delivered: number;
     remaining: number;
   };
+
+  // Location
+  city: string;
+  state: string;
 
   // 🟢 Online / Offline
   isOnline: boolean;
@@ -67,6 +74,13 @@ const ShippingSchema = new Schema<IShipping>(
       required: true,
       unique: true,
     },
+    // Unique Rider / Truck ID
+    shippingId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
 
     name: { type: String, required: true, trim: true },
 
@@ -87,6 +101,11 @@ const ShippingSchema = new Schema<IShipping>(
     },
 
     vehicleImage: { type: String, required: true },
+    shippingType: {
+      type: String,
+      enum: ["RIDER", "TRUCK"],
+      required: true,
+    },
 
     // 📦 Capacity
     maxOrdersPerDay: { type: Number, default: 25 },
@@ -99,6 +118,16 @@ const ShippingSchema = new Schema<IShipping>(
       remaining: { type: Number, default: 0 },
     },
 
+    city: {
+      type: String,
+      required: true,
+    },
+
+    state: {
+      type: String,
+      required: true,
+    },
+    
     // 🟢 Online / Offline
     isOnline: { type: Boolean, default: false },
     lastOnlineAt: Date,
@@ -137,7 +166,7 @@ const ShippingSchema = new Schema<IShipping>(
     agreedToTerms: { type: Boolean, required: true },
     agreedAt: { type: Date, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /* =========================
@@ -151,5 +180,5 @@ ShippingSchema.index({ "kyc.status": 1 });
 export default mongoose.model<IShipping>(
   "Shipping",
   ShippingSchema,
-  "shippingregister"
+  "fwsshippingregistration",
 );

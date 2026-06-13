@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Order from "../../models/tizzygo/order/order";
+import Order from "../../models/tizzyos/shipping/order/order";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import Cart from "../../models/tizzygo/cart/Cart";
 import {

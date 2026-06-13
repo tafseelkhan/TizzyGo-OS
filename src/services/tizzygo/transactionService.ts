@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { ZeptPay } from "@flixora/zeptpay-payment-core";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
-import Order from "../../models/tizzygo/order/order";
+import Order from "../../models/tizzyos/shipping/order/order";
 import {
   normalizePaymentIntentId,
   getPaymentStatus,

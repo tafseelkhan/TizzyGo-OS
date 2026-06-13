@@ -16,7 +16,7 @@ const router = express.Router();
 router.post("/register", authMiddleware, registerShipping);
 
 // Get all approved riders (random order)
-router.get("/available-riders", getApprovedShippingRiders);
+router.get("/available-shipping", getApprovedShippingRiders);
 
 // Set rider online/offline (private)
 router.post("/shipping/online-offline", authMiddleware, setRiderOnlineOffline);

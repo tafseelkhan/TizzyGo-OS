@@ -1,4 +1,4 @@
-import { DELIVERY_RATE_PER_KG } from './../../../utils/tizzygo/calculations';
+import { DELIVERY_RATE_PER_KG } from "./../../../utils/tizzygo/calculations";
 import { Response } from "express";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
 import { Product } from "../../../models/tizzyos/seller/AddProducts/Products";
@@ -227,12 +227,23 @@ export const checkout = async (req: AuthRequest, res: Response) => {
 
     console.log("🚚 Delivery calculations:", deliveryCalculations);
 
+    const platformFee = roundToTwoDecimals(
+      (priceCalculations.totalFinalPrice * 3.1) / 100,
+    );
+
+    const packagingFee = roundToTwoDecimals(
+      (priceCalculations.totalFinalPrice * 3.2) / 100,
+    );
+
     // ============================================================
     // TOTALS AND COUPON
     // ============================================================
     const subtotal = priceCalculations.subtotal;
     const totalBeforeCoupon = roundToTwoDecimals(
-      subtotal + deliveryCalculations.deliveryCharge,
+      subtotal +
+        deliveryCalculations.deliveryCharge +
+        platformFee +
+        packagingFee,
     );
 
     console.log("💰 Subtotal:", subtotal);
@@ -279,6 +290,10 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       gstAmount: priceCalculations.totalGstAmount,
       perProductGst: priceCalculations.perProductGst,
 
+      // Fees
+      platformFee,
+      packagingFee,
+
       // Delivery info
       deliveryCharge: deliveryCalculations.deliveryCharge,
       distanceKm: deliveryCalculations.distanceKm,
@@ -287,7 +302,6 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       chargeableWeight: deliveryCalculations.chargeableWeight,
       deliveryRatePerKm: DELIVERY_RATE_PER_KM,
       deliveryRatePerKg: DELIVERY_RATE_PER_KG,
-      deliveryCalculationBreakdown: deliveryCalculations.deliveryBreakdown,
 
       // Totals
       subtotal: priceCalculations.subtotal,

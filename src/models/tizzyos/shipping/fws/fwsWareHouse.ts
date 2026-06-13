@@ -16,6 +16,17 @@ const FWSWareHouseSchema = new mongoose.Schema(
       required: true,
     },
 
+    employees: [
+      {
+        userId: String,
+        name: String,
+        role: {
+          type: String,
+          enum: ["MANAGER", "SUPERVISOR", "SCANNER", "PACKER", "DISPATCHER"],
+        },
+      },
+    ],
+
     city: {
       type: String,
       required: true,
@@ -65,6 +76,11 @@ const FWSWareHouseSchema = new mongoose.Schema(
       default: "LOCAL",
     },
 
+    coverageKm: {
+      type: Number,
+      default: 50,
+    },
+
     // Capacity
     maxDailyOrders: {
       type: Number,
@@ -85,6 +101,9 @@ const FWSWareHouseSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+// ✅ Added index for fast employee lookup
+FWSWareHouseSchema.index({ "employees.userId": 1 });
 
 export default mongoose.models.FWSWareHouse ||
   mongoose.model("FWSWareHouse", FWSWareHouseSchema);
