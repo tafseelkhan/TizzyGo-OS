@@ -7,6 +7,4 @@ const router = express.Router();
 // Sirf ek line! 😎
 router.get("/:orderId", authMiddleware, getOrderById);
 
-console.log("✅ Order fetch routes loaded successfully");
-
 export default router;

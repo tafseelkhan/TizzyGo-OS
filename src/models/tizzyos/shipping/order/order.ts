@@ -59,12 +59,7 @@ export interface IOrder extends Document {
     qrCodeUrl?: string;
 
     qrData: {
-      orderId: string;
-
-      sellerId?: string;
-      buyerId?: string;
-
-      generatedAt: Date;
+      token: string;
     };
   };
 
@@ -188,24 +183,9 @@ const OrderSchema: Schema<IOrder> = new Schema(
       },
 
       qrData: {
-        orderId: {
+        token: {
           type: String,
           required: true,
-        },
-
-        sellerId: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-        },
-
-        buyerId: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-        },
-
-        generatedAt: {
-          type: Date,
-          default: Date.now,
         },
       },
     },

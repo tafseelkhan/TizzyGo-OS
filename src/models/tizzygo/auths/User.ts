@@ -1,3 +1,4 @@
+// models/User.ts
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IUser extends Document {
@@ -6,10 +7,12 @@ export interface IUser extends Document {
   phone?: string;
   image?: string;
   theme: "light" | "dark" | "system";
+  roles: "BUYER" | "SELLER" | "FWS" | "SHIPPING" | "CAB" | "RENT";
   color?: string;
   vendorCodeUID: string;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
+  linkedAccountGroupId?: mongoose.Types.ObjectId; // ✅ NEW: Reference to account group
 }
 
 const userSchema = new Schema<IUser>(
@@ -41,6 +44,11 @@ const userSchema = new Schema<IUser>(
       enum: ["light", "dark", "system"],
       default: "system",
     },
+    roles: {
+      type: String,
+      enum: ["BUYER", "SELLER", "FWS", "SHIPPING", "CAB", "RENT"],
+      default: "SELLER",
+    },
     vendorCodeUID: {
       type: String,
     },
@@ -55,6 +63,11 @@ const userSchema = new Schema<IUser>(
     isPhoneVerified: {
       type: Boolean,
       default: false,
+    },
+    linkedAccountGroupId: {
+      type: Schema.Types.ObjectId,
+      ref: "LinkedAccount",
+      index: true,
     },
   },
   { timestamps: true },

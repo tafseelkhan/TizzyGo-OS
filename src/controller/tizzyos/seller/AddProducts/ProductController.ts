@@ -59,10 +59,11 @@ export const createProduct = async (req: Request, res: Response) => {
   try {
     console.log("🚀 CREATE PRODUCT API");
 
-    const sellerId = (req as any).seller?._id;
+    const sellerId = req.user?._id;
     if (!sellerId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
+    console.log("userId:", sellerId);
 
     const seller = await User.findById(sellerId).select("vendorCodeUID name");
 
@@ -74,6 +75,7 @@ export const createProduct = async (req: Request, res: Response) => {
     }
 
     const body = req.body;
+    console.log("body:", body);
 
     // Validate fulfillmentType
     const fulfillmentType = body.fulfillmentType;

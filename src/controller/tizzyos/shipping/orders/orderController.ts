@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import Order from "../../../../models/tizzyos/shipping/order/order";
-import DeliveryTracking from "../../../../models/tizzyos/shipping/order/deliveryTracking";
 
 // 📦 Fetch orders for a specific seller
 export const getSellerOrders = async (req: Request, res: Response) => {
@@ -18,36 +17,19 @@ export const getSellerOrders = async (req: Request, res: Response) => {
 
     const orders = await Order.find({
       sellerId,
-      status: { $in: ["captured", "cod_confirmed"] },
+      status: {
+        $in: ["captured", "cod_confirmed"],
+      },
     })
       .sort({ createdAt: -1 })
       .lean();
 
     console.log(`✅ ${orders.length} orders found`);
 
-    const ordersWithTrackingStatus = await Promise.all(
-      orders.map(async (order: any) => {
-        const tracking = (await DeliveryTracking.findOne({
-          orderId: order.orderId,
-        }).lean()) as { trackingHistory?: any[] } | null;
-
-        const sellerAccepted =
-          tracking?.trackingHistory?.some(
-            (item: any) =>
-              item.holderType === "SELLER" &&
-              item.status === "waiting_for_assignment",
-          ) || false;
-
-        return {
-          ...order,
-          sellerAccepted,
-        };
-      }),
-    );
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-      orders: ordersWithTrackingStatus,
+      count: orders.length,
+      orders,
     });
   } catch (err) {
     console.error("❌ Seller orders fetch error:", err);

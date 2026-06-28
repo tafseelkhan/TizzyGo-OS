@@ -82,6 +82,7 @@ export function cleanVariantObject(
 export function createMinimalProductData(productData: any): any {
   return {
     productDataId: productData.productId || productData._id,
+    fulfillmentType: productData.fulfillmentType || "SELLER", // ⭐ YAHAN ADD KARO
     vendorCodeUID: productData.vendorCodeUID || "",
     sellerId: productData.sellerId || "",
     title: productData.title || "",

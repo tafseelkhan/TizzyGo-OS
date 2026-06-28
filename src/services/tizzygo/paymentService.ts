@@ -10,7 +10,7 @@ import {
   generateToken,
   getProductId,
   getFinalAmount,
-  generateQrCodeUrl,
+  generateQrCodeDataUrl,
 } from "../../utils/tizzygo/paymentHelpers";
 
 const zeptpay = new ZeptPay({
@@ -155,8 +155,12 @@ export const createPaymentIntent = async ({
     const checkoutSessionId = generateCheckoutSessionId();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    // Generate QR Code URL for shipping label
-    const qrCodeUrl = await generateQrCodeUrl(orderId, userId, sellerId);
+    // Generate QR Code URL and token for shipping label
+    const { qrCodeUrl, token: shippingToken } = await generateQrCodeDataUrl(
+      orderId,
+      userId,
+      sellerId,
+    );
 
     // ✅ CREATE ORDER
     const order = new Order({
@@ -216,10 +220,7 @@ export const createPaymentIntent = async ({
       shippingLabel: {
         qrCodeUrl: qrCodeUrl,
         qrData: {
-          orderId: orderId,
-          sellerId: sellerId || null,
-          buyerId: userId,
-          generatedAt: new Date(),
+          token: shippingToken, // ✅ Sahi token - JWT wala
         },
       },
       // 🔥 Store idempotency key for duplicate detection

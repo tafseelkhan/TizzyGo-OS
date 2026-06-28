@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import jwt from "jsonwebtoken";
 
 export function generateCheckoutSessionId(): string {
   return `CHK-${Date.now()}-${Math.random()
@@ -40,30 +41,41 @@ export function getFinalAmount(calculated: any): number {
   );
 }
 
-export async function generateQrCodeUrl(
+// ✅ NEW FUNCTION: Generate shipping token only
+export function generateShippingToken(
   orderId: string,
   buyerId: string,
   sellerId: string,
-): Promise<string> {
-  try {
-    const qrData = JSON.stringify({
+): string {
+  return jwt.sign(
+    {
       orderId,
       buyerId,
       sellerId,
-      timestamp: Date.now(),
-      type: "SHIPPING_LABEL",
-    });
+    },
+    process.env.QR_SECRET as string,
+    // No expiry added as requested
+  );
+}
 
-    // Generate QR code as data URL
-    const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+// ✅ MODIFIED FUNCTION: Returns QR data URL but also provides token separately
+export async function generateQrCodeDataUrl(
+  orderId: string,
+  buyerId: string,
+  sellerId: string,
+): Promise<{ qrCodeUrl: string; token: string }> {
+  try {
+    const token = generateShippingToken(orderId, buyerId, sellerId);
+
+    const qrCodeDataUrl = await QRCode.toDataURL(JSON.stringify({ token }), {
       errorCorrectionLevel: "H",
       margin: 2,
       width: 300,
     });
 
-    return qrCodeDataUrl;
+    return { qrCodeUrl: qrCodeDataUrl, token };
   } catch (error) {
     console.error("QR Code generation failed:", error);
-    return ""; // Return empty string if QR generation fails
+    return { qrCodeUrl: "", token: "" };
   }
 }

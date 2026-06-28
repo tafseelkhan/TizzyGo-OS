@@ -224,65 +224,47 @@ export const updateShippingStatus = async (req: Request, res: Response) => {
 /* =========================
    GET SHIPPING BY ID (PRIVATE)
 ========================= */
-
-export const getShippingById = async (req: Request, res: Response) => {
+export const getMyShipping = async (req: Request, res: Response) => {
   try {
-    console.log("=== GET SHIPPING BY ID API START ===");
-    console.log("Received params:", req.params);
+    console.log("=== GET MY SHIPPING API START ===");
 
-    // FIX: Use correct parameter name (riderId or shippingId)
-    const { shippingId } = req.params; // Changed from riderId to shippingId
-    console.log("Shipping ID received:", shippingId);
+    // Auth middleware se userId lelo
+    const userId = req.user?.userId;
 
-    if (!shippingId) {
-      console.log("❌ No shippingId found in params");
-      return res.status(400).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: "Shipping ID is required",
+        message: "Unauthorized - User not found",
       });
     }
 
-    // 1️⃣ Validate ObjectId
-    console.log("🔍 Step 1: Validating ObjectId...");
-    if (!mongoose.Types.ObjectId.isValid(shippingId)) {
-      console.log("❌ Invalid ObjectId:", shippingId);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid shipping id",
-      });
-    }
-    console.log("✅ ObjectId is valid");
+    console.log("User ID:", userId);
 
-    // 2️⃣ Find shipping
-    console.log("🔍 Step 2: Finding shipping in database...");
-    const shipping = await Shipping.findById(shippingId).lean();
+    // Directly userId se search karo
+    const shipping = await Shipping.findOne({ userId: userId }).lean();
 
     if (!shipping) {
-      console.log("❌ Shipping not found with ID:", shippingId);
+      console.log("❌ Shipping not found for user:", userId);
       return res.status(404).json({
         success: false,
-        message: "Shipping registration not found",
+        message: "Shipping registration not found for this user",
       });
     }
+
     console.log("✅ Shipping found:", {
       id: shipping._id,
+      shippingId: shipping.shippingId,
       name: shipping.name,
       status: shipping.status,
       kycStatus: shipping.kyc?.status,
     });
 
-    // 3️⃣ Extract statuses
-    console.log("🔍 Step 3: Extracting statuses...");
-    const formStatus = shipping.status; // pending | approved | decline
-    const kycStatus = shipping.kyc?.status; // pending | verified | rejected
-    console.log("Form Status:", formStatus);
-    console.log("KYC Status:", kycStatus);
+    // Status messages logic
+    const formStatus = shipping.status;
+    const kycStatus = shipping.kyc?.status;
 
-    // 4️⃣ Status-based response
-    console.log("🔍 Step 4: Determining info message based on status...");
     let infoMessage = "Shipping registration data fetched";
 
-    // Status combinations and messages
     const statusMessages = {
       pending: "Shipping form is under admin review",
       decline: "Shipping form was rejected by admin",
@@ -293,31 +275,19 @@ export const getShippingById = async (req: Request, res: Response) => {
 
     if (formStatus === "pending") {
       infoMessage = statusMessages.pending;
-      console.log("📝 Status: Form pending -", infoMessage);
     } else if (formStatus === "decline") {
       infoMessage = statusMessages.decline;
-      console.log("📝 Status: Form declined -", infoMessage);
     } else if (formStatus === "approved" && kycStatus === "pending") {
       infoMessage = statusMessages.approved_pending;
-      console.log("📝 Status: Approved, KYC pending -", infoMessage);
     } else if (formStatus === "approved" && kycStatus === "rejected") {
       infoMessage = statusMessages.approved_rejected;
-      console.log("📝 Status: Approved, KYC rejected -", infoMessage);
     } else if (formStatus === "approved" && kycStatus === "verified") {
       infoMessage = statusMessages.approved_verified;
-      console.log("📝 Status: Approved, KYC verified -", infoMessage);
-    } else {
-      console.log("📝 Status: Default case -", infoMessage);
     }
 
-    // 5️⃣ Calculate flags
-    console.log("🔍 Step 5: Calculating status flags...");
     const isApproved = formStatus === "approved";
     const isKycVerified = kycStatus === "verified";
-    console.log("Is Approved:", isApproved);
-    console.log("Is KYC Verified:", isKycVerified);
 
-    // 6️⃣ Prepare response data
     const responseData = {
       success: true,
       message: infoMessage,
@@ -329,6 +299,7 @@ export const getShippingById = async (req: Request, res: Response) => {
       },
       shipping: {
         _id: shipping._id,
+        shippingId: shipping.shippingId,
         name: shipping.name,
         vehicleBrand: shipping.vehicleBrand,
         vehicleModel: shipping.vehicleModel,
@@ -345,18 +316,14 @@ export const getShippingById = async (req: Request, res: Response) => {
         createdAt: shipping.createdAt,
         updatedAt: shipping.updatedAt,
         userId: shipping.userId,
+        isAvailable: shipping.isAvailable,
+        isOnline: shipping.isOnline,
+        city: shipping.city,
+        state: shipping.state,
       },
     };
 
-    console.log("📊 Response data prepared:", {
-      success: responseData.success,
-      message: responseData.message,
-      status: responseData.status,
-    });
-
-    console.log("=== GET SHIPPING BY ID API END ===");
-
-    // 7️⃣ Final response
+    console.log("=== GET MY SHIPPING API END ===");
     return res.status(200).json(responseData);
   } catch (err: any) {
     console.error("❌ GET SHIPPING ERROR:", {
@@ -544,41 +511,45 @@ const processShippingData = (shipping: any, res: Response) => {
    GET ALL APPROVED RIDERS
    (RANDOM ORDER)
 ========================= */
-export const getApprovedShippingRiders = async (
+export const getApprovedShippingPartners = async (
   req: AuthRequest,
   res: Response,
 ) => {
   try {
-    const riders = await Shipping.aggregate([
+    const partners = await Shipping.aggregate([
       {
         $match: {
           status: "approved",
           isAvailable: true,
+          shippingType: {
+            $in: ["RIDER", "TRUCK"],
+          },
         },
       },
       {
         $addFields: {
-          randomSort: { $rand: {} }, // 🎲 random shuffle
+          randomSort: { $rand: {} },
         },
       },
       {
-        $sort: { randomSort: 1 }, // 🔀 random order
-        // NOTE: no $project => full document goes to frontend
+        $sort: {
+          randomSort: 1,
+        },
       },
       {
         $project: {
-          randomSort: 0, // internal field remove
+          randomSort: 0,
         },
       },
     ]);
-
+    console.log("partners:", partners);
     return res.status(200).json({
       success: true,
-      count: riders.length,
-      riders, // 🔥 FULL rider data
+      count: partners.length,
+      partners,
     });
   } catch (err: any) {
-    console.error("GET APPROVED RIDERS ERROR:", err);
+    console.error("GET APPROVED SHIPPING PARTNERS ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Server error",

@@ -4,6 +4,10 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import cron from "node-cron";
+
+import { runCleanupJob } from "./jobs/cronMediaCleanup";
+import { logger } from "./utils/tizzyos/seller/logger";
 
 // 🔥 IMPORT WEBHOOK FIRST
 import webhookRoutes from "./routes/tizzygo/buynow/webhookRoutes";
@@ -29,7 +33,6 @@ import liveTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackin
 import orderfetchRoutes from "./routes/tizzyos/shipping/orders/orderRoutes";
 import yourorderRoutes from "./routes/tizzygo/orders/yourOrderRoutes";
 import UserLocation from "./routes/tizzygo/locations/locationsRoutes";
-import deliveryTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
 
 // TizzyOS Imports (If any) here
 import userRoutes from "./routes/tizzyos/user/meRoutes";
@@ -44,13 +47,20 @@ import category from "./routes/tizzyos/category";
 import uploadRoutes from "./routes/tizzyos/seller/AddProducts/uploadRoutes";
 import deleteProduct from "./routes/tizzyos/Products/ProductRoutes";
 import themesRoutes from "./routes/tizzyos/theme/theme";
-import ordersRoutes from "./routes/tizzyos/seller/Order/orderRoutes";
+import ordersRoutes from "./routes/tizzyos/shipping/orders/orderRoutes";
 import shipregisterRoutes from "./routes/tizzyos/shipping/fws/fwsRegisterRoutes";
 import onlineRoutes from "./routes/tizzyos/shipping/fws/fwsRiderOnlineRoutes";
 import riderIdRoutes from "./routes/tizzyos/shipping/fws/fwsSearchRiderIdRoutes";
 import getRiderLocationRoutes from "./routes/tizzyos/shipping/fws/fwsRiderLocationRoutes";
 // import sellerPaymentRoutes from "./routes/tizzyos/seller/PayOut/Portal/wallet";
+import deliveryTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
 import walletSetupRoutes from "./routes/tizzyos/seller/PayOut/walletSetupRoutes";
+import sellerLocation from "./routes/tizzyos/seller/locations/locationsRoutes";
+import getTrackingStatusRoutes from "./routes/tizzyos/shipping/orders/trackingStatus";
+import trackOrderRoutes from "./routes/tizzyos/shipping/orders/trackOrderRoutes";
+import fwsApplicationRoutes from "./routes/tizzyos/fws/fwsApplicationRoutes";
+import fwsemployeeRoutes from "./routes/tizzyos/fws/employeeRoutes";
+import deliverWithOTPRoutes from "./routes/tizzyos/shipping/orders/deliverdWithOTPRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -98,7 +108,6 @@ app.use("/api/orders/tracking", liveTrackingRoutes);
 app.use("/api/orders", orderfetchRoutes);
 app.use("/api/orders/yourorder", yourorderRoutes);
 app.use("/api/user/address", UserLocation);
-app.use("/api/delivery/tracking", deliveryTrackingRoutes);
 
 // TizzyOS Routes
 app.use("/api/user", userRoutes);
@@ -118,8 +127,51 @@ app.use("/api/shipping", shipregisterRoutes);
 app.use("/api", onlineRoutes);
 app.use("/api", riderIdRoutes);
 app.use("/api/track", getRiderLocationRoutes);
+app.use("/api/tracking", getTrackingStatusRoutes);
 // app.use("/api/payout-portal/wallet", sellerPaymentRoutes);
+app.use("/api/delivery/tracking", deliveryTrackingRoutes);
 app.use("/api/payout-portal/wallet-setup", walletSetupRoutes);
+app.use("/api/user/address", sellerLocation);
+app.use("/api/find", trackOrderRoutes);
+app.use("/api/fws/warehouse", fwsApplicationRoutes);
+app.use("/api/fws/employee", fwsemployeeRoutes);
+app.use("/api/buyer/order", deliverWithOTPRoutes);
+
+/* =========================================================
+   🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)
+   ========================================================= */
+cron.schedule(
+  "0 0 * * *", // ✅ RAAT 12:00 AM - Midnight
+  async () => {
+    try {
+      logger.info("🌙 Mumbai midnight cleanup job starting...");
+      const startTime = Date.now();
+
+      await runCleanupJob();
+
+      const duration = Date.now() - startTime;
+      logger.info(`✅ Mumbai midnight cleanup completed in ${duration}ms`);
+    } catch (error) {
+      logger.error("❌ Mumbai midnight cleanup job failed:", error);
+    }
+  },
+  {
+    timezone: "Asia/Kolkata", // ✅ Mumbai aur Kolkata dono ka same timezone
+  },
+);
+
+logger.info(
+  "⏰ Media cleanup scheduled: Every day at 12:00 AM Mumbai Time (IST)",
+);
+
+/* =========================================================
+   RUN ON STARTUP (Optional - sirf testing ke liye)
+   ========================================================= */
+// if (process.env.NODE_ENV === "development") {
+//   setTimeout(() => {
+//     runCleanupJob().catch(logger.error);
+//   }, 5000);
+// }
 
 /* =========================================================
    HEALTH + FALLBACK

@@ -6,6 +6,8 @@ export interface ICart extends Document {
   quantity: number;
   productData: {
     productDataId: string;
+    // 🏭 Fulfillment (SELLER + FWS FLOW FIXED)
+    fulfillmentType: "SELLER" | "FWS";
     vendorCodeUID: string;
     sellerId: mongoose.Types.ObjectId;
   };
@@ -98,6 +100,12 @@ const cartItemSchema = new Schema<ICart>(
     },
     productData: {
       productDataId: { type: String, required: true },
+      // 🏭 Fulfillment FIXED
+      fulfillmentType: {
+        type: String,
+        enum: ["SELLER", "FWS"],
+        required: true,
+      },
       vendorCodeUID: { type: String, required: true },
       sellerId: {
         type: Schema.Types.ObjectId,

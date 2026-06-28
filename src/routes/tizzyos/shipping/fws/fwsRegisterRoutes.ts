@@ -3,9 +3,9 @@ import {
   registerShipping,
   getPendingShipping,
   updateShippingStatus,
-  getShippingById,
+  getMyShipping,
   checkShippingForm,
-  getApprovedShippingRiders,
+  getApprovedShippingPartners,
   setRiderOnlineOffline,
 } from "../../../../controller/tizzyos/shipping/fws/fwsRegisterController";
 import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
@@ -16,13 +16,13 @@ const router = express.Router();
 router.post("/register", authMiddleware, registerShipping);
 
 // Get all approved riders (random order)
-router.get("/available-shipping", getApprovedShippingRiders);
+router.get("/available-shipping", getApprovedShippingPartners);
 
 // Set rider online/offline (private)
 router.post("/shipping/online-offline", authMiddleware, setRiderOnlineOffline);
 
 // Get shipping by ID (private)
-router.get("/:shippingId", authMiddleware, getShippingById);
+router.get("/", authMiddleware, getMyShipping);
 
 // 🔐 Private – token required
 router.get("/form/check", authMiddleware, checkShippingForm);

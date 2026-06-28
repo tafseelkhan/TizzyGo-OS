@@ -347,7 +347,7 @@ export const findOrCreateCartItem = async ({
     inStock: variant.inStock !== false,
     quantityAvailable: variant.quantityAvailable || 0,
     sku: variant.sku,
-
+    fulfillmentType: product.fulfillmentType || "SELLER", // ⭐ YAHAN BHI ADD KARO (OPTIONAL)
     // Media
     images: variant.images || [],
     video: variant.video || null,

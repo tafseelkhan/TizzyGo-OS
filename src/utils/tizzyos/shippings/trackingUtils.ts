@@ -23,6 +23,15 @@ export const addTrackingHistory = (
     note?: string;
     fromLocation?: any;
     toLocation?: any;
+    scanInfo?: {
+      // ← YEH ADD KARO
+      scannedByUserId: string;
+      scanType: string;
+      scannedByName?: string;
+      scannedByType: string;
+      scannedAt: Date;
+    };
+    fwsProcessingStage?: string; // ← YEH ADD KARO
   },
 ) => {
   return [

@@ -5,7 +5,7 @@ export interface AuthRequest extends Request {
   user?: {
     _id: string;
     userId: string;
-    role: string;
+    roles?: string;
     email?: string;
   };
 }
@@ -26,7 +26,7 @@ export interface AssignRiderDTO {
 export interface AssignTruckDTO {
   orderId: string;
   truckId: string;
-  fwsId: string;
+  fwsCode: string;
 }
 
 export interface QRVerificationDTO {
@@ -51,4 +51,67 @@ export interface TrackingEventDTO {
   note?: string;
   fromLocation?: any;
   toLocation?: any;
+}
+
+// src/modules/tracking/tracking.types.ts
+
+export type HolderType = "SELLER" | "RIDER" | "TRUCK" | "FWS" | "BUYER";
+
+export interface ICoordinates {
+  latitude: number;
+  longitude: number;
+  address?: string;
+}
+
+export interface IDeliveryTracking {
+  orderId: string;
+  currentHolderType: HolderType;
+  currentHolderId: string;
+  currentLocation: ICoordinates & { updatedAt: Date };
+  handoverHistory?: Array<{
+    fromHolderType: HolderType;
+    fromHolderId: string;
+    toHolderType: HolderType;
+    toHolderId: string;
+    timestamp: Date;
+    location?: ICoordinates;
+  }>;
+  status: "pending" | "in_transit" | "delivered" | "cancelled";
+}
+
+export interface IProximityCheckResponse {
+  success: boolean;
+  withinRange: boolean;
+  distanceMeters: number;
+  maxDistanceMeters: number;
+  currentHolderType: HolderType;
+  currentHolderId: string;
+  targetHolderType: HolderType;
+  targetHolderId: string;
+  currentLocation: ICoordinates;
+  targetLocation: ICoordinates;
+  message?: string;
+}
+
+export interface ILiveTrackingResponse {
+  success: boolean;
+  data: {
+    orderId: string;
+    currentStatus: string;
+    currentHolderType: HolderType;
+    currentHolderName: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    updatedAt: Date;
+    estimatedDelivery?: Date;
+  } | null;
+  message?: string;
+}
+
+export interface IHolderInfo {
+  id: string;
+  name: string;
+  location: ICoordinates;
+  type: HolderType;
 }

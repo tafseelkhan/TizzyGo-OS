@@ -1,118 +1,137 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface ISellerApplication extends Document {
-  uniqOsId: string;
-  userId: string; // ✅ FIXED: string instead of ObjectId
-  modelType: 'seller';
+  uniqOsId?: string;
+
+  userId: Types.ObjectId;
+
   fullName: string;
   email: string;
   phone: string;
-  address: {
-    full: string;
-    pincode: string;
-    city: string;
-    state: string;
-    country: string;
-  };
+
+  address: string;
+  pincode: string;
+
+  shopName: string;
+  category: string;
+  gstNumber?: string;
+
   documents: {
     type: string;
-    pages: {
-      url: string;
-      side?: 'front' | 'back';
-      ocrData?: Record<string, any>;
-    }[];
-  }[];
-  business: {
-    name: string;
-    gst?: string;
-    category?: string;
-  };
-  optionalDocs?: {
-    name: string;
     url: string;
   }[];
-  status: 'pending' | 'approved' | 'rejected';
-  approvedDocument?: 'aadhaar' | 'pan';
-  ocrExtractedText?: string;
+
+  status: "pending" | "approved" | "rejected";
+
+  rejectionReason?: string;
+  approvedAt?: Date;
+
   createdAt: Date;
+  updatedAt: Date;
 }
 
-const SellerApplicationSchema: Schema = new Schema<ISellerApplication>({
-  uniqOsId: {
-  type: String,
-  unique: true,
-  sparse: true // ✅ this is the fix!
-},
+const SellerApplicationSchema = new Schema<ISellerApplication>(
+  {
+    uniqOsId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
 
-  userId: {
-    type: String,
-    required: true, // ✅ Removed `ref` to avoid confusion with ObjectId
-  },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+      index: true,
+    },
 
-  modelType: {
-    type: String,
-    enum: ['seller'],
-    default: 'seller',
-  },
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-  fullName: { type: String, required: true },
-  email: { type: String, required: true },
-  phone: { type: String, required: true },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
 
-  address: {
-    full: { type: String, required: true },
-    pincode: { type: String, required: true },
-    city: { type: String, required: true },
-    state: { type: String, required: true },
-    country: { type: String, required: true },
-  },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-  documents: [
-    {
-      type: { type: String, required: true },
-      pages: [
-        {
-          url: { type: String, required: true },
-          side: { type: String, enum: ['front', 'back'] },
-          ocrData: { type: Schema.Types.Mixed },
+    address: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    pincode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    shopName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    gstNumber: {
+      type: String,
+      trim: true,
+    },
+
+    documents: [
+      {
+        type: {
+          type: String,
+          required: true,
         },
-      ],
+
+        url: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
+
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
     },
-  ],
 
-  business: {
-    name: { type: String, required: true },
-    gst: { type: String },
-    category: { type: String, required: true },
-  },
-
-  optionalDocs: [
-    {
-      name: { type: String },
-      url: { type: String },
+    rejectionReason: {
+      type: String,
+      default: null,
     },
-  ],
 
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
   },
-
-  approvedDocument: {
-    type: String,
-    enum: ['aadhaar', 'pan'],
+  {
+    timestamps: true,
   },
-
-  ocrExtractedText: {
-    type: String,
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+);
 
 export default mongoose.models.SellerApplication ||
-  mongoose.model<ISellerApplication>('SellerApplication', SellerApplicationSchema);
+  mongoose.model<ISellerApplication>(
+    "SellerApplication",
+    SellerApplicationSchema,
+  );

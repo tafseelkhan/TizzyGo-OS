@@ -355,6 +355,11 @@ ProductSchema.index({ "variants.variantId": 1 });
 ProductSchema.index({ category: 1, subcategory: 1 });
 ProductSchema.index({ sellerId: 1, "variants.inStock": 1 });
 
+// Product collection indexes
+ProductSchema.index({ "variants.images": 1 });
+ProductSchema.index({ "variants.video": 1 });
+ProductSchema.index({ "variants.images": 1, "variants.video": 1 });
+
 // Virtual for default variant
 ProductSchema.virtual("defaultVariant").get(function (this: IProduct) {
   return this.variants.find((v) => v.isDefault) || this.variants[0];

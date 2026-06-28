@@ -1,17 +1,19 @@
-// routes/tracking.routes.ts
+// routes/deliveryTrackingRoutes.ts
 import { Router } from "express";
 import {
-  deliverToFWS,
+  handoverViaQR,
+  intransitToFWS,
   sellerAssignShipping,
-  verifyQRAndMarkReadyForDispatch,
+  verifyQR,
   fwsAssignShipping,
   acceptAssignment,
-  updateHandover,
-  getMyAssignedOrders,
+  getRiderTruckOrders,
   getTrackingDetails,
+  getOrderQRCode,
   getSellerOrders,
   getFWSOrders,
   sellerAcceptOrder,
+  getOrderById,
 } from "../../../../controller/tizzyos/shipping/orders/deliveryTrackingController";
 import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
 
@@ -36,27 +38,27 @@ router.post(
   authMiddleware,
   (req, res, next) => {
     // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-    return (deliverToFWS as any)(req, res, next);
+    return (intransitToFWS as any)(req, res, next);
   },
 );
 
 // Seller assigns shipping partner (RIDER/TRUCK) - Auto or Manual
 // Wrap sellerAssignShipping to avoid Express/AuthRequest type incompatibility
-router.post("/shipping/seller/assign", authMiddleware, (req, res, next) => {
-  // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-  return (sellerAssignShipping as any)(req, res, next);
-});
-
-// ==================== FWS FLOW ====================
-// FWS verifies QR and marks ready for dispatch
 router.post(
-  "/shipping/fws/verify-qr",
+  "/shipping/seller/assign/auto-manual",
   authMiddleware,
   (req, res, next) => {
     // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-    return (verifyQRAndMarkReadyForDispatch as any)(req, res, next);
+    return (sellerAssignShipping as any)(req, res, next);
   },
 );
+
+// ==================== FWS FLOW ====================
+// FWS verifies QR and marks ready for dispatch
+router.post("/shipping/fws/verify-qr", authMiddleware, (req, res, next) => {
+  // cast to any to satisfy overloads; authMiddleware ensures req.user exists
+  return (verifyQR as any)(req, res, next);
+});
 
 // FWS assigns shipping partner (RIDER/TRUCK) - Auto or Manual
 router.post("/shipping/fws/assign", authMiddleware, (req, res, next) => {
@@ -64,28 +66,30 @@ router.post("/shipping/fws/assign", authMiddleware, (req, res, next) => {
   return (fwsAssignShipping as any)(req, res, next);
 });
 
+// ==================== HANDOVER VIA QR CODE ====================
+// HandOver for FWS RIDER/TRUCK
+router.post("/shipping/handover/via/qr", authMiddleware, (req, res, next) => {
+  // cast to any to satisfy overloads; authMiddleware ensures req.user exists
+  return (handoverViaQR as any)(req, res, next);
+});
+
 // ==================== SHIPPING PARTNER FLOW (RIDER/TRUCK) ====================
 // Shipping partner accepts assignment (TRACKING CREATED HERE)
-router.post(
-  "/shipping/accept-assignment",
-  authMiddleware,
-  (req, res, next) => {
-    // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-    return (acceptAssignment as any)(req, res, next);
-  },
-);
-
-// Update handover status throughout journey
-router.put("/shipping/handover", authMiddleware, (req, res, next) => {
+router.post("/shipping/accept-assignment", authMiddleware, (req, res, next) => {
   // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-  return (updateHandover as any)(req, res, next);
+  return (acceptAssignment as any)(req, res, next);
+});
+
+router.get("/:orderId/qr", authMiddleware, (req, res, next) => {
+  // cast to any to satisfy overloads; authMiddleware ensures req.user exists
+  return (getOrderQRCode as any)(req, res, next);
 });
 
 // Get my assigned orders (for shipping partners)
-// Wrap getMyAssignedOrders to avoid Express/AuthRequest type incompatibility
+// Wrap getRiderTruckOrders to avoid Express/AuthRequest type incompatibility
 router.get("/shipping/my-orders", authMiddleware, (req, res, next) => {
   // cast to any to satisfy overloads; authMiddleware ensures req.user exists
-  return (getMyAssignedOrders as any)(req, res, next);
+  return (getRiderTruckOrders as any)(req, res, next);
 });
 
 // ==================== QUERY ENDPOINTS ====================
@@ -105,6 +109,12 @@ router.get("/shipping/seller/orders", authMiddleware, (req, res, next) => {
 router.get("/shipping/fws/orders", authMiddleware, (req, res, next) => {
   // cast to any to satisfy overloads; authMiddleware ensures req.user exists
   return (getFWSOrders as any)(req, res, next);
+});
+
+// Get Order By Id
+router.get("/shipping/order/:orderId", authMiddleware, (req, res, next) => {
+  // cast to any to satisfy overloads; authMiddleware ensures req.user exists
+  return (getOrderById as any)(req, res, next);
 });
 
 export default router;

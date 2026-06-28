@@ -1,7 +1,14 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 const FWSWareHouseSchema = new mongoose.Schema(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+
     // Unique FWS ID
     fwsCode: {
       type: String,
@@ -15,17 +22,6 @@ const FWSWareHouseSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-
-    employees: [
-      {
-        userId: String,
-        name: String,
-        role: {
-          type: String,
-          enum: ["MANAGER", "SUPERVISOR", "SCANNER", "PACKER", "DISPATCHER"],
-        },
-      },
-    ],
 
     city: {
       type: String,
@@ -62,11 +58,37 @@ const FWSWareHouseSchema = new mongoose.Schema(
     managerName: String,
     managerPhone: String,
 
+    employee: [
+      {
+        _id: { type: Schema.Types.ObjectId, ref: "Employee", required: true },
+      },
+    ],
+
     // Active / Closed
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE"],
       default: "ACTIVE",
+    },
+
+    // ✅ NEW FIELD: Admin Approval Status
+    approvalStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"],
+      default: "PENDING",
+      required: true,
+    },
+
+    // Admin rejection reason (optional)
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+
+    // Admin approval date
+    approvedAt: {
+      type: Date,
+      default: null,
     },
 
     // Sorting Hub / Local Hub
@@ -102,8 +124,11 @@ const FWSWareHouseSchema = new mongoose.Schema(
   },
 );
 
-// ✅ Added index for fast employee lookup
-FWSWareHouseSchema.index({ "employees.userId": 1 });
+// ✅ Index for approval status queries
+FWSWareHouseSchema.index({ approvalStatus: 1, createdAt: -1 });
+
+// ✅ Compound index for admin dashboard queries
+FWSWareHouseSchema.index({ approvalStatus: 1, fwsType: 1 });
 
 export default mongoose.models.FWSWareHouse ||
   mongoose.model("FWSWareHouse", FWSWareHouseSchema);
