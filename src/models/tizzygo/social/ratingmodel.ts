@@ -21,12 +21,10 @@ const ratingReviewSchema = new mongoose.Schema<IRatingReview>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     productId: {
       type: String,
       required: true,
-      index: true,
     },
     rating: {
       type: Number,

@@ -73,7 +73,7 @@ export const createPaymentIntentHandler = async (
           finalAmount: existingOrder.finalAmount,
           currency: "INR",
           expiresAt: existingCheckoutSession?.expiresAt,
-          vendorCodeUID: existingOrder.vendorCodeUID || null,
+          zeptPayAccountId: existingOrder.zeptPayAccountId || null,
           appName: "TizzyGo",
           payer: {
             userId: user.userId,
@@ -121,8 +121,8 @@ export const createPaymentIntentHandler = async (
       finalAmount: result.finalAmount,
       currency: "INR",
       expiresAt: result.expiresAt,
-      vendorCodeUID:
-        result.vendorCodeUID || result.productData?.vendorCodeUID || null,
+      zeptPayAccountId:
+        result.zeptPayAccountId || result.productData?.zeptPayAccountId || null,
       appName: result.productData?.appName || "TizzyGo",
       payer: {
         userId: user.userId,

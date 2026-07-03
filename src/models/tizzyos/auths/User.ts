@@ -7,7 +7,7 @@ export interface IUser extends Document {
   image?: string;
   theme: "light" | "dark" | "system";
   color?: string;
-  vendorCodeUID: string;
+  zeptPayAccountId: string;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
 }
@@ -41,7 +41,7 @@ const userSchema = new Schema<IUser>(
       enum: ["light", "dark", "system"],
       default: "system",
     },
-    vendorCodeUID: {
+    zeptPayAccountId: {
       type: String,
     },
     color: {

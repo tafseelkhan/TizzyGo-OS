@@ -83,7 +83,7 @@ export function createMinimalProductData(productData: any): any {
   return {
     productDataId: productData.productId || productData._id,
     fulfillmentType: productData.fulfillmentType || "SELLER", // ⭐ YAHAN ADD KARO
-    vendorCodeUID: productData.vendorCodeUID || "",
+    zeptPayAccountId: productData.zeptPayAccountId || "",
     sellerId: productData.sellerId || "",
     title: productData.title || "",
     category: productData.category || "",

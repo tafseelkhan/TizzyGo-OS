@@ -88,11 +88,11 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    const vendorCodeUID =
-      (user as any).vendorCodeUID ||
+    const zeptPayAccountId =
+      (user as any).zeptPayAccountId ||
       (user as any).vendorCode ||
       "DEFAULT_VENDOR";
-    console.log("✅ Vendor code from user:", vendorCodeUID);
+    console.log("✅ Vendor code from user:", zeptPayAccountId);
 
     // Get or create cart item
     const quantity = Number(qty) || 1;
@@ -107,7 +107,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     const cartItem = await findOrCreateCartItem({
       userId,
       productId,
-      vendorCodeUID,
+      zeptPayAccountId,
       sellerId,
       productDataId,
       quantity,

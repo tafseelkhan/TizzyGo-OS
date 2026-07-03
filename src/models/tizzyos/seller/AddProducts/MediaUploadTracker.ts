@@ -19,44 +19,36 @@ const MediaUploadTrackerSchema = new Schema<IMediaUploadTracker>(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     filePath: {
       type: String,
       required: true,
-      index: true,
     },
     uploadedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     status: {
       type: String,
       enum: ["PENDING", "USED", "DELETED"],
       default: "PENDING",
-      index: true,
     },
     createdAt: {
       type: Date,
       default: Date.now,
-      index: true,
     },
     lastCheckedAt: {
       type: Date,
       default: Date.now,
-      index: true,
     },
     usedInProduct: {
       type: Boolean,
       default: false,
-      index: true,
     },
     deleted: {
       type: Boolean,
       default: false,
-      index: true,
     },
     checkedCount: {
       type: Number,

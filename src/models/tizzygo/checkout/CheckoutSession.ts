@@ -51,7 +51,6 @@ const CheckoutSessionSchema: Schema<ICheckoutSession> = new Schema(
     userId: {
       type: String,
       required: true,
-      index: true,
     },
     orderId: {
       type: String,
@@ -117,9 +116,7 @@ const CheckoutSessionSchema: Schema<ICheckoutSession> = new Schema(
 );
 
 // Add indexes for better query performance
-CheckoutSessionSchema.index({ checkoutSessionId: 1 });
 CheckoutSessionSchema.index({ userId: 1, status: 1 });
-CheckoutSessionSchema.index({ paymentIntentId: 1 }, { sparse: true });
 
 export default mongoose.models.CheckoutSession ||
   mongoose.model<ICheckoutSession>("CheckoutSession", CheckoutSessionSchema);

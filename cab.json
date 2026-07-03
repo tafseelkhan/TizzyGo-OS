@@ -1,0 +1,4331 @@
+[
+    {
+        "category": "Two Wheeler",
+        "code": "twoWheeler",
+        "companies": [
+            {
+                "name": "Hero",
+                "code": "hero",
+                "models": [
+                    {
+                        "name": "Splendor Plus",
+                        "code": "splendorPlus",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Splendor iSmart",
+                        "code": "splendorIsmart",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "HF Deluxe",
+                        "code": "hfDeluxe",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "HF 100",
+                        "code": "hf100",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Glamour",
+                        "code": "glamour",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Glamour XTEC",
+                        "code": "glamourXtec",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Passion Pro",
+                        "code": "passionPro",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Passion XTEC",
+                        "code": "passionXtec",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Xtreme 125R",
+                        "code": "xtreme125r",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Xtreme 160R",
+                        "code": "xtreme160r",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Xpulse 200",
+                        "code": "xpulse200",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Xpulse 200 4V",
+                        "code": "xpulse2004v",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Karizma XMR",
+                        "code": "karizmaXmr",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Mavrick 440",
+                        "code": "mavrick440",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Harley Davidson X440",
+                        "code": "harleyDavidsonX440",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Vida V1 Pro",
+                        "code": "vidaV1Pro",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Vida V1 Plus",
+                        "code": "vidaV1Plus",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Honda",
+                "code": "honda",
+                "models": [
+                    {
+                        "name": "Activa 6G",
+                        "code": "activa6g",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Activa 125",
+                        "code": "activa125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Activa Electric",
+                        "code": "activaElectric",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Shine 100",
+                        "code": "shine100",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Shine 125",
+                        "code": "shine125",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "SP 125",
+                        "code": "sp125",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "SP 160",
+                        "code": "sp160",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Unicorn",
+                        "code": "unicorn",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 200X",
+                        "code": "cb200x",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 300F",
+                        "code": "cb300f",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 300R",
+                        "code": "cb300r",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 350",
+                        "code": "cb350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 350RS",
+                        "code": "cb350rs",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "H'ness CB 350",
+                        "code": "hnessCb350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CB 500X",
+                        "code": "cb500x",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 100,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Dio 125",
+                        "code": "dio125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CBR 250R",
+                        "code": "cbr250r",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CBR 650R",
+                        "code": "cbr650r",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "TVS",
+                "code": "tvs",
+                "models": [
+                    {
+                        "name": "Jupiter 110",
+                        "code": "jupiter110",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Jupiter 125",
+                        "code": "jupiter125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Apache RTR 160",
+                        "code": "apacheRtr160",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Apache RTR 160 4V",
+                        "code": "apacheRtr1604v",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Apache RTR 200 4V",
+                        "code": "apacheRtr2004v",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Apache RR 310",
+                        "code": "apacheRr310",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Apache RTX 300",
+                        "code": "apacheRtx300",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Ntorq 125",
+                        "code": "ntorq125",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Raider 125",
+                        "code": "raider125",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "XL100",
+                        "code": "xl100",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 40,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "iQube",
+                        "code": "iqube",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "iQube S",
+                        "code": "iqubeS",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "iQube ST",
+                        "code": "iqubeSt",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Zeppelin R",
+                        "code": "zeppelinR",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Ronin",
+                        "code": "ronin",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Bajaj",
+                "code": "bajaj",
+                "models": [
+                    {
+                        "name": "Platina 110",
+                        "code": "platina110",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CT 100",
+                        "code": "ct100",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "CT 125X",
+                        "code": "ct125x",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar 125",
+                        "code": "pulsar125",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 55,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar 150",
+                        "code": "pulsar150",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar 180",
+                        "code": "pulsar180",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar NS160",
+                        "code": "pulsarNs160",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar NS200",
+                        "code": "pulsarNs200",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar N160",
+                        "code": "pulsarN160",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar N250",
+                        "code": "pulsarN250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Pulsar N400",
+                        "code": "pulsarN400",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 100,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Dominar 250",
+                        "code": "dominar250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Dominar 400",
+                        "code": "dominar400",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 110,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Avenger 160",
+                        "code": "avenger160",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 60,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Avenger 220",
+                        "code": "avenger220",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Chetak",
+                        "code": "chetak",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Chetak Urbane",
+                        "code": "chetakUrbane",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Chetak Premium",
+                        "code": "chetakPremium",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Suzuki",
+                "code": "suzuki",
+                "models": [
+                    {
+                        "name": "Access 125",
+                        "code": "access125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Avenis 125",
+                        "code": "avenis125",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 55,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Burgman Street 125",
+                        "code": "burgmanStreet125",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Burgman Street EX",
+                        "code": "burgmanStreetEx",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Gixxer 150",
+                        "code": "gixxer150",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Gixxer SF 150",
+                        "code": "gixxerSf150",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Gixxer 250",
+                        "code": "gixxer250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Gixxer SF 250",
+                        "code": "gixxerSf250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Hayabusa",
+                        "code": "hayabusa",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 200,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "V-Strom SX",
+                        "code": "vStromSx",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Yamaha",
+                "code": "yamaha",
+                "models": [
+                    {
+                        "name": "FZ-S FI",
+                        "code": "fzSFi",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "FZ-X",
+                        "code": "fzX",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "MT-15",
+                        "code": "mt15",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "MT-03",
+                        "code": "mt03",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 100,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "R15 V4",
+                        "code": "r15V4",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "R15M",
+                        "code": "r15m",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "R3",
+                        "code": "r3",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "R7",
+                        "code": "r7",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 150,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Aerox 155",
+                        "code": "aerox155",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Ray ZR 125",
+                        "code": "rayZr125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Fascino 125",
+                        "code": "fascino125",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Alpha",
+                        "code": "alpha",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 40,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "NMax 155",
+                        "code": "nmax155",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "YZF-R3",
+                        "code": "yzfR3",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "XSR 155",
+                        "code": "xsr155",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "XMAX 300",
+                        "code": "xmax300",
+                        "vehicleType": "Scooter",
+                        "class": "Luxury",
+                        "baseFare": 100,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Royal Enfield",
+                "code": "royalEnfield",
+                "models": [
+                    {
+                        "name": "Bullet 350",
+                        "code": "bullet350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Bullet 500",
+                        "code": "bullet500",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Classic 350",
+                        "code": "classic350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Classic 500",
+                        "code": "classic500",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Classic 650",
+                        "code": "classic650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Hunter 350",
+                        "code": "hunter350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Hunter 450",
+                        "code": "hunter450",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Meteor 350",
+                        "code": "meteor350",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Meteor 650",
+                        "code": "meteor650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Super Meteor 650",
+                        "code": "superMeteor650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 130,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Interceptor 650",
+                        "code": "interceptor650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Interceptor Bear 650",
+                        "code": "interceptorBear650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 125,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Continental GT 650",
+                        "code": "continentalGt650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Scram 411",
+                        "code": "scram411",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Scram 450",
+                        "code": "scram450",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Himalayan 411",
+                        "code": "himalayan411",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Himalayan 450",
+                        "code": "himalayan450",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Shotgun 650",
+                        "code": "shotgun650",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 130,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Guerrilla 450",
+                        "code": "guerrilla450",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "KTM",
+                "code": "ktm",
+                "models": [
+                    {
+                        "name": "Duke 125",
+                        "code": "duke125",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Duke 200",
+                        "code": "duke200",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 75,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Duke 250",
+                        "code": "duke250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Duke 390",
+                        "code": "duke390",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 110,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Duke 790",
+                        "code": "duke790",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 150,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Duke 890",
+                        "code": "duke890",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 170,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "RC 200",
+                        "code": "rc200",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "RC 390",
+                        "code": "rc390",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Adventure 250",
+                        "code": "adventure250",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Adventure 390",
+                        "code": "adventure390",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Adventure 890",
+                        "code": "adventure890",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 180,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Ola Electric",
+                "code": "olaElectric",
+                "models": [
+                    {
+                        "name": "S1 Air",
+                        "code": "s1Air",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "S1 Pro",
+                        "code": "s1Pro",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "S1 X",
+                        "code": "s1X",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 45,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "S1 X Plus",
+                        "code": "s1XPlus",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 55,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "S1 Z",
+                        "code": "s1Z",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 40,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "S1 Cyber",
+                        "code": "s1Cyber",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Ather Energy",
+                "code": "atherEnergy",
+                "models": [
+                    {
+                        "name": "450X",
+                        "code": "450x",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "450S",
+                        "code": "450s",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "450 Apex",
+                        "code": "450Apex",
+                        "vehicleType": "Scooter",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "450 Plus",
+                        "code": "450Plus",
+                        "vehicleType": "Scooter",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Revolt Motors",
+                "code": "revoltMotors",
+                "models": [
+                    {
+                        "name": "RV400",
+                        "code": "rv400",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 60,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "RV1",
+                        "code": "rv1",
+                        "vehicleType": "Bike",
+                        "class": "Economy",
+                        "baseFare": 50,
+                        "classFare": 20,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "RV1 Plus",
+                        "code": "rv1Plus",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 55,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Ultraviolette",
+                "code": "ultraviolette",
+                "models": [
+                    {
+                        "name": "F77",
+                        "code": "f77",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 100,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "F99",
+                        "code": "f99",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 150,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Tork Motors",
+                "code": "torkMotors",
+                "models": [
+                    {
+                        "name": "Kratos R",
+                        "code": "kratosR",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 65,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Kratos X",
+                        "code": "kratosX",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 70,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Emflux Motors",
+                "code": "emfluxMotors",
+                "models": [
+                    {
+                        "name": "One",
+                        "code": "one",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Two",
+                        "code": "two",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 140,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "BMW Motorrad",
+                "code": "bmwMotorrad",
+                "models": [
+                    {
+                        "name": "G 310 R",
+                        "code": "g310R",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 120,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "G 310 GS",
+                        "code": "g310Gs",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 130,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "R 1250 GS",
+                        "code": "r1250Gs",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 200,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Ducati",
+                "code": "ducati",
+                "models": [
+                    {
+                        "name": "Scrambler",
+                        "code": "scrambler",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 150,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Monster",
+                        "code": "monster",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 180,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    }
+                ]
+            },
+            {
+                "name": "Triumph",
+                "code": "triumph",
+                "models": [
+                    {
+                        "name": "Street Triple",
+                        "code": "streetTriple",
+                        "vehicleType": "Bike",
+                        "class": "Luxury",
+                        "baseFare": 160,
+                        "classFare": 100,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Speed 400",
+                        "code": "speed400",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 80,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    },
+                    {
+                        "name": "Scrambler 400X",
+                        "code": "scrambler400x",
+                        "vehicleType": "Bike",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "category": "Three Wheeler",
+        "code": "threeWheeler",
+        "companies": [
+            {
+                "name": "Bajaj",
+                "code": "bajaj",
+                "models": [
+                    {
+                        "name": "RE Compact",
+                        "code": "reCompact",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "RE Maxima",
+                        "code": "reMaxima",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "RE 4S",
+                        "code": "re4s",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "RE CNG",
+                        "code": "reCng",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "RE EV",
+                        "code": "reEv",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "WEGO P50",
+                        "code": "wegoP50",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "WEGO P70",
+                        "code": "wegoP70",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "WEGO P90",
+                        "code": "wegoP90",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "WEGO P9018",
+                        "code": "wegoP9018",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "WEGO P9020",
+                        "code": "wegoP9020",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 95,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Piaggio",
+                "code": "piaggio",
+                "models": [
+                    {
+                        "name": "Ape City",
+                        "code": "apeCity",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Ape Xtra",
+                        "code": "apeXtra",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Ape Auto",
+                        "code": "apeAuto",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Ape Electric",
+                        "code": "apeElectric",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Ape CNG",
+                        "code": "apeCng",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Ape City LPG",
+                        "code": "apeCityLpg",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Apé 2",
+                        "code": "ape2",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Apé 3",
+                        "code": "ape3",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Portofino",
+                        "code": "portofino",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    }
+                ]
+            },
+            {
+                "name": "Mahindra",
+                "code": "mahindra",
+                "models": [
+                    {
+                        "name": "Alfa",
+                        "code": "alfa",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Alfa Prime",
+                        "code": "alfaPrime",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Alfa CNG",
+                        "code": "alfaCng",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Alfa EV",
+                        "code": "alfaEv",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Treo",
+                        "code": "treo",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Treo Zor",
+                        "code": "treoZor",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Treo Plus",
+                        "code": "treoPlus",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 90,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Treo Yaari",
+                        "code": "treoYaari",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    }
+                ]
+            },
+            {
+                "name": "Kinetic",
+                "code": "kinetic",
+                "models": [
+                    {
+                        "name": "Safar",
+                        "code": "safar",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Safar CNG",
+                        "code": "safarCng",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Safar EV",
+                        "code": "safarEv",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "Green",
+                        "code": "green",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    }
+                ]
+            },
+            {
+                "name": "Altius",
+                "code": "altius",
+                "models": [
+                    {
+                        "name": "E-3",
+                        "code": "e3",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "E-4",
+                        "code": "e4",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "E-6",
+                        "code": "e6",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 100,
+                        "classFare": 80,
+                        "maxPassengers": 6
+                    }
+                ]
+            },
+            {
+                "name": "Gayam",
+                "code": "gayam",
+                "models": [
+                    {
+                        "name": "E-Rickshaw",
+                        "code": "eRickshaw",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "E-Rickshaw Plus",
+                        "code": "eRickshawPlus",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    }
+                ]
+            },
+            {
+                "name": "Saarthi",
+                "code": "saarthi",
+                "models": [
+                    {
+                        "name": "SPD 205",
+                        "code": "spd205",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "SPD 210",
+                        "code": "spd210",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Terra Motors",
+                "code": "terraMotors",
+                "models": [
+                    {
+                        "name": "E3",
+                        "code": "e3",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "E4",
+                        "code": "e4",
+                        "vehicleType": "Auto",
+                        "class": "Premium",
+                        "baseFare": 85,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "JCBL",
+                "code": "jcbl",
+                "models": [
+                    {
+                        "name": "E-Rick",
+                        "code": "eRick",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 75,
+                        "classFare": 20,
+                        "maxPassengers": 3
+                    },
+                    {
+                        "name": "E-Rick Plus",
+                        "code": "eRickPlus",
+                        "vehicleType": "Auto",
+                        "class": "Economy",
+                        "baseFare": 80,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "category": "Four Wheeler",
+        "code": "fourWheeler",
+        "companies": [
+            {
+                "name": "Maruti Suzuki",
+                "code": "marutiSuzuki",
+                "models": [
+                    {
+                        "name": "Alto K10",
+                        "code": "altoK10",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Wagon R",
+                        "code": "wagonR",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Celerio",
+                        "code": "celerio",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "S-Presso",
+                        "code": "sPresso",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 85,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Ignis",
+                        "code": "ignis",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 95,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Swift",
+                        "code": "swift",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Dzire",
+                        "code": "dzire",
+                        "vehicleType": "Sedan",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Baleno",
+                        "code": "baleno",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 110,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Fronx",
+                        "code": "fronx",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Brezza",
+                        "code": "brezza",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Grand Vitara",
+                        "code": "grandVitara",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Ertiga",
+                        "code": "ertiga",
+                        "vehicleType": "MPV",
+                        "class": "Economy",
+                        "baseFare": 170,
+                        "classFare": 20,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "XL6",
+                        "code": "xl6",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 190,
+                        "classFare": 80,
+                        "maxPassengers": 6
+                    },
+                    {
+                        "name": "eVX",
+                        "code": "evx",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Hyundai",
+                "code": "hyundai",
+                "models": [
+                    {
+                        "name": "Grand i10 Nios",
+                        "code": "grandI10Nios",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 95,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "i20",
+                        "code": "i20",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 110,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Aura",
+                        "code": "aura",
+                        "vehicleType": "Sedan",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Exter",
+                        "code": "exter",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 120,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Venue",
+                        "code": "venue",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Venue N Line",
+                        "code": "venueNLine",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Creta",
+                        "code": "creta",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Creta N Line",
+                        "code": "cretaNLine",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Alcazar",
+                        "code": "alcazar",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 190,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Verna",
+                        "code": "verna",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Tucson",
+                        "code": "tucson",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Inster EV",
+                        "code": "insterEv",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Ioniq 5",
+                        "code": "ioniq5",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Ioniq 6",
+                        "code": "ioniq6",
+                        "vehicleType": "Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Tata",
+                "code": "tata",
+                "models": [
+                    {
+                        "name": "Tiago",
+                        "code": "tiago",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Tiago EV",
+                        "code": "tiagoEv",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Tigor",
+                        "code": "tigor",
+                        "vehicleType": "Sedan",
+                        "class": "Economy",
+                        "baseFare": 95,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Altroz",
+                        "code": "altroz",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 110,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Altroz Racer",
+                        "code": "altrozRacer",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 115,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Punch",
+                        "code": "punch",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 120,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Punch EV",
+                        "code": "punchEv",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 130,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Nexon",
+                        "code": "nexon",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Nexon EV",
+                        "code": "nexonEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Curvv",
+                        "code": "curvv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Curvv EV",
+                        "code": "curvvEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Harrier",
+                        "code": "harrier",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Safari",
+                        "code": "safari",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Sierra EV",
+                        "code": "sierraEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Avinya",
+                        "code": "avinya",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Mahindra",
+                "code": "mahindra",
+                "models": [
+                    {
+                        "name": "XUV 3XO",
+                        "code": "xuv3xo",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "XUV 3XO EV",
+                        "code": "xuv3xoEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Scorpio N",
+                        "code": "scorpioN",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Scorpio Classic",
+                        "code": "scorpioClassic",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "XUV700",
+                        "code": "xuv700",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "XUV 7XO",
+                        "code": "xuv7xo",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Bolero Neo",
+                        "code": "boleroNeo",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 130,
+                        "classFare": 20,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Bolero",
+                        "code": "bolero",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 120,
+                        "classFare": 20,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "XEV 9e",
+                        "code": "xev9e",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "BE 6e",
+                        "code": "be6e",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Thar",
+                        "code": "thar",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Thar Roxx",
+                        "code": "tharRoxx",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Marazzo",
+                        "code": "marazzo",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Toyota",
+                "code": "toyota",
+                "models": [
+                    {
+                        "name": "Glanza",
+                        "code": "glanza",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 110,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Urban Cruiser Hyryder",
+                        "code": "urbanCruiserHyryder",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Urban Cruiser Ebella EV",
+                        "code": "urbanCruiserEbellaEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Innova HyCross",
+                        "code": "innovaHyCross",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 220,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Fortuner",
+                        "code": "fortuner",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Rumion",
+                        "code": "rumion",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Camry",
+                        "code": "camry",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Vellfire",
+                        "code": "vellfire",
+                        "vehicleType": "MPV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Kia",
+                "code": "kia",
+                "models": [
+                    {
+                        "name": "Sonet",
+                        "code": "sonet",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Seltos",
+                        "code": "seltos",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Carens",
+                        "code": "carens",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "EV6",
+                        "code": "ev6",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "EV9",
+                        "code": "ev9",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Syros",
+                        "code": "syros",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Honda",
+                "code": "honda",
+                "models": [
+                    {
+                        "name": "Amaze",
+                        "code": "amaze",
+                        "vehicleType": "Sedan",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "City",
+                        "code": "city",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "City Hybrid",
+                        "code": "cityHybrid",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Elevate",
+                        "code": "elevate",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Elevate EV",
+                        "code": "elevateEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ZR-V",
+                        "code": "zrv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Accord",
+                        "code": "accord",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "CR-V",
+                        "code": "crv",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "MG Motor",
+                "code": "mgMotor",
+                "models": [
+                    {
+                        "name": "Comet",
+                        "code": "comet",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Astor",
+                        "code": "astor",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Windsor",
+                        "code": "windsor",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ZS EV",
+                        "code": "zsEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Hector",
+                        "code": "hector",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Gloster",
+                        "code": "gloster",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 220,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "M9",
+                        "code": "m9",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 250,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Skoda",
+                "code": "skoda",
+                "models": [
+                    {
+                        "name": "Slavia",
+                        "code": "slavia",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Kushaq",
+                        "code": "kushaq",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Kodiaq",
+                        "code": "kodiaq",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Superb",
+                        "code": "superb",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Octavia vRS",
+                        "code": "octaviaVrs",
+                        "vehicleType": "Sedan",
+                        "class": "Luxury",
+                        "baseFare": 260,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Enyaq iV",
+                        "code": "enyaqIv",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Volkswagen",
+                "code": "volkswagen",
+                "models": [
+                    {
+                        "name": "Virtus",
+                        "code": "virtus",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Taigun",
+                        "code": "taigun",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Tiguan",
+                        "code": "tiguan",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ID.3",
+                        "code": "id3",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ID.4",
+                        "code": "id4",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "BYD",
+                "code": "byd",
+                "models": [
+                    {
+                        "name": "Seagull",
+                        "code": "seagull",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Dolphin",
+                        "code": "dolphin",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Atto 3",
+                        "code": "atto3",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Seal",
+                        "code": "seal",
+                        "vehicleType": "Sedan",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Seal U",
+                        "code": "sealU",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 190,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "E6",
+                        "code": "e6",
+                        "vehicleType": "MPV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Mercedes-Benz",
+                "code": "mercedesBenz",
+                "models": [
+                    {
+                        "name": "A-Class",
+                        "code": "aClass",
+                        "vehicleType": "Hatchback",
+                        "class": "Luxury",
+                        "baseFare": 250,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "C-Class",
+                        "code": "cClass",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "E-Class",
+                        "code": "eClass",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "S-Class",
+                        "code": "sClass",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "S450e",
+                        "code": "s450e",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "GLA",
+                        "code": "gla",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 260,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "GLB",
+                        "code": "glb",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 270,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "GLC",
+                        "code": "glc",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "GLE",
+                        "code": "gle",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "GLS",
+                        "code": "gls",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "EQA",
+                        "code": "eqa",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "EQB",
+                        "code": "eqb",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "EQE",
+                        "code": "eqe",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 340,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "EQS",
+                        "code": "eqs",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 450,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "BMW",
+                "code": "bmw",
+                "models": [
+                    {
+                        "name": "2 Series",
+                        "code": "twoSeries",
+                        "vehicleType": "Sedan",
+                        "class": "Luxury",
+                        "baseFare": 250,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "3 Series",
+                        "code": "threeSeries",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "5 Series",
+                        "code": "fiveSeries",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "7 Series",
+                        "code": "sevenSeries",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "X1",
+                        "code": "x1",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 260,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "X3",
+                        "code": "x3",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "X5",
+                        "code": "x5",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "X7",
+                        "code": "x7",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "i4",
+                        "code": "i4",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "i5",
+                        "code": "i5",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 330,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "i7",
+                        "code": "i7",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 420,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "iX",
+                        "code": "ix",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "iX3",
+                        "code": "ix3",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Audi",
+                "code": "audi",
+                "models": [
+                    {
+                        "name": "A4",
+                        "code": "a4",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "A6",
+                        "code": "a6",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Q3",
+                        "code": "q3",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 260,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Q5",
+                        "code": "q5",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Q7",
+                        "code": "q7",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Q8",
+                        "code": "q8",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 380,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Q4 e-tron",
+                        "code": "q4Etron",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Q6 e-tron",
+                        "code": "q6Etron",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Q8 e-tron",
+                        "code": "q8Etron",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 360,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "A6 e-tron",
+                        "code": "a6Etron",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 330,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "E-Tron GT",
+                        "code": "eTronGt",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Lexus",
+                "code": "lexus",
+                "models": [
+                    {
+                        "name": "ES",
+                        "code": "es",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "LS",
+                        "code": "ls",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "NX",
+                        "code": "nx",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "RX",
+                        "code": "rx",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 340,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "LX",
+                        "code": "lx",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "RZ",
+                        "code": "rz",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Porsche",
+                "code": "porsche",
+                "models": [
+                    {
+                        "name": "Macan",
+                        "code": "macan",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Macan EV",
+                        "code": "macanEv",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 380,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Cayenne",
+                        "code": "cayenne",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Taycan",
+                        "code": "taycan",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Taycan Cross Turismo",
+                        "code": "taycanCrossTurismo",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 420,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Renault",
+                "code": "renault",
+                "models": [
+                    {
+                        "name": "Kwid",
+                        "code": "kwid",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 85,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Kiger",
+                        "code": "kiger",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 120,
+                        "classFare": 20,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Triber",
+                        "code": "triber",
+                        "vehicleType": "MPV",
+                        "class": "Economy",
+                        "baseFare": 170,
+                        "classFare": 20,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Nissan",
+                "code": "nissan",
+                "models": [
+                    {
+                        "name": "Magnite",
+                        "code": "magnite",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 120,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Ariya",
+                        "code": "ariya",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "X-Trail",
+                        "code": "xTrail",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Jeep",
+                "code": "jeep",
+                "models": [
+                    {
+                        "name": "Compass",
+                        "code": "compass",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Meridian",
+                        "code": "meridian",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Wrangler",
+                        "code": "wrangler",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Avenger",
+                        "code": "avenger",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Volvo",
+                "code": "volvo",
+                "models": [
+                    {
+                        "name": "S60",
+                        "code": "s60",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "S90",
+                        "code": "s90",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "XC40 Recharge",
+                        "code": "xc40Recharge",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "C40 Recharge",
+                        "code": "c40Recharge",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 310,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "XC60",
+                        "code": "xc60",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "XC90",
+                        "code": "xc90",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 370,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "EX90",
+                        "code": "ex90",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Jaguar",
+                "code": "jaguar",
+                "models": [
+                    {
+                        "name": "XE",
+                        "code": "xe",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "XF",
+                        "code": "xf",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "E-PACE",
+                        "code": "ePace",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 290,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "F-PACE",
+                        "code": "fPace",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 330,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "I-PACE",
+                        "code": "iPace",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 340,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Land Rover",
+                "code": "landRover",
+                "models": [
+                    {
+                        "name": "Evoque",
+                        "code": "evoque",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Discovery Sport",
+                        "code": "discoverySport",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Range Rover Sport",
+                        "code": "rangeRoverSport",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Range Rover Velar",
+                        "code": "rangeRoverVelar",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 380,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Range Rover",
+                        "code": "rangeRover",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 450,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Citroen",
+                "code": "citroen",
+                "models": [
+                    {
+                        "name": "C3",
+                        "code": "c3",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "e-C3",
+                        "code": "eC3",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 100,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "C3 Aircross",
+                        "code": "c3Aircross",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 130,
+                        "classFare": 20,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Basalt",
+                        "code": "basalt",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 130,
+                        "classFare": 20,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Fiat",
+                "code": "fiat",
+                "models": [
+                    {
+                        "name": "500e",
+                        "code": "500e",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "600e",
+                        "code": "600e",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 140,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Panda",
+                        "code": "panda",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 90,
+                        "classFare": 20,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Maserati",
+                "code": "maserati",
+                "models": [
+                    {
+                        "name": "Grecale",
+                        "code": "grecale",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 380,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Levante",
+                        "code": "levante",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 420,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Quattroporte",
+                        "code": "quattroporte",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Bentley",
+                "code": "bentley",
+                "models": [
+                    {
+                        "name": "Bentayga",
+                        "code": "bentayga",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 500,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Flying Spur",
+                        "code": "flyingSpur",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 480,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Continental GT",
+                        "code": "continentalGt",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 460,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Rolls-Royce",
+                "code": "rollsRoyce",
+                "models": [
+                    {
+                        "name": "Ghost",
+                        "code": "ghost",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 600,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Phantom",
+                        "code": "phantom",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 700,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Cullinan",
+                        "code": "cullinan",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 650,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Spectre",
+                        "code": "spectre",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 650,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Lamborghini",
+                "code": "lamborghini",
+                "models": [
+                    {
+                        "name": "Urus",
+                        "code": "urus",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 600,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Huracan",
+                        "code": "huracan",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 550,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    },
+                    {
+                        "name": "Revuelto",
+                        "code": "revuelto",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 650,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    }
+                ]
+            },
+            {
+                "name": "Mini",
+                "code": "mini",
+                "models": [
+                    {
+                        "name": "Cooper",
+                        "code": "cooper",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 120,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Cooper S",
+                        "code": "cooperS",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 130,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Countryman",
+                        "code": "countryman",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 160,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Aceman",
+                        "code": "aceman",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 150,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Clubman",
+                        "code": "clubman",
+                        "vehicleType": "Hatchback",
+                        "class": "Premium",
+                        "baseFare": 125,
+                        "classFare": 80,
+                        "maxPassengers": 4
+                    }
+                ]
+            },
+            {
+                "name": "Ford",
+                "code": "ford",
+                "models": [
+                    {
+                        "name": "Mustang Mach-E",
+                        "code": "mustangMachE",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 220,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Explorer",
+                        "code": "explorer",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 250,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Bronco",
+                        "code": "bronco",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 230,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Chevrolet",
+                "code": "chevrolet",
+                "models": [
+                    {
+                        "name": "Bolt EV",
+                        "code": "boltEv",
+                        "vehicleType": "Hatchback",
+                        "class": "Economy",
+                        "baseFare": 110,
+                        "classFare": 20,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Bolt EUV",
+                        "code": "boltEuv",
+                        "vehicleType": "SUV",
+                        "class": "Economy",
+                        "baseFare": 130,
+                        "classFare": 20,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Equinox EV",
+                        "code": "equinoxEv",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 170,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Tesla",
+                "code": "tesla",
+                "models": [
+                    {
+                        "name": "Model 3",
+                        "code": "model3",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Model Y",
+                        "code": "modelY",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Model S",
+                        "code": "modelS",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Model X",
+                        "code": "modelX",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 380,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    },
+                    {
+                        "name": "Cybertruck",
+                        "code": "cybertruck",
+                        "vehicleType": "SUV",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Rivian",
+                "code": "rivian",
+                "models": [
+                    {
+                        "name": "R1T",
+                        "code": "r1t",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 280,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "R1S",
+                        "code": "r1s",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 300,
+                        "classFare": 80,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Lucid",
+                "code": "lucid",
+                "models": [
+                    {
+                        "name": "Air",
+                        "code": "air",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 400,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Gravity",
+                        "code": "gravity",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 450,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "NIO",
+                "code": "nio",
+                "models": [
+                    {
+                        "name": "ET5",
+                        "code": "et5",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "ET7",
+                        "code": "et7",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 350,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "EC6",
+                        "code": "ec6",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "EC7",
+                        "code": "ec7",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 340,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ES6",
+                        "code": "es6",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 330,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "ES8",
+                        "code": "es8",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 360,
+                        "classFare": 100,
+                        "maxPassengers": 7
+                    }
+                ]
+            },
+            {
+                "name": "Xpeng",
+                "code": "xpeng",
+                "models": [
+                    {
+                        "name": "P7",
+                        "code": "p7",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "G6",
+                        "code": "g6",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "G9",
+                        "code": "g9",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Fisker",
+                "code": "fisker",
+                "models": [
+                    {
+                        "name": "Ocean",
+                        "code": "ocean",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 300,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Pear",
+                        "code": "pear",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 180,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Alaska",
+                        "code": "alaska",
+                        "vehicleType": "SUV",
+                        "class": "Premium",
+                        "baseFare": 200,
+                        "classFare": 80,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Polestar",
+                "code": "polestar",
+                "models": [
+                    {
+                        "name": "Polestar 2",
+                        "code": "polestar2",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 280,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Polestar 3",
+                        "code": "polestar3",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 320,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    },
+                    {
+                        "name": "Polestar 4",
+                        "code": "polestar4",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 340,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "Rimac",
+                "code": "rimac",
+                "models": [
+                    {
+                        "name": "Nevera",
+                        "code": "nevera",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 700,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    }
+                ]
+            },
+            {
+                "name": "Pininfarina",
+                "code": "pininfarina",
+                "models": [
+                    {
+                        "name": "Battista",
+                        "code": "battista",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 750,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    }
+                ]
+            },
+            {
+                "name": "Aston Martin",
+                "code": "astonMartin",
+                "models": [
+                    {
+                        "name": "DBX",
+                        "code": "dbx",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 500,
+                        "classFare": 100,
+                        "maxPassengers": 5
+                    }
+                ]
+            },
+            {
+                "name": "McLaren",
+                "code": "mclaren",
+                "models": [
+                    {
+                        "name": "Artura",
+                        "code": "artura",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 550,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    },
+                    {
+                        "name": "750S",
+                        "code": "750s",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 600,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    }
+                ]
+            },
+            {
+                "name": "Ferrari",
+                "code": "ferrari",
+                "models": [
+                    {
+                        "name": "Purosangue",
+                        "code": "purosangue",
+                        "vehicleType": "Luxury SUV",
+                        "class": "Luxury",
+                        "baseFare": 650,
+                        "classFare": 100,
+                        "maxPassengers": 4
+                    },
+                    {
+                        "name": "Roma",
+                        "code": "roma",
+                        "vehicleType": "Luxury Sedan",
+                        "class": "Luxury",
+                        "baseFare": 550,
+                        "classFare": 100,
+                        "maxPassengers": 2
+                    }
+                ]
+            }
+        ]
+    }
+]

@@ -138,15 +138,15 @@ export const createPaymentIntent = async ({
 
     // 🔥 FIX 4: Get seller/vendor code from SELLER (not buyer)
     const sellerId = productData?.sellerId || productData?.seller?._id;
-    let vendorCodeUID = null;
+    let zeptPayAccountId = null;
     let sellerDetails: any = null;
 
     if (sellerId) {
       sellerDetails = (await User.findById(sellerId).lean()) as any;
       if (sellerDetails) {
         // Vendor code seller se lena hai, buyer se nahi
-        vendorCodeUID = sellerDetails?.vendorCodeUID || null;
-        console.log("🔍 Vendor code from seller:", vendorCodeUID);
+        zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
+        console.log("🔍 Vendor code from seller:", zeptPayAccountId);
       }
     }
 
@@ -169,7 +169,7 @@ export const createPaymentIntent = async ({
       buyerId: userId,
       buyerName: userDetails?.name || "Customer",
       sellerId: sellerId || null,
-      vendorCodeUID: vendorCodeUID, // 🔥 Add vendor code to order
+      zeptPayAccountId: zeptPayAccountId, // 🔥 Add vendor code to order
       items: [
         {
           quantity: cartItem?.quantity || 1,
@@ -247,7 +247,7 @@ export const createPaymentIntent = async ({
             selectedVariant: cartItem?.selectedVariant || {},
             productData: {
               productDataId: productData?.productDataId || customProductId,
-              vendorCodeUID: vendorCodeUID, // 🔥 Vendor code in checkout session
+              zeptPayAccountId: zeptPayAccountId, // 🔥 Vendor code in checkout session
               sellerId: sellerId,
             },
           },
@@ -298,7 +298,7 @@ export const createPaymentIntent = async ({
       expiresAt,
       productData,
       userDetails,
-      vendorCodeUID,
+      zeptPayAccountId,
       isDuplicate: false,
     };
   } catch (error: any) {

@@ -84,11 +84,11 @@ export const processPayment = async ({
     firstItem?.calculated || cartSnapshot?.calculatedData || {};
 
   const amount = extractPaymentAmount(calculatedData);
-  const vendorCodeUID = productData?.vendorCodeUID;
+  const zeptPayAccountId = productData?.zeptPayAccountId;
   const appName = productData?.appName || "TizzyGo";
 
-  if (!vendorCodeUID) {
-    throw new Error("vendorCodeUID missing");
+  if (!zeptPayAccountId) {
+    throw new Error("zeptPayAccountId missing");
   }
 
   if (!amount || amount <= 0) {
@@ -123,7 +123,7 @@ export const processPayment = async ({
     console.log("🚀 BEFORE ZEPTPAY SDK CALL");
     console.log("========================================");
     console.log("Payment Type:", paymentType);
-    console.log("Vendor Code:", vendorCodeUID);
+    console.log("Vendor Code:", zeptPayAccountId);
     console.log("Amount:", amount);
     console.log("Currency:", "INR");
     console.log("App Name:", appName);
@@ -148,7 +148,7 @@ export const processPayment = async ({
       console.log("💳 Calling createPayment()...");
 
       zeptpayResponse = await zeptpay.flixora.payments.createPayment({
-        vendorCodeUID,
+        zeptPayAccountId,
         amount,
         currency: "INR",
         appName,
@@ -166,7 +166,7 @@ export const processPayment = async ({
       console.log("📱 Calling generateTestQR()...");
 
       zeptpayResponse = await zeptpay.flixora.qr.generateTestQR({
-        vendorCodeUID,
+        zeptPayAccountId,
         amount,
         currency: "INR",
         appName,
@@ -184,7 +184,7 @@ export const processPayment = async ({
       console.log("🔄 Calling createAutoPayTransaction()...");
 
       zeptpayResponse = await zeptpay.flixora.autopay.createAutoPayTransaction({
-        vendorCodeUID,
+        zeptPayAccountId,
         amount,
         currency: "INR",
         appName,

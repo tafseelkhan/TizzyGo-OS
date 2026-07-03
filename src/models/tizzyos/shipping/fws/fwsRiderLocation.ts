@@ -32,7 +32,6 @@ const ShippingLocationSchema = new Schema<IShippingLocation>(
     shippingId: {
       type: String,
       required: true,
-      index: true,
     },
 
     isTrackingOn: {
@@ -62,7 +61,6 @@ const ShippingLocationSchema = new Schema<IShippingLocation>(
 
 /* 🔥 INDEXES */
 ShippingLocationSchema.index({ shippingId: 1 });
-ShippingLocationSchema.index({ userId: 1 });
 ShippingLocationSchema.index({
   "location.latitude": 1,
   "location.longitude": 1,

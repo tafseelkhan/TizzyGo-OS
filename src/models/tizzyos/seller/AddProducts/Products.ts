@@ -57,7 +57,7 @@ interface IProduct extends Document {
   category: string;
   subcategory: string;
   productId: string;
-  vendorCodeUID: string; // Unique code for vendor to identify product (optional)
+  zeptPayAccountId: string; // Unique code for vendor to identify product (optional)
   sellerId: mongoose.Types.ObjectId;
 
   // Delivery/Policy (same for all variants)
@@ -122,7 +122,6 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     combinationKey: {
       type: String,
       required: true,
-      index: true,
     },
 
     // 🔥 Pricing - Variant ke andar
@@ -253,30 +252,25 @@ const ProductSchema = new Schema<IProduct>(
     title: {
       type: String,
       required: true,
-      index: true,
     },
     brand: {
       type: String,
       required: true,
-      index: true,
     },
     description: { type: String },
     category: {
       type: String,
       required: true,
-      index: true,
     },
     subcategory: {
       type: String,
       required: true,
-      index: true,
     },
     productId: {
       type: String,
       unique: true,
-      index: true,
     },
-    vendorCodeUID: {
+    zeptPayAccountId: {
       type: String,
       required: true,
     },
@@ -284,7 +278,6 @@ const ProductSchema = new Schema<IProduct>(
       type: Schema.Types.ObjectId,
       ref: "Seller",
       required: true,
-      index: true,
     },
 
     // Delivery/Policy (same for all variants)
@@ -350,8 +343,6 @@ const ProductSchema = new Schema<IProduct>(
 
 // Indexes for performance
 ProductSchema.index({ "variants.combinationKey": 1 });
-ProductSchema.index({ "variants.sku": 1 });
-ProductSchema.index({ "variants.variantId": 1 });
 ProductSchema.index({ category: 1, subcategory: 1 });
 ProductSchema.index({ sellerId: 1, "variants.inStock": 1 });
 

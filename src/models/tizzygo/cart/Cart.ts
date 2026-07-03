@@ -8,7 +8,7 @@ export interface ICart extends Document {
     productDataId: string;
     // 🏭 Fulfillment (SELLER + FWS FLOW FIXED)
     fulfillmentType: "SELLER" | "FWS";
-    vendorCodeUID: string;
+    zeptPayAccountId: string;
     sellerId: mongoose.Types.ObjectId;
   };
   selectedVariant?: any;
@@ -84,13 +84,11 @@ const cartItemSchema = new Schema<ICart>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     productId: {
       type: Schema.Types.ObjectId,
       ref: "Product",
       required: true,
-      index: true,
     },
     quantity: {
       type: Number,
@@ -106,7 +104,7 @@ const cartItemSchema = new Schema<ICart>(
         enum: ["SELLER", "FWS"],
         required: true,
       },
-      vendorCodeUID: { type: String, required: true },
+      zeptPayAccountId: { type: String, required: true },
       sellerId: {
         type: Schema.Types.ObjectId,
         ref: "User",
@@ -120,7 +118,6 @@ const cartItemSchema = new Schema<ICart>(
     couponCode: {
       type: String,
       default: null,
-      index: true,
     },
     discountApplied: {
       type: Number,

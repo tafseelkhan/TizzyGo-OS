@@ -14,7 +14,6 @@ const FWSEmployeeActivitySchema = new mongoose.Schema(
     employeeUserId: {
       type: String,
       required: true,
-      index: true,
     },
     employeeName: {
       type: String,
@@ -23,7 +22,6 @@ const FWSEmployeeActivitySchema = new mongoose.Schema(
     fwsUserId: {
       type: String,
       required: true,
-      index: true,
     },
     fwsCode: {
       type: String,
@@ -33,23 +31,19 @@ const FWSEmployeeActivitySchema = new mongoose.Schema(
       type: String,
       enum: Object.values(FWSEmployeeActivityType),
       required: true,
-      index: true,
     },
     orderId: {
       type: String,
       required: true,
-      index: true,
     },
     trackingId: {
       type: String,
       required: true,
-      index: true,
     },
     activityDate: {
       type: Date,
       required: true,
       default: Date.now,
-      index: true,
     },
   },
   {

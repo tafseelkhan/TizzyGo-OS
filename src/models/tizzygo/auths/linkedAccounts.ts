@@ -23,7 +23,6 @@ const linkedAccountSchema = new Schema<ILinkedAccount>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     accounts: [
       {
@@ -31,7 +30,6 @@ const linkedAccountSchema = new Schema<ILinkedAccount>(
           type: Schema.Types.ObjectId,
           ref: "User",
           required: true,
-          index: true,
         },
         roles: {
           type: String,

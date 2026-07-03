@@ -26,7 +26,7 @@ interface UpdateQuantityParams {
 interface FindOrCreateCartItemParams {
   userId: string;
   productId: string;
-  vendorCodeUID: string;
+  zeptPayAccountId: string;
   sellerId: string;
   productDataId: string;
   quantity: number;
@@ -250,7 +250,7 @@ export const getCartCount = async (userId: string) => {
 export const findOrCreateCartItem = async ({
   userId,
   productId,
-  vendorCodeUID,
+  zeptPayAccountId,
   sellerId,
   productDataId,
   quantity,
@@ -258,7 +258,7 @@ export const findOrCreateCartItem = async ({
   console.log("🔍 findOrCreateCartItem called:", {
     userId,
     productId,
-    vendorCodeUID,
+    zeptPayAccountId,
     sellerId,
     productDataId,
     quantity,
@@ -281,7 +281,7 @@ export const findOrCreateCartItem = async ({
   const product = await Product.findOne({
     productId: productDataId,
     sellerId,
-    vendorCodeUID,
+    zeptPayAccountId,
   });
 
   if (!product) {
@@ -306,7 +306,7 @@ export const findOrCreateCartItem = async ({
   // ✅ Create minimal productData as per schema
   const minimalProductData = {
     productDataId: product.productId || product._id,
-    vendorCodeUID: vendorCodeUID,
+    zeptPayAccountId: zeptPayAccountId,
     sellerId: new mongoose.Types.ObjectId(sellerId),
     title: product.title || "",
     category: product.category || "",

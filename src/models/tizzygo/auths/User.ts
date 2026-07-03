@@ -9,7 +9,7 @@ export interface IUser extends Document {
   theme: "light" | "dark" | "system";
   roles: "BUYER" | "SELLER" | "FWS" | "SHIPPING" | "CAB" | "RENT";
   color?: string;
-  vendorCodeUID: string;
+  zeptPayAccountId: string;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   linkedAccountGroupId?: mongoose.Types.ObjectId; // ✅ NEW: Reference to account group
@@ -49,7 +49,7 @@ const userSchema = new Schema<IUser>(
       enum: ["BUYER", "SELLER", "FWS", "SHIPPING", "CAB", "RENT"],
       default: "SELLER",
     },
-    vendorCodeUID: {
+    zeptPayAccountId: {
       type: String,
     },
     color: {

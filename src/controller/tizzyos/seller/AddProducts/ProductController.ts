@@ -65,12 +65,12 @@ export const createProduct = async (req: Request, res: Response) => {
     }
     console.log("userId:", sellerId);
 
-    const seller = await User.findById(sellerId).select("vendorCodeUID name");
+    const seller = await User.findById(sellerId).select("zeptPayAccountId name");
 
-    if (!seller?.vendorCodeUID) {
+    if (!seller?.zeptPayAccountId) {
       return res.status(400).json({
         success: false,
-        message: "vendorCodeUID missing",
+        message: "zeptPayAccountId missing",
       });
     }
 
@@ -264,7 +264,7 @@ export const createProduct = async (req: Request, res: Response) => {
     // ================= CREATE PRODUCT =================
     const product = new Product({
       sellerId: new mongoose.Types.ObjectId(sellerId),
-      vendorCodeUID: seller.vendorCodeUID,
+      zeptPayAccountId: seller.zeptPayAccountId,
       productId: generateProductId(),
 
       title: body.title,

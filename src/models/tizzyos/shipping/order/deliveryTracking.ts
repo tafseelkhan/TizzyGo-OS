@@ -20,14 +20,12 @@ const RouteHistoryEntrySchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: false,
-      index: true,
     },
     scanFingerprint: {
       // ✅ NEW: Permanent deterministic fingerprint
       type: String,
       required: true,
       unique: false,
-      index: true,
     },
     fromHolderId: { type: String, required: true },
     fromHolderType: { type: String, required: true },
@@ -250,13 +248,11 @@ const DeliveryTrackingSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     trackingId: {
       type: String,
       unique: true,
       sparse: true,
-      index: true,
     },
 
     // ============================================================
@@ -395,7 +391,6 @@ const DeliveryTrackingSchema = new mongoose.Schema(
 // ============================================================
 
 // Primary indexes
-DeliveryTrackingSchema.index({ trackingId: 1 });
 DeliveryTrackingSchema.index({ currentHolderId: 1 });
 DeliveryTrackingSchema.index({ currentStatus: 1 });
 
