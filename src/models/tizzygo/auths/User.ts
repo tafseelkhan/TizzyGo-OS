@@ -74,11 +74,10 @@ const userSchema = new Schema<IUser>(
 );
 
 // 🧼 Clean inputs before saving
-userSchema.pre("save", function (next) {
+userSchema.pre("save", function () {
   if (this.email) this.email = this.email.toLowerCase().trim();
   if (this.phone) this.phone = this.phone.trim();
   if (this.name) this.name = this.name.trim();
-  next();
 });
 
 const User = mongoose.models.User || mongoose.model<IUser>("User", userSchema);

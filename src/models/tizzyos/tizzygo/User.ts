@@ -42,16 +42,18 @@ const tizzyGoUserSchema = new Schema<ITizzyGoUser>(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // 🧼 Clean inputs before saving
-tizzyGoUserSchema.pre("save", function (next) {
+tizzyGoUserSchema.pre("save", function (next: any) {
   if (this.email) this.email = this.email.toLowerCase().trim();
   if (this.phone) this.phone = this.phone.trim();
   if (this.name) this.name = this.name.trim();
   next();
 });
 
-const TizzyGoUser = mongoose.models.TizzyGoUser || mongoose.model<ITizzyGoUser>("TizzyGoUser", tizzyGoUserSchema);
+const TizzyGoUser =
+  mongoose.models.TizzyGoUser ||
+  mongoose.model<ITizzyGoUser>("TizzyGoUser", tizzyGoUserSchema);
 export default TizzyGoUser;

@@ -5,6 +5,7 @@ import RideDriver, {
 // Helper function to generate unique driver code
 import { customAlphabet } from "nanoid";
 import { bucket } from "../../../firebase/firebase";
+import { generateDriverCode } from "../../../utils/tizzyos/cab/idGenerator";
 
 export const uploadBase64ToFirebase = async (
   base64: string,
@@ -86,22 +87,6 @@ const REQUIRED_FIELDS = [
   "rcFront",
   "rcBack",
 ] as const;
-
-// Helper function to generate unique driver code
-const nanoid = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 10);
-
-export const generateDriverCode = async (): Promise<string> => {
-  let driverCode = `DRV-${nanoid()}`;
-
-  let exists = await RideDriver.exists({ driverCode });
-
-  while (exists) {
-    driverCode = `DRV-${nanoid()}`;
-    exists = await RideDriver.exists({ driverCode });
-  }
-
-  return driverCode;
-};
 
 export const registerRideDriver = async (req: Request, res: Response) => {
   try {

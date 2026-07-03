@@ -58,22 +58,21 @@ linkedAccountSchema.index({ "accounts.userId": 1 });
 linkedAccountSchema.index({ "accounts.userId": 1, "accounts.role": 1 });
 
 // ✅ Ensure one primary per group
-linkedAccountSchema.pre("save", function (next) {
+// ✅ Ensure one primary per group
+linkedAccountSchema.pre("save", async function () {
   const primaryCount = this.accounts.filter((a) => a.isPrimary).length;
   if (primaryCount !== 1) {
-    next(new Error("Exactly one primary account is required per group"));
+    throw new Error("Exactly one primary account is required per group");
   }
-  next();
 });
 
 // ✅ Prevent duplicate users in same group
-linkedAccountSchema.pre("save", function (next) {
+linkedAccountSchema.pre("save", async function () {
   const userIds = this.accounts.map((a) => a.userId.toString());
   const uniqueIds = new Set(userIds);
   if (userIds.length !== uniqueIds.size) {
-    next(new Error("Duplicate user accounts in the same group"));
+    throw new Error("Duplicate user accounts in the same group");
   }
-  next();
 });
 
 const LinkedAccount =

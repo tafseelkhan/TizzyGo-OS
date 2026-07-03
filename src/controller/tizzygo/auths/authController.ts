@@ -448,7 +448,7 @@ export const addLinkedAccount = async (req: Request, res: Response) => {
     }
 
     // Validate role
-    const allowedRoles = ["SELLER", "FWS", "SHIPPING"];
+    const allowedRoles = ["SELLER", "FWS", "SHIPPING", "CAB"];
     if (!allowedRoles.includes(roles)) {
       return res.status(400).json({
         msg: `Role must be one of: ${allowedRoles.join(", ")}`,

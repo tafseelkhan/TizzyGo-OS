@@ -60,6 +60,7 @@ import fwsApplicationRoutes from "./routes/tizzyos/fws/fwsApplicationRoutes";
 import fwsemployeeRoutes from "./routes/tizzyos/fws/employeeRoutes";
 import deliverWithOTPRoutes from "./routes/tizzyos/shipping/orders/deliverdWithOTPRoutes";
 import rideVehicleCategoryRoutes from "./routes/tizzyos/cab/rideVehicleCatigory";
+import rideRegisterRoutes from "./routes/tizzyos/cab/registerRideDriver";
 
 /* =========================================================
    EXPRESS APP
@@ -135,7 +136,8 @@ app.use("/api/find", trackOrderRoutes);
 app.use("/api/fws/warehouse", fwsApplicationRoutes);
 app.use("/api/fws/employee", fwsemployeeRoutes);
 app.use("/api/buyer/order", deliverWithOTPRoutes);
-app.use("/api/rides", rideVehicleCategoryRoutes);
+app.use("/api/driver", rideVehicleCategoryRoutes);
+app.use("/api/cab", rideRegisterRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)
