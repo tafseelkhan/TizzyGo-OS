@@ -1,6 +1,12 @@
+// services/tizzyos/cab/rideBookingService.ts
+
 import mongoose from "mongoose";
 import RideBooking from "../../../models/tizzyos/cab/rideBooking";
-import { generateBookingId, generateRideCode } from "../../../utils/tizzyos/cab/idGenerator";
+import RideQuote from "../../../models/tizzyos/cab/rideQuote";
+import {
+  generateBookingId,
+  generateRideCode,
+} from "../../../utils/tizzyos/cab/idGenerator";
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
@@ -8,28 +14,7 @@ import { FareCalculationService } from "../../../interfaces/route/fare/FareCalcu
 
 interface IBookingData {
   customerId: string | mongoose.Types.ObjectId;
-  pickupLocation: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    googlePlaceId: string;
-  };
-  dropLocation: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    googlePlaceId: string;
-  };
-  vehicle: {
-    categoryCode: string;
-    companyCode: string;
-    modelCode: string;
-    vehicleType: string;
-    class: string;
-    baseFare: number;
-    classFare: number;
-    maxPassengers: number;
-  };
+  quoteId: string; // Quote ID from database
   paymentMethod: "COC" | "ONLINE";
 }
 
@@ -57,6 +42,28 @@ export class RideBookingService {
     this.fareService = new FareCalculationService();
   }
 
+  // =====================================================
+  // createBooking
+  //
+  // Purpose:
+  // Creates a booking ONLY after customer presses Book.
+  // Uses quoteId to fetch route and fare data from database.
+  // Does NOT call Google Routes API again.
+  // Locks the fare at the quoted price.
+  //
+  // Called By:
+  // Customer Frontend (POST /api/ride/book)
+  //
+  // Creates Booking?
+  // YES
+  //
+  // Uses Google Routes API?
+  // NO (uses stored route data from quote)
+  //
+  // Starts Driver Dispatch?
+  // YES (calls startDispatch)
+  // =====================================================
+
   async createBooking(bookingData: IBookingData): Promise<any> {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -64,35 +71,36 @@ export class RideBookingService {
     try {
       const customerId = this.validateObjectId(bookingData.customerId);
 
-      const route = await this.routeService.getRoute({
-        origin: {
-          latitude: bookingData.pickupLocation.latitude,
-          longitude: bookingData.pickupLocation.longitude,
-          address: bookingData.pickupLocation.address,
-        },
-        destination: {
-          latitude: bookingData.dropLocation.latitude,
-          longitude: bookingData.dropLocation.longitude,
-          address: bookingData.dropLocation.address,
-        },
-        travelMode: "DRIVE",
-        routingPreference: "TRAFFIC_AWARE",
-      });
+      // Get quote from database
+      const quote = await RideQuote.findOne({
+        quoteId: bookingData.quoteId,
+        expiresAt: { $gt: new Date() },
+        isUsed: false,
+      }).session(session);
 
-      const fareComponents = this.fareService.calculateFare({
-        vehicle: bookingData.vehicle,
-        roadDistanceKm: route.roadDistanceKm,
-        trafficDurationMinutes: route.trafficDurationMinutes,
-      });
+      if (!quote) {
+        throw new Error("Invalid or expired quote. Please get a new quote.");
+      }
+
+      // Mark quote as used
+      quote.isUsed = true;
+      await quote.save({ session });
+
+      // Use route data from quote (NO Google Routes API call)
+      const route = quote.routeData;
+
+      // Use fare from quote (NO recalculation needed)
+      const fareComponents = quote.fareComponents;
+      const lockedFare = quote.totalFare;
 
       const booking = new RideBooking({
         bookingId: generateBookingId(),
         rideCode: generateRideCode(),
         customerId: customerId,
-        driverId: null,
-        vehicle: bookingData.vehicle,
-        pickup: bookingData.pickupLocation,
-        destination: bookingData.dropLocation,
+        driverId: null, // Will be assigned during dispatch
+        vehicle: quote.vehicle,
+        pickup: quote.pickup,
+        destination: quote.drop,
         paymentMethod: bookingData.paymentMethod || "COC",
         paymentStatus: "PENDING",
         status: "searching",
@@ -110,12 +118,23 @@ export class RideBookingService {
         routeSummary: route.routeSummary,
         fare: {
           baseFare: fareComponents.baseFare,
+          classFare: fareComponents.classFare,
           distanceFare: fareComponents.distanceFare,
           timeFare: fareComponents.timeFare,
-          totalFare: fareComponents.totalFare,
+          platformFees: fareComponents.platformFees,
+          serviceFare: fareComponents.serviceFare,
+          subTotal: fareComponents.subTotal,
+          gstFare: fareComponents.gstFare,
+          totalFare: lockedFare, // Locked fare from quote
+          gstPercentage: fareComponents.gstPercentage,
+          perKmRate: fareComponents.perKmRate,
+          perMinuteRate: fareComponents.perMinuteRate,
         },
+        originalFare: lockedFare,
+        quoteId: quote.quoteId,
       });
 
+      // Generate QR token (will be regenerated after driver accepts)
       const qrToken = this.qrTokenService.generateQRToken({
         bookingId: booking.bookingId,
         trackingId: "",
@@ -143,41 +162,51 @@ export class RideBookingService {
     }
   }
 
-  async refreshBookingRoute(
+  // =====================================================
+  // updateBookingForRetry
+  //
+  // Purpose:
+  // Updates booking with increased fare for retry.
+  // Continues from current batch (does NOT restart).
+  //
+  // Called By:
+  // RideDispatchService during retry
+  // =====================================================
+
+  async updateBookingForRetry(
     bookingId: string,
-    currentLocation: { latitude: number; longitude: number },
+    newFare: number,
+    incrementPercentage: number,
   ): Promise<any> {
-    const booking = await RideBooking.findOne({ bookingId });
+    const booking = await RideBooking.findOneAndUpdate(
+      { bookingId },
+      {
+        $set: {
+          "fare.totalFare": newFare,
+          retryFare: newFare,
+          lastFareIncrementPercentage: incrementPercentage,
+        },
+        $inc: { retryAttempts: 1 },
+      },
+      { returnDocument: "after", runValidators: true },
+    );
+
     if (!booking) {
-      throw new Error(`Booking not found: ${bookingId}`);
-    }
-
-    const route = await this.routeService.refreshRoute({
-      bookingId,
-      currentLocation,
-      forceRefresh: false,
-    });
-
-    if (route) {
-      booking.roadDistanceKm = route.roadDistanceKm;
-      booking.normalDurationMinutes = route.normalDurationMinutes;
-      booking.trafficDurationMinutes = route.trafficDurationMinutes;
-      booking.encodedPolyline = route.encodedPolyline;
-      booking.routeSummary = route.routeSummary;
-      booking.distance = route.roadDistanceKm;
-      booking.duration = route.trafficDurationMinutes;
-
-      booking.lastRouteRefreshAt = new Date();
-      booking.lastRouteRefreshLocation = {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-      };
-
-      await booking.save();
+      throw new Error(`Booking not found with ID: ${bookingId}`);
     }
 
     return booking;
   }
+
+  // =====================================================
+  // updateBooking
+  //
+  // Purpose:
+  // Generic booking update.
+  //
+  // Called By:
+  // Various services during ride lifecycle
+  // =====================================================
 
   async updateBooking(
     bookingId: string,
@@ -188,7 +217,7 @@ export class RideBookingService {
     const booking = await RideBooking.findOneAndUpdate(
       { bookingId },
       { $set: sanitizedData },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!booking) {
@@ -197,6 +226,16 @@ export class RideBookingService {
 
     return booking;
   }
+
+  // =====================================================
+  // getBooking
+  //
+  // Purpose:
+  // Retrieves booking by ID.
+  //
+  // Called By:
+  // Various services
+  // =====================================================
 
   async getBooking(bookingId: string): Promise<any> {
     if (!bookingId || typeof bookingId !== "string") {
@@ -211,62 +250,83 @@ export class RideBookingService {
     return booking;
   }
 
-  async getBookingsByCustomer(
-    customerId: string | mongoose.Types.ObjectId,
-  ): Promise<any[]> {
-    const validatedId = this.validateObjectId(customerId);
-    return RideBooking.find({ customerId: validatedId })
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
+  // =====================================================
+  // getBookingStatus
+  //
+  // Purpose:
+  // Returns simplified booking status for frontend.
+  // Used primarily for reconnect scenarios.
+  //
+  // Called By:
+  // Frontend (GET /api/ride/search-status/:bookingId)
+  // =====================================================
+
+  async getBookingStatus(bookingId: string): Promise<any> {
+    const booking = await this.getBooking(bookingId);
+
+    return {
+      bookingId: booking.bookingId,
+      status: booking.status,
+      currentBatch: booking.currentBatch,
+      searchRadius: booking.searchRadius,
+      searchCompleted: booking.searchCompleted,
+      driversFound: booking.driversFound || 0,
+      elapsedSeconds: booking.searchStartedAt
+        ? Math.floor(
+            (Date.now() - new Date(booking.searchStartedAt).getTime()) / 1000,
+          )
+        : 0,
+      fare: booking.fare?.totalFare || 0,
+      originalFare: booking.originalFare || booking.fare?.totalFare || 0,
+    };
   }
 
-  async getBookingsByDriver(
-    driverId: string | mongoose.Types.ObjectId,
-  ): Promise<any[]> {
-    const validatedId = this.validateObjectId(driverId);
-    return RideBooking.find({ driverId: validatedId })
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
-  }
+  // =====================================================
+  // cancelBooking
+  //
+  // Purpose:
+  // Cancels booking.
+  //
+  // Called By:
+  // Frontend, internal services
+  // =====================================================
 
-  async getBookingByRideCode(rideCode: string): Promise<any> {
-    if (!rideCode || typeof rideCode !== "string") {
-      throw new Error("Invalid ride code");
-    }
+  async cancelBooking(
+    bookingId: string,
+    reason?: string,
+    cancelledBy?: "customer" | "driver" | "system",
+  ): Promise<any> {
+    const updateData: any = {
+      status: "cancelled",
+      cancelledAt: new Date(),
+      searchCompleted: true,
+    };
 
-    const booking = await RideBooking.findOne({ rideCode }).lean();
+    if (reason) updateData.cancelReason = reason;
+    if (cancelledBy) updateData.cancelledBy = cancelledBy;
+
+    const booking = await RideBooking.findOneAndUpdate(
+      { bookingId },
+      { $set: updateData },
+      { returnDocument: "after", runValidators: true },
+    );
+
     if (!booking) {
-      throw new Error(`Booking not found with ride code: ${rideCode}`);
+      throw new Error(`Booking not found with ID: ${bookingId}`);
     }
 
     return booking;
   }
 
-  async getBookingsByStatus(status: string): Promise<any[]> {
-    const validStatuses = [
-      "searching",
-      "accepted",
-      "arrived",
-      "pickupVerified",
-      "inTransit",
-      "dropVerified",
-      "paymentPending",
-      "completed",
-      "cancelled",
-      "no_driver_found",
-    ];
-
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}`);
-    }
-
-    return RideBooking.find({ status: status as any })
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
-  }
+  // =====================================================
+  // updateBookingStatus
+  //
+  // Purpose:
+  // Updates booking status.
+  //
+  // Called By:
+  // Various services during ride lifecycle
+  // =====================================================
 
   async updateBookingStatus(bookingId: string, status: string): Promise<any> {
     const validStatuses = [
@@ -289,7 +349,7 @@ export class RideBookingService {
     const booking = await RideBooking.findOneAndUpdate(
       { bookingId },
       { $set: { status } },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!booking) {
@@ -297,125 +357,6 @@ export class RideBookingService {
     }
 
     return booking;
-  }
-
-  async verifyPickup(bookingId: string): Promise<any> {
-    const booking = await RideBooking.findOneAndUpdate(
-      { bookingId },
-      { $set: { pickupVerified: true, pickupVerifiedAt: new Date() } },
-      { new: true, runValidators: true },
-    );
-
-    if (!booking) {
-      throw new Error(`Booking not found with ID: ${bookingId}`);
-    }
-
-    return booking;
-  }
-
-  async verifyDrop(bookingId: string): Promise<any> {
-    const booking = await RideBooking.findOneAndUpdate(
-      { bookingId },
-      { $set: { dropVerified: true, dropVerifiedAt: new Date() } },
-      { new: true, runValidators: true },
-    );
-
-    if (!booking) {
-      throw new Error(`Booking not found with ID: ${bookingId}`);
-    }
-
-    return booking;
-  }
-
-  async updatePaymentStatus(
-    bookingId: string,
-    paymentStatus: string,
-  ): Promise<any> {
-    const validStatuses = ["PENDING", "COMPLETED", "FAILED"];
-    if (!validStatuses.includes(paymentStatus)) {
-      throw new Error(`Invalid payment status: ${paymentStatus}`);
-    }
-
-    const booking = await RideBooking.findOneAndUpdate(
-      { bookingId },
-      { $set: { paymentStatus } },
-      { new: true, runValidators: true },
-    );
-
-    if (!booking) {
-      throw new Error(`Booking not found with ID: ${bookingId}`);
-    }
-
-    return booking;
-  }
-
-  async cancelBooking(
-    bookingId: string,
-    reason?: string,
-    cancelledBy?: "customer" | "driver" | "system",
-  ): Promise<any> {
-    const updateData: any = {
-      status: "cancelled",
-      cancelledAt: new Date(),
-    };
-
-    if (reason) updateData.cancelReason = reason;
-    if (cancelledBy) updateData.cancelledBy = cancelledBy;
-
-    const booking = await RideBooking.findOneAndUpdate(
-      { bookingId },
-      { $set: updateData },
-      { new: true, runValidators: true },
-    );
-
-    if (!booking) {
-      throw new Error(`Booking not found with ID: ${bookingId}`);
-    }
-
-    return booking;
-  }
-
-  async searchBookings(
-    query: Record<string, any>,
-    options?: { limit?: number; skip?: number; sort?: Record<string, 1 | -1> },
-  ): Promise<any[]> {
-    const limit = options?.limit || 10;
-    const skip = options?.skip || 0;
-    const sort = options?.sort || { createdAt: -1 };
-
-    const sanitizedQuery = this.sanitizeQuery(query);
-    return RideBooking.find(sanitizedQuery)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec();
-  }
-
-  async countBookings(query: Record<string, any>): Promise<number> {
-    const sanitizedQuery = this.sanitizeQuery(query);
-    return RideBooking.countDocuments(sanitizedQuery).exec();
-  }
-
-  async getBookingCountByStatus(status: string): Promise<number> {
-    const validStatuses = [
-      "searching",
-      "accepted",
-      "arrived",
-      "pickupVerified",
-      "inTransit",
-      "dropVerified",
-      "paymentPending",
-      "completed",
-      "cancelled",
-      "no_driver_found",
-    ];
-
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}`);
-    }
-
-    return RideBooking.countDocuments({ status: status as any }).exec();
   }
 
   private validateObjectId(
@@ -440,7 +381,6 @@ export class RideBookingService {
         sanitized.customerId = this.validateObjectId(value);
       } else {
         const k = key as keyof IUpdateData;
-        // assign with proper key typing
         (sanitized as any)[k] = value;
       }
     }
@@ -448,25 +388,45 @@ export class RideBookingService {
     return sanitized;
   }
 
-  private sanitizeQuery(query: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
+  async getBookingsByCustomer(
+    customerId: string | mongoose.Types.ObjectId,
+  ): Promise<any[]> {
+    const validatedId = this.validateObjectId(customerId);
+    return RideBooking.find({ customerId: validatedId })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+  }
 
-    for (const [key, value] of Object.entries(query)) {
-      if (value === undefined || value === null) continue;
+  async getBookingsByDriver(
+    driverId: string | mongoose.Types.ObjectId,
+  ): Promise<any[]> {
+    const validatedId = this.validateObjectId(driverId);
+    return RideBooking.find({ driverId: validatedId })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+  }
 
-      if (key === "customerId" || key === "driverId") {
-        sanitized[key] = this.validateObjectId(value);
-      } else if (key === "bookingId" || key === "rideCode") {
-        if (typeof value === "string" && value.trim().length > 0) {
-          sanitized[key] = value.trim();
-        }
-      } else if (typeof value === "string") {
-        sanitized[key] = value.trim();
-      } else {
-        sanitized[key] = value;
-      }
+  async updatePaymentStatus(
+    bookingId: string,
+    paymentStatus: string,
+  ): Promise<any> {
+    const validStatuses = ["PENDING", "COMPLETED", "FAILED"];
+    if (!validStatuses.includes(paymentStatus)) {
+      throw new Error(`Invalid payment status: ${paymentStatus}`);
     }
 
-    return sanitized;
+    const booking = await RideBooking.findOneAndUpdate(
+      { bookingId },
+      { $set: { paymentStatus } },
+      { returnDocument: "after", runValidators: true },
+    );
+
+    if (!booking) {
+      throw new Error(`Booking not found with ID: ${bookingId}`);
+    }
+
+    return booking;
   }
 }

@@ -173,7 +173,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
           image: profileImageUrl,
         },
       },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     );
 
     console.log("✅ Profile updated successfully for user:", userId);

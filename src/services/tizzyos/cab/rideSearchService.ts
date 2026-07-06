@@ -17,8 +17,6 @@ interface IDriverLocation {
   location: {
     latitude: number;
     longitude: number;
-    address: string;
-    googlePlaceId: string;
   };
   heading?: number;
   speed?: number;
@@ -56,8 +54,6 @@ interface IAggregatedDriver {
   location: {
     latitude: number;
     longitude: number;
-    address: string;
-    googlePlaceId: string;
   };
   heading?: number;
   speed?: number;
@@ -461,8 +457,6 @@ export class RideSearchService {
           distance: 1,
           "location.latitude": 1,
           "location.longitude": 1,
-          "location.address": 1,
-          "location.googlePlaceId": 1,
           heading: 1,
           speed: 1,
           accuracy: 1,
@@ -522,8 +516,6 @@ export class RideSearchService {
       location: {
         latitude: location.location?.latitude || 0,
         longitude: location.location?.longitude || 0,
-        address: location.location?.address || "",
-        googlePlaceId: location.location?.googlePlaceId || "",
       },
       heading: location.heading,
       speed: location.speed,
@@ -562,8 +554,6 @@ export class RideSearchService {
       location: {
         latitude: location.location?.latitude || 0,
         longitude: location.location?.longitude || 0,
-        address: location.location?.address || "",
-        googlePlaceId: location.location?.googlePlaceId || "",
       },
       heading: location.heading,
       speed: location.speed,
@@ -622,7 +612,7 @@ export class RideSearchService {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       },
     );
@@ -640,8 +630,6 @@ export class RideSearchService {
       location: {
         latitude: location.location?.latitude || 0,
         longitude: location.location?.longitude || 0,
-        address: location.location?.address || "",
-        googlePlaceId: location.location?.googlePlaceId || "",
       },
       heading: location.heading,
       speed: location.speed,
@@ -779,8 +767,6 @@ export class RideSearchService {
       location: {
         latitude: location.location?.latitude || 0,
         longitude: location.location?.longitude || 0,
-        address: location.location?.address || "",
-        googlePlaceId: location.location?.googlePlaceId || "",
       },
       heading: location.heading,
       speed: location.speed,

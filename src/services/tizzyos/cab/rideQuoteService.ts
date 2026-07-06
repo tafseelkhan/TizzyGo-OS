@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
 import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
 import RideVehicleCategory from "../../../models/tizzyos/cab/rideVehicleCatigory";
-import RideQuote from "../../../models/tizzyos/cab/rideQuote";
 import { v4 as uuidv4 } from "uuid";
 
 interface IQuoteRequest {
@@ -37,16 +36,21 @@ interface IVehicleOption {
   polyline: string;
   eta: number;
   estimatedDriverArrival: number;
-  quoteId: string; // Now returns quoteId instead of candidateId
+  candidateId: string;
 }
 
 export class RideQuoteService {
   private readonly routeService: GoogleRoutesService;
   private readonly fareService: FareCalculationService;
+  private readonly candidateCache: Map<
+    string,
+    { driverId: string; expiresAt: Date }
+  >;
 
   constructor() {
     this.routeService = new GoogleRoutesService();
     this.fareService = new FareCalculationService();
+    this.candidateCache = new Map();
   }
 
   // =====================================================
@@ -56,7 +60,6 @@ export class RideQuoteService {
   // Returns all available vehicle options for the selected
   // pickup and drop location. Calls Google Routes API ONCE
   // and calculates fare for every vehicle type.
-  // Stores quote in database for later booking.
   //
   // Called By:
   // Customer Frontend (POST /api/ride/options)
@@ -123,51 +126,8 @@ export class RideQuoteService {
             trafficDurationMinutes: route.trafficDurationMinutes,
           });
 
-          // Generate quoteId (UUID)
-          const quoteId = uuidv4();
-
-          // Store quote in database
-          const quote = new RideQuote({
-            quoteId: quoteId,
-            pickup: quoteRequest.pickup,
-            drop: quoteRequest.drop,
-            vehicle: {
-              categoryCode: category.code,
-              companyCode: company.code,
-              modelCode: model.code,
-              vehicleType: model.vehicleType,
-              class: model.class,
-              baseFare: model.baseFare,
-              classFare: model.classFare,
-              maxPassengers: model.maxPassengers,
-            },
-            routeData: {
-              roadDistanceKm: route.roadDistanceKm,
-              normalDurationMinutes: route.normalDurationMinutes,
-              trafficDurationMinutes: route.trafficDurationMinutes,
-              encodedPolyline: route.encodedPolyline,
-              routeSummary: route.routeSummary,
-            },
-            fareComponents: {
-              baseFare: fareComponents.baseFare,
-              classFare: fareComponents.classFare,
-              distanceFare: fareComponents.distanceFare,
-              timeFare: fareComponents.timeFare,
-              platformFees: fareComponents.platformFees,
-              serviceFare: fareComponents.serviceFare,
-              subTotal: fareComponents.subTotal,
-              gstFare: fareComponents.gstFare,
-              totalFare: Math.round(fareComponents.totalFare),
-              gstPercentage: fareComponents.gstPercentage,
-              perKmRate: fareComponents.perKmRate,
-              perMinuteRate: fareComponents.perMinuteRate,
-            },
-            totalFare: Math.round(fareComponents.totalFare),
-            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-            isUsed: false,
-          });
-
-          await quote.save();
+          // Generate temporary candidate ID (not real driver)
+          const candidateId = this.generateCandidateId();
 
           options.push({
             vehicleType: model.vehicleType,
@@ -182,9 +142,9 @@ export class RideQuoteService {
             distance: route.roadDistanceKm,
             duration: route.trafficDurationMinutes,
             polyline: route.encodedPolyline,
-            eta: route.trafficDurationMinutes,
-            estimatedDriverArrival: 5,
-            quoteId: quoteId, // Return quoteId instead of candidateId
+            eta: route.trafficDurationMinutes, // ETA in minutes
+            estimatedDriverArrival: 5, // Placeholder, will be calculated during dispatch
+            candidateId: candidateId,
           });
         }
       }
@@ -194,6 +154,38 @@ export class RideQuoteService {
     options.sort((a, b) => a.estimatedFare - b.estimatedFare);
 
     return options;
+  }
+
+  // =====================================================
+  // getCachedRoute
+  //
+  // Purpose:
+  // Returns cached route data for a quote to avoid
+  // calling Google Routes API multiple times.
+  //
+  // Called By:
+  // Internally by getRideOptions
+  // =====================================================
+
+  async getCachedRoute(pickup: any, drop: any): Promise<any> {
+    const cacheKey = this.generateRouteCacheKey(pickup, drop);
+    // Implementation would use Redis or in-memory cache
+    return null;
+  }
+
+  // =====================================================
+  // generateCandidateId
+  //
+  // Purpose:
+  // Generates a temporary UUID for a vehicle option.
+  // This is NOT a real driver ID.
+  //
+  // Called By:
+  // Internally by getRideOptions
+  // =====================================================
+
+  private generateCandidateId(): string {
+    return uuidv4();
   }
 
   // =====================================================
@@ -229,19 +221,73 @@ export class RideQuoteService {
   }
 
   // =====================================================
-  // cleanupExpiredQuotes
+  // generateRouteCacheKey
   //
   // Purpose:
-  // Deletes expired quotes from database.
+  // Generates a cache key for route data.
+  //
+  // Called By:
+  // Internally by getCachedRoute
+  // =====================================================
+
+  private generateRouteCacheKey(pickup: any, drop: any): string {
+    return `${pickup.latitude},${pickup.longitude}|${drop.latitude},${drop.longitude}`;
+  }
+
+  // =====================================================
+  // storeCandidateMapping
+  //
+  // Purpose:
+  // Stores mapping from candidateId to real driverId
+  // after booking is created.
+  //
+  // Called By:
+  // RideBookingService during booking creation
+  // =====================================================
+
+  storeCandidateMapping(candidateId: string, driverId: string): void {
+    this.candidateCache.set(candidateId, {
+      driverId,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+    });
+  }
+
+  // =====================================================
+  // getCandidateMapping
+  //
+  // Purpose:
+  // Retrieves driverId from candidateId.
+  //
+  // Called By:
+  // Internally during booking creation
+  // =====================================================
+
+  getCandidateMapping(candidateId: string): string | null {
+    const mapping = this.candidateCache.get(candidateId);
+    if (!mapping) return null;
+    if (mapping.expiresAt < new Date()) {
+      this.candidateCache.delete(candidateId);
+      return null;
+    }
+    return mapping.driverId;
+  }
+
+  // =====================================================
+  // clearExpiredCandidates
+  //
+  // Purpose:
+  // Clears expired candidate mappings.
   //
   // Called By:
   // Background cleanup job
   // =====================================================
 
-  async cleanupExpiredQuotes(): Promise<number> {
-    const result = await RideQuote.deleteMany({
-      expiresAt: { $lt: new Date() },
-    });
-    return result.deletedCount || 0;
+  clearExpiredCandidates(): void {
+    const now = new Date();
+    for (const [key, value] of this.candidateCache) {
+      if (value.expiresAt < now) {
+        this.candidateCache.delete(key);
+      }
+    }
   }
 }

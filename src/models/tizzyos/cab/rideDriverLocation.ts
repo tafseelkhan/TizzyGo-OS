@@ -8,8 +8,6 @@ export interface IRideDriverLocation extends Document {
     coordinates: [number, number];
     latitude: number;
     longitude: number;
-    address: string;
-    googlePlaceId: string;
   };
   driverCode: string;
   heading?: number;
@@ -55,14 +53,6 @@ const RideDriverLocationSchema = new Schema<IRideDriverLocation>(
       },
       longitude: {
         type: Number,
-        required: true,
-      },
-      address: {
-        type: String,
-        required: true,
-      },
-      googlePlaceId: {
-        type: String,
         required: true,
       },
     },

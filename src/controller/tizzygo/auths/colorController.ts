@@ -63,7 +63,7 @@ export const saveUserColor = async (req: Request, res: Response) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { color: color.toUpperCase().trim() }, // Save in uppercase
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select("-__v");
 
     console.log(
@@ -234,7 +234,7 @@ export const updateUserColor = async (req: Request, res: Response) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { color: color.toUpperCase().trim() }, // Save in uppercase
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select("-__v");
 
     console.log(

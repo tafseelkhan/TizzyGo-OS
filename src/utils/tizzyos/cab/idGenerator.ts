@@ -31,6 +31,6 @@ export function generateTransactionId(): string {
 
 export function generateDriverCode(): string {
   const timestamp = new Date().getTime().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `DRV-${timestamp}-${random}`;
 }

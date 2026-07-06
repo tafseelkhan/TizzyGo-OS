@@ -117,7 +117,7 @@ export const updateRiderById = async (req: Request, res: Response) => {
     }
 
     const updatedRider = await Rider.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
 

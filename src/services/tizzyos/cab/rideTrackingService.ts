@@ -1,3 +1,5 @@
+// services/tizzyos/cab/rideTrackingService.ts
+
 import mongoose from "mongoose";
 import RideTracking from "../../../models/tizzyos/cab/rideTracking";
 import RideBooking from "../../../models/tizzyos/cab/rideBooking";
@@ -92,7 +94,7 @@ export class RideTrackingService {
       { trackingId },
       { $set: sanitizedData },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );
@@ -636,7 +638,7 @@ export class RideTrackingService {
       { trackingId },
       { $set: updateData },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );

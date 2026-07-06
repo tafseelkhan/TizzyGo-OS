@@ -1,3 +1,5 @@
+// models/tizzyos/cab/rideBooking.ts
+
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IFare {
@@ -73,6 +75,12 @@ export interface IRideBooking extends Document {
   encodedPolyline: string;
   routeSummary: IRouteSummary;
   fare: IFare;
+  originalFare?: number; // For tracking retry increments
+  retryFare?: number; // Current fare after retry
+  lastFareIncrementPercentage?: number;
+  retryAttempts?: number;
+  driversFound?: number;
+  searchStartedAt?: Date;
   qr: {
     token: string;
     qrUrl: string;
@@ -281,6 +289,12 @@ const RideBookingSchema = new Schema<IRideBooking>(
       perKmRate: { type: Number, required: true },
       perMinuteRate: { type: Number, required: true },
     },
+    originalFare: { type: Number, required: false },
+    retryFare: { type: Number, required: false },
+    lastFareIncrementPercentage: { type: Number, required: false },
+    retryAttempts: { type: Number, default: 0 },
+    driversFound: { type: Number, default: 0 },
+    searchStartedAt: { type: Date, required: false },
     qr: {
       token: {
         type: String,

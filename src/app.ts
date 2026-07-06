@@ -61,6 +61,8 @@ import fwsemployeeRoutes from "./routes/tizzyos/fws/employeeRoutes";
 import deliverWithOTPRoutes from "./routes/tizzyos/shipping/orders/deliverdWithOTPRoutes";
 import rideVehicleCategoryRoutes from "./routes/tizzyos/cab/rideVehicleCatigory";
 import rideRegisterRoutes from "./routes/tizzyos/cab/registerRideDriver";
+import driverOnlineDriverRoutes from "./routes/tizzyos/cab/rideOnlineDriver";
+import rideLocationDriverRoutes from "./routes/tizzyos/cab/rideLocationRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -83,6 +85,28 @@ app.use(express.urlencoded({ extended: true, limit: "500mb" }));
    ========================================================= */
 
 app.use("/images", express.static(path.join(process.cwd(), "public/images")));
+
+/* =========================================================
+   ✅ ROOT ROUTE - SOCKET CONNECTION KE LIYE IMPORTANT
+   ========================================================= */
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    name: "TizzyGo API Server",
+    version: "1.0.0",
+    status: "Running",
+    socketIO: {
+      status: "Available",
+      endpoint: "/socket.io/",
+    },
+    endpoints: {
+      health: "/health",
+      api: "/api",
+      driver: "/api/available/driver",
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 /* =========================================================
    ROUTES
@@ -138,6 +162,8 @@ app.use("/api/fws/employee", fwsemployeeRoutes);
 app.use("/api/buyer/order", deliverWithOTPRoutes);
 app.use("/api/driver", rideVehicleCategoryRoutes);
 app.use("/api/cab", rideRegisterRoutes);
+app.use("/api/available", driverOnlineDriverRoutes);
+app.use("/api/update", rideLocationDriverRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)
@@ -178,7 +204,29 @@ logger.info(
 /* =========================================================
    HEALTH + FALLBACK
    ========================================================= */
-app.get("/health", (_req, res) => res.status(200).send("OK"));
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    status: "OK",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/* =========================================================
+   ❌ 404 FALLBACK - LAST MEIN HONA CHAHIYE
+   ========================================================= */
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Route not found: ${req.originalUrl}`,
+    availableRoutes: {
+      root: "/",
+      health: "/health",
+    },
+  });
+});
 
 app.use((req, res) => {
   res.status(404).json({

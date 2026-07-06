@@ -1,3 +1,5 @@
+// controllers/tizzyos/cab/rideQRCodeController.ts
+
 import { Request, Response } from "express";
 import { RideQRCodeService } from "../../../services/tizzyos/cab/rideQRCodeService";
 

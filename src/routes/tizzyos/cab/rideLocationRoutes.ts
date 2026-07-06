@@ -8,7 +8,7 @@ import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
 
 const router = Router();
 
-router.post("/locations/driver", authMiddleware, updateDriverLocation);
+router.post("/driver/locations", authMiddleware, updateDriverLocation);
 router.get("/locations/driver/:driverId", authMiddleware, getDriverLocation);
 router.get("/locations/nearby", authMiddleware, getNearbyDrivers);
 

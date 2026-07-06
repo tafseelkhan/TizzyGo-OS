@@ -12,7 +12,7 @@ const generateOTP = async (identifier: string): Promise<string> => {
     const savedOtp = await Otp.findOneAndUpdate(
       { identifier },
       { otp, expiresAt },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
     console.log("✅ OTP generated:", otp);
     console.log("🕒 Expires at:", expiresAt.toISOString());

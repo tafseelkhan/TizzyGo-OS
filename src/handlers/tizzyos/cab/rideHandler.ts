@@ -14,7 +14,16 @@ export const socketHandlers = (io: Server): void => {
   io.on("connection", (socket: Socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
-    // Authenticate user
+    // =====================================================
+    // authenticate
+    //
+    // Purpose:
+    // Authenticates the user and establishes socket connection.
+    //
+    // Called By:
+    // Customer Frontend, Driver App
+    // =====================================================
+
     socket.on(
       "authenticate",
       async (data: { userId: string; userType: "customer" | "driver" }) => {
@@ -31,8 +40,10 @@ export const socketHandlers = (io: Server): void => {
             );
           }
 
-          // Handle authentication through socket service
           socketService["handleAuthentication"](socket, data);
+          socket.emit("auth-success", {
+            message: "Authenticated successfully",
+          });
         } catch (error) {
           console.error("Authentication failed:", error);
           socket.emit("auth-error", { message: "Authentication failed" });
@@ -40,7 +51,16 @@ export const socketHandlers = (io: Server): void => {
       },
     );
 
-    // Driver location update
+    // =====================================================
+    // driver-location-update
+    //
+    // Purpose:
+    // Updates driver's real-time location.
+    //
+    // Called By:
+    // Driver App
+    // =====================================================
+
     socket.on("driver-location-update", async (data) => {
       try {
         const userId = socketService["socketRooms"].get(socket.id);
@@ -50,13 +70,25 @@ export const socketHandlers = (io: Server): void => {
         }
 
         await locationService.updateDriverLocation({ ...data, userId });
+
+        // Broadcast to customers tracking this driver
+        // Implementation depends on tracking service
       } catch (error) {
         console.error("Driver location update failed:", error);
         socket.emit("error", { message: "Failed to update location" });
       }
     });
 
-    // Driver status update
+    // =====================================================
+    // driver-status-update
+    //
+    // Purpose:
+    // Updates driver's online/available status.
+    //
+    // Called By:
+    // Driver App
+    // =====================================================
+
     socket.on("driver-status-update", async (data) => {
       try {
         const userId = socketService["socketRooms"].get(socket.id);
@@ -72,13 +104,27 @@ export const socketHandlers = (io: Server): void => {
           { isAvailable: data.isAvailable, lastSeen: new Date() },
           { upsert: true, new: true },
         );
+
+        socket.emit("status-updated", {
+          isAvailable: data.isAvailable,
+          message: "Status updated successfully",
+        });
       } catch (error) {
         console.error("Driver status update failed:", error);
         socket.emit("error", { message: "Failed to update status" });
       }
     });
 
-    // Customer location update
+    // =====================================================
+    // customer-location-update
+    //
+    // Purpose:
+    // Updates customer's real-time location.
+    //
+    // Called By:
+    // Customer Frontend
+    // =====================================================
+
     socket.on("customer-location-update", async (data) => {
       try {
         const userId = socketService["socketRooms"].get(socket.id);
@@ -86,6 +132,7 @@ export const socketHandlers = (io: Server): void => {
           socket.emit("error", { message: "Not authenticated" });
           return;
         }
+        // Store customer location for pickup estimation
         console.log(`Customer location update: ${userId}`, data);
       } catch (error) {
         console.error("Customer location update failed:", error);
@@ -93,7 +140,16 @@ export const socketHandlers = (io: Server): void => {
       }
     });
 
-    // Driver response (accept/reject)
+    // =====================================================
+    // driver-response
+    //
+    // Purpose:
+    // Handles driver accept/reject response.
+    //
+    // Called By:
+    // Driver App
+    // =====================================================
+
     socket.on(
       "driver-response",
       async (data: { requestId: string; action: "accept" | "reject" }) => {
@@ -132,11 +188,19 @@ export const socketHandlers = (io: Server): void => {
               request.bookingId,
               data.requestId,
             );
+            socket.emit("response-processed", {
+              action: "accept",
+              message: "Ride accepted successfully",
+            });
           } else if (data.action === "reject") {
             await dispatchService.handleDriverReject(
               request.bookingId,
               data.requestId,
             );
+            socket.emit("response-processed", {
+              action: "reject",
+              message: "Ride rejected successfully",
+            });
           }
         } catch (error) {
           console.error("Driver response failed:", error);
@@ -145,7 +209,16 @@ export const socketHandlers = (io: Server): void => {
       },
     );
 
-    // Disconnect
+    // =====================================================
+    // disconnect
+    //
+    // Purpose:
+    // Handles socket disconnection.
+    //
+    // Called By:
+    // Socket.IO automatically
+    // =====================================================
+
     socket.on("disconnect", async () => {
       const userId = socketService["socketRooms"].get(socket.id);
       if (userId) {

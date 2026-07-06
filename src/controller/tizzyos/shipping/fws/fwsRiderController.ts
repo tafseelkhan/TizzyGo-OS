@@ -585,7 +585,7 @@ async function updateRiderOrderStats(
     { _id: riderObjectId },
     updateOps,
     {
-      new: true,
+      returnDocument: 'after',
       session,
       runValidators: true,
     },
@@ -955,7 +955,7 @@ export const riderAcceptOrder = async (req: Request, res: Response) => {
             updatedAt: new Date(),
           },
         },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
 
       if (!updatedOrder) {
@@ -1089,7 +1089,7 @@ export const riderConfirmPickup = async (req: Request, res: Response) => {
             updatedAt: new Date(),
           },
         },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
 
       if (!updatedOrder) {

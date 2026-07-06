@@ -2887,7 +2887,7 @@ export class TrackingService {
             },
           },
         },
-        { session, new: true, runValidators: true },
+        { session, returnDocument: 'after', runValidators: true },
       );
 
       if (!updatedTracking) {

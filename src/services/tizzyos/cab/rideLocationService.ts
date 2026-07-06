@@ -10,8 +10,6 @@ interface IDriverLocationData {
   isTrackingOn: boolean;
   latitude: number;
   longitude: number;
-  address: string;
-  googlePlaceId: string;
   heading?: number;
   speed?: number;
   accuracy?: number;
@@ -28,8 +26,6 @@ interface ILocationPoint {
   coordinates: [number, number];
   latitude: number;
   longitude: number;
-  address: string;
-  googlePlaceId: string;
 }
 
 interface INearbyDriver {
@@ -39,7 +35,6 @@ interface INearbyDriver {
   location: {
     latitude: number;
     longitude: number;
-    address: string;
   };
   heading?: number;
   speed?: number;
@@ -48,8 +43,6 @@ interface INearbyDriver {
 interface ITrackingUpdate {
   latitude: number;
   longitude: number;
-  address: string;
-  googlePlaceId: string;
   heading?: number;
   speed?: number;
   accuracy?: number;
@@ -93,8 +86,6 @@ export class RideLocationService {
         coordinates: [data.longitude, data.latitude],
         latitude: data.latitude,
         longitude: data.longitude,
-        address: data.address || "",
-        googlePlaceId: data.googlePlaceId || "",
       };
 
       const location = await RideDriverLocation.findOneAndUpdate(
@@ -122,7 +113,7 @@ export class RideLocationService {
         },
         {
           upsert: true,
-          new: true,
+          returnDocument: 'after',
           session,
           runValidators: true,
         },
@@ -132,21 +123,17 @@ export class RideLocationService {
         throw new Error("Failed to update driver location");
       }
 
-      await RideDriverStatus.findOneAndUpdate(
-        { userId: validatedUserId },
-        {
-          $set: {
-            lastSeen: new Date(),
-            isOnline: true,
-          },
-        },
-        {
-          session,
-          upsert: true,
-          runValidators: true,
-        },
-      );
+      // ✅ 2. Check karo ki user online hai ya nahi (SIRF CHECK - UPDATE NAHI)
+      const driverStatus = await RideDriverStatus.findOne({
+        userId: validatedUserId,
+        isOnline: true,
+      }).session(session);
 
+      // ✅ 3. Agar online hai toh broadcast karo, nahi toh skip
+      if (driverStatus) {
+        await this.broadcastDriverLocationToCustomers(validatedUserId, data);
+      }
+      
       await session.commitTransaction();
 
       this.locationCache.set(validatedUserId.toString(), {
@@ -227,8 +214,6 @@ export class RideLocationService {
       const trackingUpdate: ITrackingUpdate = {
         latitude: data.latitude,
         longitude: data.longitude,
-        address: data.address,
-        googlePlaceId: data.googlePlaceId,
         heading: data.heading,
         speed: data.speed,
         accuracy: data.accuracy,
@@ -244,8 +229,6 @@ export class RideLocationService {
               coordinates: [data.longitude, data.latitude],
               latitude: data.latitude,
               longitude: data.longitude,
-              address: data.address,
-              googlePlaceId: data.googlePlaceId,
             },
             heading: data.heading,
             speed: data.speed,
@@ -255,7 +238,7 @@ export class RideLocationService {
           },
         },
         {
-          new: true,
+          returnDocument: 'after',
           runValidators: true,
         },
       );
@@ -278,8 +261,6 @@ export class RideLocationService {
               coordinates: [data.longitude, data.latitude],
               latitude: data.latitude,
               longitude: data.longitude,
-              address: data.address,
-              googlePlaceId: data.googlePlaceId,
             },
             rideStatus: "inTransit",
             lastLocationUpdate: new Date(),
@@ -516,7 +497,7 @@ export class RideLocationService {
         },
       },
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       },
     );
