@@ -27,7 +27,7 @@ interface IVehicleOption {
   categoryCode: string;
   companyCode: string;
   modelCode: string;
-  class: string;
+  vehicleClass: string;
   baseFare: number;
   classFare: number;
   maxPassengers: number;
@@ -114,7 +114,7 @@ export class RideQuoteService {
               companyCode: company.code,
               modelCode: model.code,
               vehicleType: model.vehicleType,
-              class: model.class,
+              vehicleClass: model.vehicleClass,
               baseFare: model.baseFare,
               classFare: model.classFare,
               maxPassengers: model.maxPassengers,
@@ -136,7 +136,7 @@ export class RideQuoteService {
               companyCode: company.code,
               modelCode: model.code,
               vehicleType: model.vehicleType,
-              class: model.class,
+              vehicleClass: model.vehicleClass,
               baseFare: model.baseFare,
               classFare: model.classFare,
               maxPassengers: model.maxPassengers,
@@ -154,7 +154,6 @@ export class RideQuoteService {
               distanceFare: fareComponents.distanceFare,
               timeFare: fareComponents.timeFare,
               platformFees: fareComponents.platformFees,
-              serviceFare: fareComponents.serviceFare,
               subTotal: fareComponents.subTotal,
               gstFare: fareComponents.gstFare,
               totalFare: Math.round(fareComponents.totalFare),
@@ -174,7 +173,7 @@ export class RideQuoteService {
             categoryCode: category.code,
             companyCode: company.code,
             modelCode: model.code,
-            class: model.class,
+            vehicleClass: model.vehicleClass,
             baseFare: model.baseFare,
             classFare: model.classFare,
             maxPassengers: model.maxPassengers,

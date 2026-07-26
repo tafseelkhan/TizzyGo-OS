@@ -4,7 +4,6 @@ export interface IFareComponents {
   distanceFare: number;
   timeFare: number;
   platformFees: number;
-  serviceFare: number;
   subTotal: number;
   gstFare: number;
   totalFare: number;
@@ -19,7 +18,7 @@ export interface IFareParams {
     companyCode: string;
     modelCode: string;
     vehicleType: string;
-    class: string;
+    vehicleClass: string;
     baseFare: number;
     classFare: number;
     maxPassengers: number;
@@ -27,7 +26,6 @@ export interface IFareParams {
   roadDistanceKm: number;
   trafficDurationMinutes: number;
   platformFees?: number;
-  serviceFare?: number;
   gstPercentage?: number;
   perKmRate?: number;
   perMinuteRate?: number;
@@ -35,7 +33,6 @@ export interface IFareParams {
 
 export interface IFareConfig {
   platformFees: number;
-  serviceFare: number;
   gstPercentage: number;
   perKmRate: number;
   perMinuteRate: number;

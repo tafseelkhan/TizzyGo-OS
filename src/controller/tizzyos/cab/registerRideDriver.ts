@@ -1,9 +1,8 @@
+// controllers/rides/registerRideDriver.ts
 import { Request, Response } from "express";
-import RideDriver, {
-  IRideDriver,
-} from "../../../models/tizzyos/cab/rideDriver";
-// Helper function to generate unique driver code
-import { customAlphabet } from "nanoid";
+import RideDriver from "../../../models/tizzyos/cab/rideDriver";
+import RideVehicleCategory from "../../../models/tizzyos/cab/rideVehicleCatigory";
+import RideType from "../../../models/tizzyos/cab/rideType";
 import { bucket } from "../../../firebase/firebase";
 import { generateDriverCode } from "../../../utils/tizzyos/cab/idGenerator";
 
@@ -15,23 +14,17 @@ export const uploadBase64ToFirebase = async (
   if (!base64) return null;
 
   try {
-    // Handle both with and without prefix
     const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(cleanBase64, "base64");
 
-    // Create unique filename with timestamp
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const firebaseFileName = `${folder}/${timestamp}_${random}_${fileName}`;
     const file = bucket.file(firebaseFileName);
 
-    // Detect content type from base64 or default to jpeg
     let contentType = "image/jpeg";
-    if (base64.startsWith("data:image/png")) {
-      contentType = "image/png";
-    } else if (base64.startsWith("data:image/webp")) {
-      contentType = "image/webp";
-    }
+    if (base64.startsWith("data:image/png")) contentType = "image/png";
+    else if (base64.startsWith("data:image/webp")) contentType = "image/webp";
 
     await file.save(buffer, {
       contentType,
@@ -55,6 +48,7 @@ export const uploadBase64ToFirebase = async (
 
 interface RegisterDriverRequest extends Request {
   body: {
+    rideTypeCode: string;
     licenceNumber: string;
     licenceExpiryDate: string;
     licenceFront: string;
@@ -72,8 +66,8 @@ interface RegisterDriverRequest extends Request {
   };
 }
 
-// Required fields for validation
 const REQUIRED_FIELDS = [
+  "rideTypeCode",
   "licenceNumber",
   "licenceExpiryDate",
   "licenceFront",
@@ -89,17 +83,18 @@ const REQUIRED_FIELDS = [
 ] as const;
 
 export const registerRideDriver = async (req: Request, res: Response) => {
+  console.log("=========================================");
+  console.log("📌 REGISTER RIDE DRIVER API CALLED");
+  console.log(`🕐 Timestamp: ${new Date().toISOString()}`);
+  console.log("=========================================");
+
   try {
     const userId = req.user?.id;
-
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Check if driver already exists
+    // Check existing driver
     const existingDriver = await RideDriver.findOne({ userId });
     if (existingDriver) {
       return res.status(409).json({
@@ -110,11 +105,11 @@ export const registerRideDriver = async (req: Request, res: Response) => {
 
     const body = req.body as RegisterDriverRequest["body"];
 
-    // Validate required fields
+    // ✅ Validate required fields
     const missingFields = REQUIRED_FIELDS.filter(
       (field) =>
         !body[field] ||
-        (typeof body[field] === "string" && body[field].trim() === ""),
+        (typeof body[field] === "string" && !body[field].trim()),
     );
 
     if (missingFields.length > 0) {
@@ -124,91 +119,111 @@ export const registerRideDriver = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate date
+    // ✅ VALIDATE RIDE TYPE
+    const rideType = await RideType.findOne({
+      code: body.rideTypeCode.toLowerCase(),
+    });
+
+    if (!rideType) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid ride type: ${body.rideTypeCode}`,
+      });
+    }
+
+    // ✅ GET MODEL DETAILS
+    let selectedModel: any = null;
+    let selectedCategory: any = null;
+    let selectedCompany: any = null;
+
+    const categories = await RideVehicleCategory.find();
+    for (const category of categories) {
+      for (const company of category.companies) {
+        const model = company.models.find(
+          (m) => m.code.toLowerCase() === body.vehicleModelCode.toLowerCase(),
+        );
+        if (model) {
+          selectedModel = model;
+          selectedCompany = company;
+          selectedCategory = category;
+          break;
+        }
+      }
+      if (selectedModel) break;
+    }
+
+    if (!selectedModel) {
+      return res.status(400).json({
+        success: false,
+        message: `Model '${body.vehicleModelCode}' not found`,
+      });
+    }
+
+    // ✅ VERIFY CLASS COMPATIBILITY
+    if (!rideType.vehicleClasses.includes(selectedModel.vehicleClass)) {
+      return res.status(400).json({
+        success: false,
+        message: `Model '${selectedModel.name}' (${selectedModel.vehicleClass}) is not allowed for '${rideType.name}' ride type. Allowed: ${rideType.vehicleClasses.join(", ")}`,
+      });
+    }
+
+    // ✅ VALIDATE LICENCE EXPIRY
     const expiryDate = new Date(body.licenceExpiryDate);
-    if (isNaN(expiryDate.getTime())) {
+    if (isNaN(expiryDate.getTime()) || expiryDate < new Date()) {
       return res.status(400).json({
         success: false,
-        message: "Invalid licence expiry date format",
+        message:
+          expiryDate < new Date()
+            ? "Licence has already expired"
+            : "Invalid licence expiry date",
       });
     }
 
-    // Check if licence is already expired
-    if (expiryDate < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "Licence has already expired",
-      });
-    }
-
-    // Upload documents in parallel for better performance
-    const uploadPromises: Promise<[string, string | null]>[] = [];
-
-    const filesToUpload: Array<{ key: string; data: string }> = [
+    // ✅ UPLOAD DOCUMENTS
+    const filesToUpload = [
       { key: "licenceFront", data: body.licenceFront },
       { key: "licenceBack", data: body.licenceBack },
       { key: "rcFront", data: body.rcFront },
       { key: "rcBack", data: body.rcBack },
     ];
 
-    if (body.insurance) {
+    if (body.insurance)
       filesToUpload.push({ key: "insurance", data: body.insurance });
-    }
-    if (body.pollutionCertificate) {
+    if (body.pollutionCertificate)
       filesToUpload.push({
         key: "pollutionCertificate",
         data: body.pollutionCertificate,
       });
-    }
 
-    // Create upload promises with timeout
-    const uploadWithTimeout = async (file: { key: string; data: string }) => {
-      const timeoutPromise = new Promise<[string, null]>((resolve) => {
-        setTimeout(() => resolve([file.key, null]), 30000); // 30 second timeout
-      });
-
-      const uploadPromise = uploadBase64ToFirebase(
+    const uploadPromises = filesToUpload.map(async (file) => {
+      const url = await uploadBase64ToFirebase(
         file.data,
         file.key,
         "driver-documents",
-      ).then((url) => [file.key, url] as [string, string | null]);
+      );
+      return [file.key, url] as [string, string | null];
+    });
 
-      return Promise.race([uploadPromise, timeoutPromise]);
-    };
-
-    for (const file of filesToUpload) {
-      uploadPromises.push(uploadWithTimeout(file));
-    }
-
-    // Wait for all uploads to complete
     const uploadResults = await Promise.all(uploadPromises);
     const uploadedUrls: Record<string, string> = {};
 
-    // Check for upload failures
-    let hasUploadError = false;
     for (const [key, url] of uploadResults) {
       if (!url) {
-        hasUploadError = true;
-        console.error(`❌ Failed to upload ${key}`);
-      } else {
-        uploadedUrls[key] = url;
+        return res.status(500).json({
+          success: false,
+          message: `Failed to upload ${key}`,
+        });
       }
+      uploadedUrls[key] = url;
     }
 
-    if (hasUploadError) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to upload some documents. Please try again.",
-      });
-    }
-
-    // Validate manufacturing year
+    // ✅ VALIDATE MANUFACTURING YEAR
     const currentYear = new Date().getFullYear();
-    const manufacturingYear = parseInt(body.manufacturingYear, 10);
+    const manufacturingYear = parseInt(body.manufacturingYear);
     if (
       isNaN(manufacturingYear) ||
       manufacturingYear < 1900 ||
-      manufacturingYear > currentYear
+      manufacturingYear > currentYear + 1
     ) {
       return res.status(400).json({
         success: false,
@@ -216,13 +231,25 @@ export const registerRideDriver = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate unique driver code
+    // ✅ GENERATE DRIVER CODE
     const driverCode = await generateDriverCode();
 
-    // Create driver data - Using a plain object without type annotation
+    // ✅ 👇👇👇 IMPORTANT: ADD RIDE TYPES ARRAY
+    // Get all ride types that support this vehicle class
+    const allRideTypes = await RideType.find({});
+    const supportedRideTypes = allRideTypes
+      .filter((rt) => rt.vehicleClasses.includes(selectedModel.vehicleClass))
+      .map((rt) => rt.code);
+
+    console.log(
+      `📋 Supported ride types for ${selectedModel.vehicleClass}: ${supportedRideTypes.join(", ")}`,
+    );
+
+    // ✅ CREATE DRIVER
     const driverData = {
       userId,
       driverCode,
+      rideTypeCode: body.rideTypeCode.toLowerCase(),
       licenceNumber: body.licenceNumber.trim().toUpperCase(),
       licenceExpiryDate: expiryDate,
       licenceFront: uploadedUrls.licenceFront,
@@ -232,8 +259,18 @@ export const registerRideDriver = async (req: Request, res: Response) => {
         companyCode: body.vehicleCompanyCode.trim().toUpperCase(),
         modelCode: body.vehicleModelCode.trim().toUpperCase(),
         vehicleNumber: body.vehicleNumber.trim().toUpperCase(),
-        vehicleColor: body.vehicleColor.trim(),
-        manufacturingYear: manufacturingYear,
+        vehicleColor: body.vehicleColor.trim().toLowerCase(),
+        manufacturingYear,
+        vehicleType: selectedModel.vehicleType,
+        vehicleClass: selectedModel.vehicleClass,
+        baseFare: selectedModel.baseFare,
+        classFare: selectedModel.classFare,
+        maxPassengers: selectedModel.maxPassengers,
+        hasAC: selectedModel.hasAC,
+        luggageCapacity: selectedModel.luggageCapacity,
+        handBagCapacity: selectedModel.handBagCapacity,
+        seatCapacity: selectedModel.seatCapacity,
+        passengerCapacity: selectedModel.passengerCapacity,
       },
       documents: {
         rcFront: uploadedUrls.rcFront,
@@ -241,62 +278,43 @@ export const registerRideDriver = async (req: Request, res: Response) => {
         insurance: uploadedUrls.insurance || "",
         pollutionCertificate: uploadedUrls.pollutionCertificate || "",
       },
-      status: "pending",
+      status: "pending" as const,
     };
 
-    // Create and save driver
     const driver = new RideDriver(driverData);
     await driver.save();
 
-    // Return success without sensitive data
-    const responseData = {
-      id: driver._id,
-      userId: driver.userId,
-      driverCode: driver.driverCode,
-      licenceNumber: driver.licenceNumber,
-      vehicleNumber: driver.vehicle?.vehicleNumber,
-      status: driver.status,
-      createdAt: (driver as any).createdAt,
-    };
+    console.log(
+      `✅ Driver saved with rideTypes: ${supportedRideTypes.join(", ")}`,
+    );
 
     return res.status(201).json({
       success: true,
       message: "Driver registered successfully. Awaiting verification.",
-      data: responseData,
+      data: {
+        id: driver._id,
+        driverCode: driver.driverCode,
+        status: driver.status,
+        rideType: rideType.name,
+        rideTypes: supportedRideTypes,
+        vehicle: {
+          name: selectedModel.name,
+          type: selectedModel.vehicleType,
+          class: selectedModel.vehicleClass,
+        },
+      },
     });
-  } catch (error) {
-    console.error("Error in registerRideDriver:", error);
-
-    // Proper error handling for unknown type
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-
-    // Check for duplicate key error
-    if (
-      error instanceof Error &&
-      error.name === "MongoServerError" &&
-      (error as any).code === 11000
-    ) {
-      const field = Object.keys((error as any).keyPattern || {})[0];
+  } catch (error: any) {
+    console.error("❌ Error in registerRideDriver:", error);
+    if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: `Duplicate value for ${field}. Please check your input.`,
+        message: "Duplicate entry detected.",
       });
     }
-
-    // Check for validation errors
-    if (error instanceof Error && error.name === "ValidationError") {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: (error as any).errors,
-      });
-    }
-
     return res.status(500).json({
       success: false,
-      message: "Internal server error. Please try again later.",
-      ...(process.env.NODE_ENV === "development" && { error: errorMessage }),
+      message: "Internal server error.",
     });
   }
 };
@@ -304,20 +322,15 @@ export const registerRideDriver = async (req: Request, res: Response) => {
 export const getRideDriver = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const driver = await RideDriver.findOne({ userId });
-
     if (!driver) {
-      return res.status(404).json({
-        success: false,
-        message: "Driver not found.",
+      return res.status(404).json({ 
+        success: false, 
+        message: "Driver not found." 
       });
     }
 
@@ -328,9 +341,9 @@ export const getRideDriver = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error in getRideDriver:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error.",
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error." 
     });
   }
 };

@@ -8,7 +8,6 @@ export interface IFare {
   distanceFare: number;
   timeFare: number;
   platformFees: number;
-  serviceFare: number;
   subTotal: number;
   gstFare: number;
   totalFare: number;
@@ -30,6 +29,20 @@ export interface IRouteSummary {
     travelMode: string;
     maneuver: string;
   }>;
+}
+
+// ✅ RETRY HISTORY INTERFACE
+export interface IRetryHistory {
+  attemptNumber: number;
+  oldFare: number;
+  newFare: number;
+  incrementPercentage: number;
+  batchStartedFrom: number;
+  timestamp: Date;
+  radius: number;
+  status: "started" | "completed" | "failed";
+  driversFound?: number;
+  completedAt?: Date;
 }
 
 export interface IRideBooking extends Document {
@@ -75,10 +88,12 @@ export interface IRideBooking extends Document {
   encodedPolyline: string;
   routeSummary: IRouteSummary;
   fare: IFare;
-  originalFare?: number; // For tracking retry increments
-  retryFare?: number; // Current fare after retry
+  originalFare?: number;
+  retryFare?: number;
   lastFareIncrementPercentage?: number;
   retryAttempts?: number;
+  // ✅ NEW: Retry History Array
+  retryHistory: IRetryHistory[];
   driversFound?: number;
   searchStartedAt?: Date;
   qr: {
@@ -153,74 +168,26 @@ const RideBookingSchema = new Schema<IRideBooking>(
       required: false,
     },
     vehicle: {
-      categoryCode: {
-        type: String,
-        required: true,
-      },
-      companyCode: {
-        type: String,
-        required: true,
-      },
-      modelCode: {
-        type: String,
-        required: true,
-      },
-      vehicleType: {
-        type: String,
-        required: true,
-      },
-      class: {
-        type: String,
-        required: true,
-      },
-      baseFare: {
-        type: Number,
-        required: true,
-      },
-      classFare: {
-        type: Number,
-        required: true,
-      },
-      maxPassengers: {
-        type: Number,
-        required: true,
-      },
+      categoryCode: { type: String, required: true },
+      companyCode: { type: String, required: true },
+      modelCode: { type: String, required: true },
+      vehicleType: { type: String, required: true },
+      class: { type: String, required: true },
+      baseFare: { type: Number, required: true },
+      classFare: { type: Number, required: true },
+      maxPassengers: { type: Number, required: true },
     },
     pickup: {
-      latitude: {
-        type: Number,
-        required: true,
-      },
-      longitude: {
-        type: Number,
-        required: true,
-      },
-      address: {
-        type: String,
-        required: true,
-      },
-      googlePlaceId: {
-        type: String,
-        required: true,
-      },
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+      address: { type: String, required: true },
+      googlePlaceId: { type: String, required: true },
     },
     destination: {
-      latitude: {
-        type: Number,
-        required: true,
-      },
-      longitude: {
-        type: Number,
-        required: true,
-      },
-      address: {
-        type: String,
-        required: true,
-      },
-      googlePlaceId: {
-        type: String,
-        required: true,
-      },
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+      address: { type: String, required: true },
+      googlePlaceId: { type: String, required: true },
     },
     currentLocation: {
       latitude: { type: Number, required: false },
@@ -228,34 +195,13 @@ const RideBookingSchema = new Schema<IRideBooking>(
       address: { type: String, required: false },
       googlePlaceId: { type: String, required: false },
     },
-    lastLocationUpdate: {
-      type: Date,
-      required: false,
-    },
-    distance: {
-      type: Number,
-      required: true,
-    },
-    duration: {
-      type: Number,
-      required: true,
-    },
-    roadDistanceKm: {
-      type: Number,
-      required: true,
-    },
-    normalDurationMinutes: {
-      type: Number,
-      required: true,
-    },
-    trafficDurationMinutes: {
-      type: Number,
-      required: true,
-    },
-    encodedPolyline: {
-      type: String,
-      required: true,
-    },
+    lastLocationUpdate: { type: Date, required: false },
+    distance: { type: Number, required: true },
+    duration: { type: Number, required: true },
+    roadDistanceKm: { type: Number, required: true },
+    normalDurationMinutes: { type: Number, required: true },
+    trafficDurationMinutes: { type: Number, required: true },
+    encodedPolyline: { type: String, required: true },
     routeSummary: {
       startAddress: { type: String, required: true },
       endAddress: { type: String, required: true },
@@ -281,7 +227,6 @@ const RideBookingSchema = new Schema<IRideBooking>(
       distanceFare: { type: Number, required: true },
       timeFare: { type: Number, required: true },
       platformFees: { type: Number, required: true },
-      serviceFare: { type: Number, required: true },
       subTotal: { type: Number, required: true },
       gstFare: { type: Number, required: true },
       totalFare: { type: Number, required: true },
@@ -293,17 +238,33 @@ const RideBookingSchema = new Schema<IRideBooking>(
     retryFare: { type: Number, required: false },
     lastFareIncrementPercentage: { type: Number, required: false },
     retryAttempts: { type: Number, default: 0 },
+    // ✅ NEW: Retry History Schema
+    retryHistory: {
+      type: [
+        {
+          attemptNumber: { type: Number, required: true },
+          oldFare: { type: Number, required: true },
+          newFare: { type: Number, required: true },
+          incrementPercentage: { type: Number, required: true },
+          batchStartedFrom: { type: Number, required: true },
+          timestamp: { type: Date, default: Date.now },
+          radius: { type: Number, required: true },
+          status: {
+            type: String,
+            enum: ["started", "completed", "failed"],
+            default: "started",
+          },
+          driversFound: { type: Number, default: 0 },
+          completedAt: { type: Date },
+        },
+      ],
+      default: [],
+    },
     driversFound: { type: Number, default: 0 },
     searchStartedAt: { type: Date, required: false },
     qr: {
-      token: {
-        type: String,
-        required: true,
-      },
-      qrUrl: {
-        type: String,
-        required: true,
-      },
+      token: { type: String, required: true },
+      qrUrl: { type: String, required: true },
     },
     status: {
       type: String,
@@ -322,72 +283,25 @@ const RideBookingSchema = new Schema<IRideBooking>(
       default: "searching",
       required: true,
     },
-    searchRadius: {
-      type: Number,
-      default: 5,
-      required: true,
-    },
-    currentBatch: {
-      type: Number,
-      default: 0,
-      required: true,
-    },
-    searchExpiredAt: {
-      type: Date,
-      required: false,
-    },
-    searchCompleted: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    acceptedAt: {
-      type: Date,
-      required: false,
-    },
-    arrivedAt: {
-      type: Date,
-      required: false,
-    },
-    pickupVerified: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    pickupVerifiedAt: {
-      type: Date,
-      required: false,
-    },
-    dropVerified: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
-    dropVerifiedAt: {
-      type: Date,
-      required: false,
-    },
-    startedAt: {
-      type: Date,
-      required: false,
-    },
-    completedAt: {
-      type: Date,
-      required: false,
-    },
-    cancelledAt: {
-      type: Date,
-      required: false,
-    },
+    searchRadius: { type: Number, default: 5, required: true },
+    currentBatch: { type: Number, default: 0, required: true },
+    searchExpiredAt: { type: Date, required: false },
+    searchCompleted: { type: Boolean, default: false, required: true },
+    acceptedAt: { type: Date, required: false },
+    arrivedAt: { type: Date, required: false },
+    pickupVerified: { type: Boolean, default: false, required: true },
+    pickupVerifiedAt: { type: Date, required: false },
+    dropVerified: { type: Boolean, default: false, required: true },
+    dropVerifiedAt: { type: Date, required: false },
+    startedAt: { type: Date, required: false },
+    completedAt: { type: Date, required: false },
+    cancelledAt: { type: Date, required: false },
     cancelledBy: {
       type: String,
       enum: ["customer", "driver", "system"],
       required: false,
     },
-    cancelReason: {
-      type: String,
-      required: false,
-    },
+    cancelReason: { type: String, required: false },
     paymentMethod: {
       type: String,
       enum: ["COC", "ONLINE"],
@@ -399,18 +313,9 @@ const RideBookingSchema = new Schema<IRideBooking>(
       default: "PENDING",
       required: true,
     },
-    paymentCompletedAt: {
-      type: Date,
-      required: false,
-    },
-    refundedAt: {
-      type: Date,
-      required: false,
-    },
-    lastRouteRefreshAt: {
-      type: Date,
-      required: false,
-    },
+    paymentCompletedAt: { type: Date, required: false },
+    refundedAt: { type: Date, required: false },
+    lastRouteRefreshAt: { type: Date, required: false },
     lastRouteRefreshLocation: {
       latitude: { type: Number, required: false },
       longitude: { type: Number, required: false },

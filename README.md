@@ -46,3 +46,5 @@
 { $or: [{ "variants.images": fileUrl }, { "variants.video": fileUrl }] }
 Requires proper indexing on Product collection arrays
 ```
+
+## THESE ARE PENDING FOR FUTUR IMPLEMENTION FWSOutstation FWSShared FWSCorporate  FWSRental

@@ -1,0 +1,153 @@
+[
+    {
+        "name": "Go",
+        "code": "go",
+        "description": "Affordable and reliable rides for your everyday travel needs. Perfect for daily commutes and short trips around the city.",
+        "vehicleClasses": [
+            "Economy"
+        ]
+    },
+    {
+        "name": "Mini",
+        "code": "mini",
+        "description": "Compact and fuel-efficient cars designed for quick city rides. Ideal for solo travelers or couples looking for a budget-friendly option.",
+        "vehicleClasses": [
+            "Economy"
+        ]
+    },
+    {
+        "name": "Easy",
+        "code": "easy",
+        "description": "Hassle-free rides with transparent pricing and no surge charges. Enjoy a stress-free travel experience with guaranteed availability.",
+        "vehicleClasses": [
+            "Economy",
+            "Standard"
+        ]
+    },
+    {
+        "name": "Move",
+        "code": "move",
+        "description": "Comfortable and spacious rides for your daily commute to work or college. Experience a smooth journey with professional drivers.",
+        "vehicleClasses": [
+            "Standard"
+        ]
+    },
+    {
+        "name": "Lite",
+        "code": "lite",
+        "description": "Budget-friendly rides for short trips and quick errands. Get from point A to B without burning a hole in your pocket.",
+        "vehicleClasses": [
+            "Economy"
+        ]
+    },
+    {
+        "name": "Basic",
+        "code": "basic",
+        "description": "No-frills, straightforward rides at the most affordable prices. Perfect for budget-conscious travelers who just need to get there.",
+        "vehicleClasses": [
+            "Economy"
+        ]
+    },
+    {
+        "name": "Smart",
+        "code": "smart",
+        "description": "Tech-enabled rides with modern features including real-time tracking, digital payments, and smart route optimization for faster travel.",
+        "vehicleClasses": [
+            "Standard"
+        ]
+    },
+    {
+        "name": "Core",
+        "code": "core",
+        "description": "Reliable and consistent rides for every need. Whether it's work, shopping, or leisure, Core ensures you reach your destination comfortably.",
+        "vehicleClasses": [
+            "Standard",
+            "Comfort"
+        ]
+    },
+    {
+        "name": "Pro",
+        "code": "pro",
+        "description": "Professional-grade rides with top-rated, experienced drivers. Enjoy a premium service with vehicles maintained to the highest standards.",
+        "vehicleClasses": [
+            "Premium"
+        ]
+    },
+    {
+        "name": "Plus",
+        "code": "plus",
+        "description": "Extra space and comfort for group travel. Ideal for family outings, airport transfers, or trips with friends and colleagues.",
+        "vehicleClasses": [
+            "Comfort"
+        ]
+    },
+    {
+        "name": "GOX",
+        "code": "gox",
+        "description": "Spacious SUV rides for comfortable group travel. Perfect for weekend getaways, family trips, and airport transfers with luggage.",
+        "vehicleClasses": [
+            "Comfort"
+        ]
+    },
+    {
+        "name": "Prime",
+        "code": "prime",
+        "description": "Premium rides with the highest-rated drivers and well-maintained vehicles. Experience exceptional service for special occasions and business travel.",
+        "vehicleClasses": [
+            "Premium"
+        ]
+    },
+    {
+        "name": "Ultra",
+        "code": "ultra",
+        "description": "High-end rides for a premium travel experience. Combines luxury vehicles with professional chauffeurs for an unforgettable journey.",
+        "vehicleClasses": [
+            "Premium",
+            "Luxury"
+        ]
+    },
+    {
+        "name": "One",
+        "code": "one",
+        "description": "All-in-one ride solution with access to our entire fleet. Choose the perfect vehicle for any occasion - from budget to luxury, we've got you covered.",
+        "vehicleClasses": [
+            "Economy",
+            "Standard",
+            "Comfort",
+            "Premium",
+            "Luxury"
+        ]
+    },
+    {
+        "name": "Comfort",
+        "code": "comfort",
+        "description": "Extra legroom and premium comfort features for a relaxing journey. Enjoy plush seating, climate control, and a smooth ride experience.",
+        "vehicleClasses": [
+            "Comfort"
+        ]
+    },
+    {
+        "name": "Premium",
+        "code": "premium",
+        "description": "Luxury vehicles with premium amenities and exceptional service. Perfect for corporate events, special occasions, and important meetings.",
+        "vehicleClasses": [
+            "Premium"
+        ]
+    },
+    {
+        "name": "Luxury",
+        "code": "luxury",
+        "description": "Experience the ultimate in comfort and style with our luxury fleet. Premium vehicles, professional chauffeurs, and white-glove service.",
+        "vehicleClasses": [
+            "Luxury"
+        ]
+    },
+    {
+        "name": "Elite",
+        "code": "elite",
+        "description": "Exclusive chauffeur-driven service with top-of-the-line luxury vehicles. Experience VIP treatment with personalized attention and premium amenities.",
+        "vehicleClasses": [
+            "Luxury"
+        ]
+    }
+]

@@ -52,7 +52,6 @@ export interface IRideQuote extends Document {
     distanceFare: number;
     timeFare: number;
     platformFees: number;
-    serviceFare: number;
     subTotal: number;
     gstFare: number;
     totalFare: number;
@@ -78,71 +77,73 @@ const RideQuoteSchema = new Schema<IRideQuote>(
       latitude: { type: Number, required: true },
       longitude: { type: Number, required: true },
       address: { type: String, required: true },
-      googlePlaceId: { type: String, required: true },
+      googlePlaceId: { type: String, required: true, default: "N/A" },
     },
     drop: {
       latitude: { type: Number, required: true },
       longitude: { type: Number, required: true },
       address: { type: String, required: true },
-      googlePlaceId: { type: String, required: true },
+      googlePlaceId: { type: String, required: true, default: "N/A" },
     },
     vehicle: {
-      categoryCode: { type: String, required: true },
-      companyCode: { type: String, required: true },
-      modelCode: { type: String, required: true },
-      vehicleType: { type: String, required: true },
-      class: { type: String, required: true },
-      baseFare: { type: Number, required: true },
-      classFare: { type: Number, required: true },
-      maxPassengers: { type: Number, required: true },
+      categoryCode: { type: String, required: true, default: "TWOWHEELER" },
+      companyCode: { type: String, required: true, default: "HERO" },
+      modelCode: { type: String, required: true, default: "SPLENDORPLUS" },
+      vehicleType: { type: String, required: true, default: "Bike" },
+      class: { type: String, required: true, default: "Economy" },
+      baseFare: { type: Number, required: true, default: 50 },
+      classFare: { type: Number, required: true, default: 20 },
+      maxPassengers: { type: Number, required: true, default: 1 },
     },
     routeData: {
-      roadDistanceKm: { type: Number, required: true },
-      normalDurationMinutes: { type: Number, required: true },
-      trafficDurationMinutes: { type: Number, required: true },
-      encodedPolyline: { type: String, required: true },
+      roadDistanceKm: { type: Number, required: true, default: 0 },
+      normalDurationMinutes: { type: Number, required: true, default: 0 },
+      trafficDurationMinutes: { type: Number, required: true, default: 0 },
+      encodedPolyline: { type: String, required: true, default: "" },
       routeSummary: {
-        startAddress: { type: String, required: true },
-        endAddress: { type: String, required: true },
-        durationText: { type: String, required: true },
-        distanceText: { type: String, required: true },
+        startAddress: { type: String, required: true, default: "" },
+        endAddress: { type: String, required: true, default: "" },
+        durationText: { type: String, required: true, default: "0 min" },
+        distanceText: { type: String, required: true, default: "0 km" },
         steps: {
           type: [
             {
-              distance: { type: Number, required: true },
-              duration: { type: Number, required: true },
-              instruction: { type: String, required: true },
-              polyline: { type: String, required: true },
-              travelMode: { type: String, required: true },
-              maneuver: { type: String, required: true },
+              distance: { type: Number, required: true, default: 0 },
+              duration: { type: Number, required: true, default: 0 },
+              instruction: { type: String, required: true, default: "" },
+              polyline: { type: String, required: true, default: "" },
+              travelMode: { type: String, required: true, default: "DRIVE" },
+              maneuver: { type: String, required: true, default: "" },
             },
           ],
           required: true,
+          default: [],
         },
       },
     },
     fareComponents: {
-      baseFare: { type: Number, required: true },
-      classFare: { type: Number, required: true },
-      distanceFare: { type: Number, required: true },
-      timeFare: { type: Number, required: true },
-      platformFees: { type: Number, required: true },
-      serviceFare: { type: Number, required: true },
-      subTotal: { type: Number, required: true },
-      gstFare: { type: Number, required: true },
-      totalFare: { type: Number, required: true },
-      gstPercentage: { type: Number, required: true },
-      perKmRate: { type: Number, required: true },
-      perMinuteRate: { type: Number, required: true },
+      baseFare: { type: Number, required: true, default: 0 },
+      classFare: { type: Number, required: true, default: 0 },
+      distanceFare: { type: Number, required: true, default: 0 },
+      timeFare: { type: Number, required: true, default: 0 },
+      platformFees: { type: Number, required: true, default: 0 },
+      subTotal: { type: Number, required: true, default: 0 },
+      gstFare: { type: Number, required: true, default: 0 },
+      totalFare: { type: Number, required: true, default: 0 },
+      gstPercentage: { type: Number, required: true, default: 18 },
+      perKmRate: { type: Number, required: true, default: 5 },
+      perMinuteRate: { type: Number, required: true, default: 0.6 },
     },
     totalFare: {
       type: Number,
       required: true,
+      default: 0,
     },
     expiresAt: {
       type: Date,
       required: true,
       expires: 0,
+      default: () => new Date(Date.now() + 5 * 60 * 1000),
     },
     isUsed: {
       type: Boolean,
@@ -154,8 +155,6 @@ const RideQuoteSchema = new Schema<IRideQuote>(
   },
 );
 
-RideQuoteSchema.index({ quoteId: 1 });
-RideQuoteSchema.index({ expiresAt: 1 });
 RideQuoteSchema.index({ isUsed: 1 });
 
 export default mongoose.model<IRideQuote>("RideQuote", RideQuoteSchema);

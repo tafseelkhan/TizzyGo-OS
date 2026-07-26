@@ -6,11 +6,13 @@ import RideQuote from "../../../models/tizzyos/cab/rideQuote";
 import {
   generateBookingId,
   generateRideCode,
+  generateQuoteCode,
 } from "../../../utils/tizzyos/cab/idGenerator";
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
 import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
+import { RideDispatchService } from "../../../services/tizzyos/cab/rideDispatchService";
 
 interface IBookingData {
   customerId: string | mongoose.Types.ObjectId;
@@ -65,13 +67,24 @@ export class RideBookingService {
   // =====================================================
 
   async createBooking(bookingData: IBookingData): Promise<any> {
+    console.log("=========================================");
+    console.log("📝 CREATE BOOKING STARTED");
+    console.log("=========================================");
+    console.log("📋 Booking Data:", {
+      customerId: bookingData.customerId,
+      quoteId: bookingData.quoteId,
+      paymentMethod: bookingData.paymentMethod,
+    });
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
       const customerId = this.validateObjectId(bookingData.customerId);
+      console.log("✅ Customer ID validated:", customerId);
 
       // Get quote from database
+      console.log("🔍 Fetching quote from database:", bookingData.quoteId);
       const quote = await RideQuote.findOne({
         quoteId: bookingData.quoteId,
         expiresAt: { $gt: new Date() },
@@ -79,19 +92,38 @@ export class RideBookingService {
       }).session(session);
 
       if (!quote) {
+        console.log("❌ Quote not found or expired:", bookingData.quoteId);
         throw new Error("Invalid or expired quote. Please get a new quote.");
       }
+      console.log("✅ Quote found:", {
+        quoteId: quote.quoteId,
+        totalFare: quote.totalFare,
+        rideType: quote.vehicle.vehicleType,
+      });
 
       // Mark quote as used
       quote.isUsed = true;
       await quote.save({ session });
+      console.log("✅ Quote marked as used");
 
       // Use route data from quote (NO Google Routes API call)
       const route = quote.routeData;
+      console.log("🗺️ Route data from quote:", {
+        roadDistanceKm: route.roadDistanceKm,
+        trafficDurationMinutes: route.trafficDurationMinutes,
+        hasPolyline: !!route.encodedPolyline,
+      });
 
       // Use fare from quote (NO recalculation needed)
       const fareComponents = quote.fareComponents;
       const lockedFare = quote.totalFare;
+      console.log("💰 Locked fare from quote:", {
+        totalFare: lockedFare,
+        baseFare: fareComponents.baseFare,
+        distanceFare: fareComponents.distanceFare,
+        timeFare: fareComponents.timeFare,
+        gstFare: fareComponents.gstFare,
+      });
 
       const booking = new RideBooking({
         bookingId: generateBookingId(),
@@ -122,7 +154,6 @@ export class RideBookingService {
           distanceFare: fareComponents.distanceFare,
           timeFare: fareComponents.timeFare,
           platformFees: fareComponents.platformFees,
-          serviceFare: fareComponents.serviceFare,
           subTotal: fareComponents.subTotal,
           gstFare: fareComponents.gstFare,
           totalFare: lockedFare, // Locked fare from quote
@@ -134,7 +165,15 @@ export class RideBookingService {
         quoteId: quote.quoteId,
       });
 
+      console.log("📦 Booking object created:", {
+        bookingId: booking.bookingId,
+        rideCode: booking.rideCode,
+        status: booking.status,
+        totalFare: booking.fare.totalFare,
+      });
+
       // Generate QR token (will be regenerated after driver accepts)
+      console.log("🔐 Generating QR token...");
       const qrToken = this.qrTokenService.generateQRToken({
         bookingId: booking.bookingId,
         trackingId: "",
@@ -143,8 +182,10 @@ export class RideBookingService {
         driverId: new mongoose.Types.ObjectId(),
         type: "pickup",
       });
+      console.log("✅ QR token generated");
 
       const qrDataURI = await generateQRCodeDataURI(qrToken);
+      console.log("✅ QR code generated");
 
       booking.qr = {
         token: qrToken,
@@ -153,9 +194,29 @@ export class RideBookingService {
 
       await booking.save({ session });
       await session.commitTransaction();
+      console.log("✅ Transaction committed");
+      console.log("=========================================");
+      console.log("📤 BOOKING CREATED SUCCESSFULLY");
+      console.log("=========================================");
+      console.log(`   Booking ID: ${booking.bookingId}`);
+      console.log(`   Ride Code: ${booking.rideCode}`);
+      console.log(`   Total Fare: ₹${booking.fare.totalFare}`);
+      console.log(`   Status: ${booking.status}`);
+      console.log("=========================================");
+
+      // ✅ THEN START DISPATCH (AFTER COMMIT)
+      const dispatchService = new RideDispatchService();
+      // ✅ Don't await - fire and forget, or handle error separately
+      dispatchService.startDispatch(booking.bookingId).catch((error) => {
+        console.error(`❌ Dispatch failed for ${booking.bookingId}:`, error);
+      });
+
       return booking;
     } catch (error) {
       await session.abortTransaction();
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.log("❌ Booking creation failed:", errorMessage);
       throw error;
     } finally {
       await session.endSession();
@@ -178,6 +239,13 @@ export class RideBookingService {
     newFare: number,
     incrementPercentage: number,
   ): Promise<any> {
+    console.log("=========================================");
+    console.log("🔄 UPDATE BOOKING FOR RETRY");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+    console.log(`   New Fare: ₹${newFare}`);
+    console.log(`   Increment: ${incrementPercentage}%`);
+
     const booking = await RideBooking.findOneAndUpdate(
       { bookingId },
       {
@@ -192,8 +260,16 @@ export class RideBookingService {
     );
 
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Booking updated for retry:", {
+      bookingId: booking.bookingId,
+      newFare: booking.fare.totalFare,
+      retryAttempts: booking.retryAttempts || 1,
+    });
+    console.log("=========================================");
 
     return booking;
   }
@@ -212,6 +288,12 @@ export class RideBookingService {
     bookingId: string,
     updateData: IUpdateData,
   ): Promise<any> {
+    console.log("=========================================");
+    console.log("🔄 UPDATE BOOKING");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+    console.log("   Update Data:", updateData);
+
     const sanitizedData = this.sanitizeUpdateData(updateData);
 
     const booking = await RideBooking.findOneAndUpdate(
@@ -221,8 +303,16 @@ export class RideBookingService {
     );
 
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Booking updated:", {
+      bookingId: booking.bookingId,
+      status: booking.status,
+      updatedFields: Object.keys(sanitizedData),
+    });
+    console.log("=========================================");
 
     return booking;
   }
@@ -238,14 +328,28 @@ export class RideBookingService {
   // =====================================================
 
   async getBooking(bookingId: string): Promise<any> {
+    console.log("=========================================");
+    console.log("🔍 GET BOOKING");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+
     if (!bookingId || typeof bookingId !== "string") {
+      console.log("❌ Invalid booking ID");
       throw new Error("Invalid booking ID");
     }
 
     const booking = await RideBooking.findOne({ bookingId }).lean();
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Booking found:", {
+      bookingId: booking.bookingId,
+      status: booking.status,
+      fare: booking.fare?.totalFare,
+    });
+    console.log("=========================================");
 
     return booking;
   }
@@ -262,9 +366,14 @@ export class RideBookingService {
   // =====================================================
 
   async getBookingStatus(bookingId: string): Promise<any> {
+    console.log("=========================================");
+    console.log("🔍 GET BOOKING STATUS");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+
     const booking = await this.getBooking(bookingId);
 
-    return {
+    const statusResponse = {
       bookingId: booking.bookingId,
       status: booking.status,
       currentBatch: booking.currentBatch,
@@ -279,6 +388,11 @@ export class RideBookingService {
       fare: booking.fare?.totalFare || 0,
       originalFare: booking.originalFare || booking.fare?.totalFare || 0,
     };
+
+    console.log("✅ Status response:", statusResponse);
+    console.log("=========================================");
+
+    return statusResponse;
   }
 
   // =====================================================
@@ -296,6 +410,13 @@ export class RideBookingService {
     reason?: string,
     cancelledBy?: "customer" | "driver" | "system",
   ): Promise<any> {
+    console.log("=========================================");
+    console.log("❌ CANCEL BOOKING");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+    console.log(`   Reason: ${reason || "No reason provided"}`);
+    console.log(`   Cancelled By: ${cancelledBy || "system"}`);
+
     const updateData: any = {
       status: "cancelled",
       cancelledAt: new Date(),
@@ -312,8 +433,16 @@ export class RideBookingService {
     );
 
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Booking cancelled:", {
+      bookingId: booking.bookingId,
+      status: booking.status,
+      cancelledAt: booking.cancelledAt,
+    });
+    console.log("=========================================");
 
     return booking;
   }
@@ -329,6 +458,12 @@ export class RideBookingService {
   // =====================================================
 
   async updateBookingStatus(bookingId: string, status: string): Promise<any> {
+    console.log("=========================================");
+    console.log("📊 UPDATE BOOKING STATUS");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+    console.log(`   New Status: ${status}`);
+
     const validStatuses = [
       "searching",
       "accepted",
@@ -343,6 +478,7 @@ export class RideBookingService {
     ];
 
     if (!validStatuses.includes(status)) {
+      console.log("❌ Invalid status:", status);
       throw new Error(`Invalid status: ${status}`);
     }
 
@@ -353,8 +489,16 @@ export class RideBookingService {
     );
 
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Status updated:", {
+      bookingId: booking.bookingId,
+      oldStatus: booking.status,
+      newStatus: status,
+    });
+    console.log("=========================================");
 
     return booking;
   }
@@ -366,6 +510,7 @@ export class RideBookingService {
     if (typeof id === "string" && mongoose.Types.ObjectId.isValid(id)) {
       return new mongoose.Types.ObjectId(id);
     }
+    console.log("❌ Invalid ObjectId:", id);
     throw new Error(`Invalid ObjectId: ${String(id)}`);
   }
 
@@ -391,29 +536,56 @@ export class RideBookingService {
   async getBookingsByCustomer(
     customerId: string | mongoose.Types.ObjectId,
   ): Promise<any[]> {
+    console.log("=========================================");
+    console.log("🔍 GET BOOKINGS BY CUSTOMER");
+    console.log("=========================================");
+    console.log(`   Customer ID: ${customerId}`);
+
     const validatedId = this.validateObjectId(customerId);
-    return RideBooking.find({ customerId: validatedId })
+    const bookings = await RideBooking.find({ customerId: validatedId })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+
+    console.log(`✅ Found ${bookings.length} bookings for customer`);
+    console.log("=========================================");
+
+    return bookings;
   }
 
   async getBookingsByDriver(
     driverId: string | mongoose.Types.ObjectId,
   ): Promise<any[]> {
+    console.log("=========================================");
+    console.log("🔍 GET BOOKINGS BY DRIVER");
+    console.log("=========================================");
+    console.log(`   Driver ID: ${driverId}`);
+
     const validatedId = this.validateObjectId(driverId);
-    return RideBooking.find({ driverId: validatedId })
+    const bookings = await RideBooking.find({ driverId: validatedId })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+
+    console.log(`✅ Found ${bookings.length} bookings for driver`);
+    console.log("=========================================");
+
+    return bookings;
   }
 
   async updatePaymentStatus(
     bookingId: string,
     paymentStatus: string,
   ): Promise<any> {
+    console.log("=========================================");
+    console.log("💳 UPDATE PAYMENT STATUS");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+    console.log(`   Payment Status: ${paymentStatus}`);
+
     const validStatuses = ["PENDING", "COMPLETED", "FAILED"];
     if (!validStatuses.includes(paymentStatus)) {
+      console.log("❌ Invalid payment status:", paymentStatus);
       throw new Error(`Invalid payment status: ${paymentStatus}`);
     }
 
@@ -424,8 +596,15 @@ export class RideBookingService {
     );
 
     if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
       throw new Error(`Booking not found with ID: ${bookingId}`);
     }
+
+    console.log("✅ Payment status updated:", {
+      bookingId: booking.bookingId,
+      paymentStatus: booking.paymentStatus,
+    });
+    console.log("=========================================");
 
     return booking;
   }

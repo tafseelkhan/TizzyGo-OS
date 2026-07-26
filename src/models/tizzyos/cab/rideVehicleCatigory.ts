@@ -5,10 +5,17 @@ interface IModel {
   name: string;
   code: string;
   vehicleType: string;
-  class: string;
+  vehicleClass: string; // Changed from 'class'
   baseFare: number;
   classFare: number;
   maxPassengers: number;
+
+  // New fields
+  hasAC: boolean;
+  luggageCapacity: number;
+  handBagCapacity: number;
+  seatCapacity: number;
+  passengerCapacity: number;
 }
 
 interface ICompany {
@@ -27,10 +34,21 @@ const ModelSchema = new Schema<IModel>({
   name: { type: String, required: true },
   code: { type: String, required: true },
   vehicleType: { type: String, required: true },
-  class: { type: String, required: true },
+  vehicleClass: {
+    type: String,
+    required: true,
+    enum: ["Economy", "Standard", "Comfort", "Premium", "Luxury"],
+  },
   baseFare: { type: Number, required: true },
   classFare: { type: Number, required: true },
   maxPassengers: { type: Number, required: true },
+
+  // New fields
+  hasAC: { type: Boolean, required: true },
+  luggageCapacity: { type: Number, required: true },
+  handBagCapacity: { type: Number, required: true },
+  seatCapacity: { type: Number, required: true },
+  passengerCapacity: { type: Number, required: true },
 });
 
 const CompanySchema = new Schema<ICompany>({
@@ -47,6 +65,7 @@ const RideVehicleCategorySchema = new Schema<IRideVehicleCategory>(
   },
   {
     collection: "ridevehiclecategories",
+    timestamps: true, // Recommended
   },
 );
 

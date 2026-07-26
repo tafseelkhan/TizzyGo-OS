@@ -63,6 +63,8 @@ import rideVehicleCategoryRoutes from "./routes/tizzyos/cab/rideVehicleCatigory"
 import rideRegisterRoutes from "./routes/tizzyos/cab/registerRideDriver";
 import driverOnlineDriverRoutes from "./routes/tizzyos/cab/rideOnlineDriver";
 import rideLocationDriverRoutes from "./routes/tizzyos/cab/rideLocationRoutes";
+import rideBookingRoutes from "./routes/tizzyos/cab/rideBookingRoutes";
+import rideTypesRoutes from "./routes/tizzyos/cab/rideTypeRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -72,7 +74,7 @@ const app = express();
 /* =========================================================
    🔥🔥🔥 ZeptPay WEBHOOK — MUST BE FIRST 🔥🔥🔥
    ========================================================= */
-app.use("/api/payment/webhook", webhookRoutes);
+app.use("/api/v0/payment/webhook", webhookRoutes);
 
 /* =========================================================
    ❗ AFTER WEBHOOK — NORMAL BODY PARSERS
@@ -102,7 +104,7 @@ app.get("/", (req, res) => {
     endpoints: {
       health: "/health",
       api: "/api",
-      driver: "/api/available/driver",
+      driver: "/api/v0/available/driver",
     },
     timestamp: new Date().toISOString(),
   });
@@ -111,59 +113,61 @@ app.get("/", (req, res) => {
 /* =========================================================
    ROUTES
    ========================================================= */
-app.use("/api/profile", profileRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/fav", colorRoutes);
-app.use("/api/cart", cartRoutes);
-app.use("/api/shop", buynowShopRoutes);
-app.use("/api/comments", commentRoutes);
-app.use("/api/likes", likeRoutes);
-app.use("/api/rating-review", ratingRoutes);
-app.use("/api/shares", shareRoutes);
-app.use("/api/search", searchRoutes);
-app.use("/api/buyer", buynowRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/payment", processPaymentRoutes);
-app.use("/api/payment", confirmOrderRouter);
-app.use("/api/payment", codRoutes);
-app.use("/api/user", themeRoutes);
-app.use("/api/orders/delivery", orderRoutes);
-app.use("/api/orders/tracking", liveTrackingRoutes);
-app.use("/api/orders", orderfetchRoutes);
-app.use("/api/orders/yourorder", yourorderRoutes);
-app.use("/api/user/address", UserLocation);
+app.use("/api/v0/profile", profileRoutes);
+app.use("/api/v0/auth", authRoutes);
+app.use("/api/v0/fav", colorRoutes);
+app.use("/api/v0/cart", cartRoutes);
+app.use("/api/v0/shop", buynowShopRoutes);
+app.use("/api/v0/comments", commentRoutes);
+app.use("/api/v0/likes", likeRoutes);
+app.use("/api/v0/rating-review", ratingRoutes);
+app.use("/api/v0/shares", shareRoutes);
+app.use("/api/v0/search", searchRoutes);
+app.use("/api/v0/buyer", buynowRoutes);
+app.use("/api/v0/payment", paymentRoutes);
+app.use("/api/v0/payment", processPaymentRoutes);
+app.use("/api/v0/payment", confirmOrderRouter);
+app.use("/api/v0/payment", codRoutes);
+app.use("/api/v0/user", themeRoutes);
+app.use("/api/v0/orders/delivery", orderRoutes);
+app.use("/api/v0/orders/tracking", liveTrackingRoutes);
+app.use("/api/v0/orders", orderfetchRoutes);
+app.use("/api/v0/orders/yourorder", yourorderRoutes);
+app.use("/api/v0/user/address", UserLocation);
 
 // TizzyOS Routes
-app.use("/api/user", userRoutes);
-app.use("/api/seller", sellerRoutes);
-app.use("/api/seller", sellerStatusRoutes);
-app.use("/api/rider", riderRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/stories", storyRoutes);
-app.use("/api/seller/product", priceCalculationRoutes);
-app.use("/api/seller/forms/categories", createProductsRoutes);
-app.use("/api/categories", category);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/delete", deleteProduct);
-app.use("/api/user", themesRoutes);
-app.use("/api/seller/orders", ordersRoutes);
-app.use("/api/shipping", shipregisterRoutes);
-app.use("/api", onlineRoutes);
-app.use("/api", riderIdRoutes);
-app.use("/api/track", getRiderLocationRoutes);
-app.use("/api/tracking", getTrackingStatusRoutes);
-// app.use("/api/payout-portal/wallet", sellerPaymentRoutes);
-app.use("/api/delivery/tracking", deliveryTrackingRoutes);
-app.use("/api/payout-portal/wallet-setup", walletSetupRoutes);
-app.use("/api/user/address", sellerLocation);
-app.use("/api/find", trackOrderRoutes);
-app.use("/api/fws/warehouse", fwsApplicationRoutes);
-app.use("/api/fws/employee", fwsemployeeRoutes);
-app.use("/api/buyer/order", deliverWithOTPRoutes);
-app.use("/api/driver", rideVehicleCategoryRoutes);
-app.use("/api/cab", rideRegisterRoutes);
-app.use("/api/available", driverOnlineDriverRoutes);
-app.use("/api/update", rideLocationDriverRoutes);
+app.use("/api/v0/user", userRoutes);
+app.use("/api/v0/seller", sellerRoutes);
+app.use("/api/v0/seller", sellerStatusRoutes);
+app.use("/api/v0/rider", riderRoutes);
+app.use("/api/v0/admin", adminRoutes);
+app.use("/api/v0/stories", storyRoutes);
+app.use("/api/v0/seller/product", priceCalculationRoutes);
+app.use("/api/v0/seller/forms/categories", createProductsRoutes);
+app.use("/api/v0/categories", category);
+app.use("/api/v0/upload", uploadRoutes);
+app.use("/api/v0/delete", deleteProduct);
+app.use("/api/v0/user", themesRoutes);
+app.use("/api/v0/seller/orders", ordersRoutes);
+app.use("/api/v0/shipping", shipregisterRoutes);
+app.use("/api/v0", onlineRoutes);
+app.use("/api/v0", riderIdRoutes);
+app.use("/api/v0/track", getRiderLocationRoutes);
+app.use("/api/v0/tracking", getTrackingStatusRoutes);
+// app.use("/api/v0/payout-portal/wallet", sellerPaymentRoutes);
+app.use("/api/v0/delivery/tracking", deliveryTrackingRoutes);
+app.use("/api/v0/payout-portal/wallet-setup", walletSetupRoutes);
+app.use("/api/v0/user/address", sellerLocation);
+app.use("/api/v0/find", trackOrderRoutes);
+app.use("/api/v0/fws/warehouse", fwsApplicationRoutes);
+app.use("/api/v0/fws/employee", fwsemployeeRoutes);
+app.use("/api/v0/buyer/order", deliverWithOTPRoutes);
+app.use("/api/v0/driver", rideVehicleCategoryRoutes);
+app.use("/api/v0/cab", rideRegisterRoutes);
+app.use("/api/v0/available", driverOnlineDriverRoutes);
+app.use("/api/v0/update", rideLocationDriverRoutes);
+app.use("/api/v0", rideBookingRoutes);
+app.use("/api/v0", rideTypesRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)

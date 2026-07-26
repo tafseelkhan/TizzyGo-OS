@@ -1,3 +1,5 @@
+// services/tizzyos/cab/rideFraudService.ts
+
 import mongoose from "mongoose";
 import RideDriverFraud from "../../../models/tizzyos/cab/rideDriverFraud";
 import RideDriverFraudLog from "../../../models/tizzyos/cab/rideDriverFraudLog";
@@ -65,6 +67,13 @@ export class RideFraudService {
     TIMEOUT: -3,
   } as const;
 
+  // ✅ Helper to ensure suspensionReason is never empty
+  private ensureSuspensionReason(fraud: any): void {
+    if (!fraud.suspensionReason || fraud.suspensionReason.trim() === "") {
+      fraud.suspensionReason = "No suspension reason provided";
+    }
+  }
+
   async initializeDriverFraud(
     userId: mongoose.Types.ObjectId | string,
   ): Promise<void> {
@@ -92,7 +101,7 @@ export class RideFraudService {
           warningCount: 0,
           isFlagged: false,
           isSuspended: false,
-          suspensionReason: "",
+          suspensionReason: "Initial driver fraud record created",
           autoSuspend: true,
           fraudLevel: "Low",
         });
@@ -131,6 +140,9 @@ export class RideFraudService {
           throw new Error("Failed to initialize or find fraud record");
         }
       }
+
+      // ✅ Ensure suspensionReason has a value before saving
+      this.ensureSuspensionReason(fraud);
 
       await this.processFraudAction(
         fraud as IFraudDocument,
@@ -215,6 +227,9 @@ export class RideFraudService {
     fraud.fraudLevel = this.calculateFraudLevel(fraud.fraudScore);
     fraud.isFlagged =
       fraud.fraudLevel === "High" || fraud.fraudLevel === "Critical";
+
+    // ✅ Ensure suspensionReason has a value before saving
+    this.ensureSuspensionReason(fraud);
 
     await fraud.save({ session });
 
@@ -377,6 +392,7 @@ export class RideFraudService {
       fraud.fraudScore < this.FRAUD_THRESHOLDS.SUSPENSION_THRESHOLD ||
       fraud.fraudLevel === "Critical";
 
+    // ✅ Always set meaningful suspension reason
     if (shouldSuspend && !fraud.isSuspended) {
       fraud.isSuspended = true;
       fraud.suspensionReason = `Auto-suspended due to fraud score: ${fraud.fraudScore} | Level: ${fraud.fraudLevel}`;
@@ -406,7 +422,8 @@ export class RideFraudService {
       const now = new Date();
       if (now >= fraud.suspensionEndsAt) {
         fraud.isSuspended = false;
-        fraud.suspensionReason = "Suspension period expired";
+        fraud.suspensionReason =
+          "Suspension period expired. Driver automatically unsuspended.";
         fraud.suspensionEndsAt = undefined;
         fraud.suspendedAt = undefined;
 
@@ -426,6 +443,9 @@ export class RideFraudService {
         await fraud.save({ session });
       }
     }
+
+    // ✅ Always ensure suspensionReason is not empty
+    this.ensureSuspensionReason(fraud);
   }
 
   private calculateFraudLevel(
@@ -452,6 +472,9 @@ export class RideFraudService {
         throw new Error("Failed to initialize or retrieve fraud status");
       }
     }
+
+    // ✅ Ensure suspensionReason has a value
+    this.ensureSuspensionReason(fraud);
 
     return fraud as IFraudDocument;
   }
@@ -491,10 +514,13 @@ export class RideFraudService {
 
         if (fraud.isSuspended) {
           fraud.isSuspended = false;
-          fraud.suspensionReason = "Fraud score reset by admin";
+          fraud.suspensionReason = "Fraud score reset by administrator";
           fraud.suspensionEndsAt = undefined;
           fraud.suspendedAt = undefined;
         }
+
+        // ✅ Ensure suspensionReason has a value
+        this.ensureSuspensionReason(fraud);
 
         await fraud.save({ session });
 
@@ -578,7 +604,8 @@ export class RideFraudService {
       const now = new Date();
       if (now >= fraud.suspensionEndsAt) {
         fraud.isSuspended = false;
-        fraud.suspensionReason = "Suspension period expired";
+        fraud.suspensionReason =
+          "Suspension period expired. Driver automatically unsuspended.";
         fraud.suspensionEndsAt = undefined;
         fraud.suspendedAt = undefined;
         await fraud.save();

@@ -1,3 +1,5 @@
+// interfaces/route/GoogleRoutesService.ts
+
 import axios from "axios";
 import {
   IRouteService,
@@ -80,6 +82,7 @@ export class GoogleRoutesService implements IRouteService {
     const cached = this.routeCache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < 300000) {
+      console.log("✅ Route cache hit");
       return cached.data;
     }
 
@@ -87,12 +90,16 @@ export class GoogleRoutesService implements IRouteService {
 
     for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
       try {
+        console.log(`📡 Attempt ${attempt} calling Google Routes API...`);
         const result = await this.callGoogleRoutesAPI(params);
         this.routeCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        console.log("✅ Google Routes API Success");
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`❌ Attempt ${attempt} failed:`, lastError.message);
         if (attempt < this.config.maxRetries) {
+          console.log(`⏳ Retrying in ${1000 * attempt}ms...`);
           await this.delay(1000 * attempt);
         }
       }
@@ -101,9 +108,13 @@ export class GoogleRoutesService implements IRouteService {
     throw new Error(`Google Routes API failed: ${lastError?.message}`);
   }
 
+  // =========================================================
+  // ✅ FIXED: Simplified request body - Matches working curl
+  // =========================================================
   private async callGoogleRoutesAPI(
     params: IRouteParams,
   ): Promise<IRouteResult> {
+    // ✅ SIMPLIFIED REQUEST BODY - Removed unnecessary fields
     const requestBody = {
       origin: {
         location: {
@@ -121,32 +132,64 @@ export class GoogleRoutesService implements IRouteService {
           },
         },
       },
-      travelMode: params.travelMode || "DRIVE",
-      routingPreference: params.routingPreference || "TRAFFIC_AWARE",
-      computeAlternativeRoutes: false,
-      routeModifiers: {
-        vehicleInfo: { emissionType: "GASOLINE" },
-        tollPasses: [],
-      },
-      languageCode: "en-US",
-      units: "METRIC",
+      travelMode: "DRIVE",
+      routingPreference: "TRAFFIC_AWARE",
     };
 
-    const response = await axios.post<IGoogleRouteResponse>(
-      `${this.config.baseUrl}/directions/v2:computeRoutes`,
-      requestBody,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": this.config.apiKey,
-          "X-Goog-FieldMask":
-            "routes.distanceMeters,routes.duration,routes.durationInTraffic,routes.polyline.encodedPolyline,routes.legs.startLocation,routes.legs.endLocation,routes.legs.steps",
-        },
-        timeout: this.config.timeoutMs,
-      },
-    );
+    // ✅ SIMPLE FIELDMASK - Exactly what worked in curl
+    const fieldMask =
+      "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline";
 
-    return this.parseGoogleResponse(response.data);
+    console.log("📡 Google Routes API Request:");
+    console.log(
+      "📍 URL:",
+      `${this.config.baseUrl}/directions/v2:computeRoutes`,
+    );
+    console.log("📍 Body:", JSON.stringify(requestBody, null, 2));
+    console.log("📍 FieldMask:", fieldMask);
+
+    try {
+      const response = await axios.post<IGoogleRouteResponse>(
+        `${this.config.baseUrl}/directions/v2:computeRoutes`,
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": this.config.apiKey,
+            "X-Goog-FieldMask": fieldMask,
+          },
+          timeout: this.config.timeoutMs,
+        },
+      );
+
+      console.log("✅ Google Routes API Success");
+      return this.parseGoogleResponse(response.data);
+    } catch (error: any) {
+      console.error("❌ Google Routes API Error:");
+
+      if (error.response) {
+        console.error("📡 Status:", error.response.status);
+        console.error(
+          "📡 Response Data:",
+          JSON.stringify(error.response.data, null, 2),
+        );
+
+        if (error.response.status === 400) {
+          const errorMsg = error.response.data?.error?.message || "Bad Request";
+          throw new Error(`Invalid request: ${errorMsg}`);
+        }
+
+        throw new Error(
+          `Google Routes API Error: ${error.response.status} - ${error.response.data?.error?.message || "Unknown error"}`,
+        );
+      } else if (error.request) {
+        console.error("📡 No response received");
+        throw new Error("No response from Google Routes API");
+      } else {
+        console.error("📡 Request error:", error.message);
+        throw new Error(`Request error: ${error.message}`);
+      }
+    }
   }
 
   private parseGoogleResponse(data: IGoogleRouteResponse): IRouteResult {
@@ -155,7 +198,7 @@ export class GoogleRoutesService implements IRouteService {
     }
 
     const route = data.routes[0];
-    const leg = route.legs[0];
+    const leg = route.legs?.[0];
 
     const distanceMeters = route.distanceMeters || 0;
     const durationSeconds = this.parseDuration(route.duration);
@@ -163,14 +206,15 @@ export class GoogleRoutesService implements IRouteService {
       ? this.parseDuration(route.durationInTraffic)
       : durationSeconds;
 
-    const steps: IRouteStep[] = leg.steps.map((step) => ({
-      distance: step.distanceMeters / 1000,
-      duration: this.parseDuration(step.duration) / 60,
-      instruction: step.navigationInstruction?.instructions || "",
-      polyline: step.polyline?.encodedPolyline || "",
-      travelMode: step.travelMode || "",
-      maneuver: step.navigationInstruction?.maneuver || "",
-    }));
+    const steps: IRouteStep[] =
+      leg?.steps?.map((step) => ({
+        distance: step.distanceMeters / 1000,
+        duration: this.parseDuration(step.duration) / 60,
+        instruction: step.navigationInstruction?.instructions || "",
+        polyline: step.polyline?.encodedPolyline || "",
+        travelMode: step.travelMode || "",
+        maneuver: step.navigationInstruction?.maneuver || "",
+      })) || [];
 
     return {
       roadDistanceKm: distanceMeters / 1000,
@@ -178,10 +222,10 @@ export class GoogleRoutesService implements IRouteService {
       trafficDurationMinutes: trafficDurationSeconds / 60,
       encodedPolyline: route.polyline?.encodedPolyline || "",
       routeSummary: {
-        startAddress: leg.startLocation?.latLng
+        startAddress: leg?.startLocation?.latLng
           ? `${leg.startLocation.latLng.latitude},${leg.startLocation.latLng.longitude}`
           : "",
-        endAddress: leg.endLocation?.latLng
+        endAddress: leg?.endLocation?.latLng
           ? `${leg.endLocation.latLng.latitude},${leg.endLocation.latLng.longitude}`
           : "",
         durationText: `${Math.round(trafficDurationSeconds / 60)} mins`,
@@ -255,11 +299,8 @@ export class GoogleRoutesService implements IRouteService {
 
   shouldRefreshRoute(params: IShouldRefreshParams): boolean {
     const { distanceSinceLastRefreshKm, isOffRoute } = params;
-
     if (isOffRoute) return true;
-
     if (distanceSinceLastRefreshKm >= 2) return true;
-
     return false;
   }
 
@@ -267,9 +308,7 @@ export class GoogleRoutesService implements IRouteService {
     booking: any,
     currentLocation: { latitude: number; longitude: number },
   ): number {
-    if (!booking.lastRouteRefreshLocation) {
-      return 999;
-    }
+    if (!booking.lastRouteRefreshLocation) return 999;
     return this.haversineDistance(
       booking.lastRouteRefreshLocation.latitude,
       booking.lastRouteRefreshLocation.longitude,
@@ -292,14 +331,12 @@ export class GoogleRoutesService implements IRouteService {
   ): boolean {
     if (!booking.encodedPolyline || !booking.lastRouteRefreshLocation)
       return false;
-
     const distance = this.haversineDistance(
       booking.lastRouteRefreshLocation.latitude,
       booking.lastRouteRefreshLocation.longitude,
       currentLocation.latitude,
       currentLocation.longitude,
     );
-
     return distance > 0.5;
   }
 

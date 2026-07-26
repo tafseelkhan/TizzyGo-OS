@@ -1,7 +1,7 @@
 {
-  "name": "tizzygo-backend",
-  "version": "1.0.0",
-  "description": "",
+  "name": "tizzygo-os",
+  "version": "0.0.1",
+  "description": "Smart MarketPlace App Build With Flixora",
   "main": "server.js",
   "scripts": {
     "build": "tsc",
