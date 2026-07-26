@@ -1,4 +1,3 @@
-// models/checkout/CheckoutSession.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICheckoutSession extends Document {
@@ -34,9 +33,13 @@ export interface ICheckoutSession extends Document {
     longitude: number;
   };
   paymentMethod: "online" | "cod";
+  paymentGateway?: string; // NEW: Store which gateway was used
   paymentIntentId?: string;
-  status: "pending" | "processing" | "completed" | "expired" | "failed";
+  qrCodeId?: string; // NEW: For QR payments
+  status: "pending" | "processing" | "completed" | "expired" | "failed" | "authorized" | "cancelled";
   expiresAt: Date;
+  errorMessage?: string; // NEW: Store error messages
+  metadata?: Record<string, any>; // NEW: For additional data
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,19 +98,34 @@ const CheckoutSessionSchema: Schema<ICheckoutSession> = new Schema(
       enum: ["online", "cod"],
       required: true,
     },
+    paymentGateway: {
+      type: String,
+      sparse: true, // NEW: Optional field
+    },
     paymentIntentId: {
       type: String,
-      sparse: true, // Only for online payments
+      sparse: true,
+    },
+    qrCodeId: {
+      type: String,
+      sparse: true, // NEW: For QR payments
     },
     status: {
       type: String,
-      enum: ["pending", "processing", "completed", "expired", "failed"],
+      enum: ["pending", "processing", "completed", "expired", "failed", "authorized", "cancelled"],
       default: "pending",
     },
     expiresAt: {
       type: Date,
       required: true,
-      index: { expireAfterSeconds: 0 }, // TTL index for automatic cleanup
+      index: { expireAfterSeconds: 0 },
+    },
+    errorMessage: {
+      type: String, // NEW: Store errors
+    },
+    metadata: {
+      type: Schema.Types.Mixed, // NEW: For additional data
+      default: {},
     },
   },
   {
@@ -117,6 +135,7 @@ const CheckoutSessionSchema: Schema<ICheckoutSession> = new Schema(
 
 // Add indexes for better query performance
 CheckoutSessionSchema.index({ userId: 1, status: 1 });
+CheckoutSessionSchema.index({ paymentGateway: 1, status: 1 });
 
 export default mongoose.models.CheckoutSession ||
   mongoose.model<ICheckoutSession>("CheckoutSession", CheckoutSessionSchema);

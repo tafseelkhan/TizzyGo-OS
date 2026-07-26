@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import Shipper from "../../../../models/tizzyos/shipping/order/order";
+import Shipper from "../../../../models/tizzygo/checkout/order";
 import Register from "../../../../models/tizzyos/shipping/fws/fwsRegistration";
 import ShipperRiderLocation from "../../../../models/tizzyos/shipping/fws/fwsRiderLocation";
 import {

@@ -3,7 +3,7 @@
 // ============================================================
 
 import mongoose from "mongoose";
-import Order, { IOrder } from "../../../models/tizzyos/shipping/order/order";
+import Order, { IOrder } from "../../../models/tizzygo/checkout/order";
 import DeliveryTracking, {
   FWSProcessingStage,
 } from "../../../models/tizzyos/shipping/order/deliveryTracking";

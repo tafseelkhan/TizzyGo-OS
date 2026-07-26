@@ -5,7 +5,7 @@ import { createPaymentIntent } from "../../../services/tizzygo/paymentService";
 import CheckoutSession, {
   ICheckoutSession,
 } from "../../../models/tizzygo/checkout/CheckoutSession";
-import Order from "../../../models/tizzyos/shipping/order/order";
+import Order from "../../../models/tizzygo/checkout/order";
 
 export const createPaymentIntentHandler = async (
   req: AuthRequest,

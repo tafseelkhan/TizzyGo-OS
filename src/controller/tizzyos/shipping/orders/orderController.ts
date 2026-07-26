@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Order from "../../../../models/tizzyos/shipping/order/order";
+import Order from "../../../../models/tizzygo/checkout/order";
 
 // 📦 Fetch orders for a specific seller
 export const getSellerOrders = async (req: Request, res: Response) => {

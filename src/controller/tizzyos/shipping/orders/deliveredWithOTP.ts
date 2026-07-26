@@ -2,7 +2,7 @@
 
 import mongoose from "mongoose";
 import { Request, Response } from "express";
-import Order from "../../../../models/tizzyos/shipping/order/order";
+import Order from "../../../../models/tizzygo/checkout/order";
 import DeliveryTracking from "../../../../models/tizzyos/shipping/order/deliveryTracking";
 import User from "../../../../models/tizzygo/auths/User";
 import { sendOTPEmail } from "../../../../services/tizzyos/shippings/deliveryOTPServices";

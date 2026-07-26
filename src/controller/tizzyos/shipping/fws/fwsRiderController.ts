@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose, { ClientSession } from "mongoose";
-import Shipper from "../../../../models/tizzyos/shipping/order/order";
+import Shipper from "../../../../models/tizzygo/checkout/order";
 import Register from "../../../../models/tizzyos/shipping/fws/fwsRegistration";
 import ShipperRiderLocation from "../../../../models/tizzyos/shipping/fws/fwsRiderLocation";
 import {
@@ -8,7 +8,7 @@ import {
   geocodeAddress,
 } from "../../../../utils/tizzyos/shippings/googleAPI";
 import User from "../../../../models/tizzygo/auths/User";
-import Otp from "../../../../models/tizzyos/shipping/order/orderOtp";
+import Otp from "../../../../models/tizzygo/checkout/orderOtp";
 import { generateOtp } from "../../../../utils/tizzygo/orderOtp";
 import { sendSms } from "../../../../utils/tizzygo/twilio";
 import { sendEmail } from "../../../../utils/tizzygo/email";
@@ -730,10 +730,10 @@ export const assignRiderToOrder = async (req: Request, res: Response) => {
 
         // Get all eligible riders with both "approved" and "verified" KYC status
         const allRiders = await Register.find({
-          "kyc.status": { $in: ["approved", "verified"] }, // Both "approved" and "verified" as per requirements
+          "kyc.status": { $in: ["approved", "verified"] as unknown as string[] },
           isAvailable: true,
           isOnline: true,
-        })
+        } as any)
           .select(
             "_id name phone rating maxOrdersPerDay orderStats isAvailable isOnline kyc.status",
           )
@@ -1922,15 +1922,6 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
             userId: user._id,
             otp: generatedOtp,
             expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-            metadata: {
-              platform: BRANDS.TIZZYOS.name,
-              deliveryService: BRANDS.TIZZYGO.name,
-              network: BRANDS.AIRCLOUD.name,
-              platformLogo: BRANDS.TIZZYOS,
-              deliveryLogo: BRANDS.TIZZYGO,
-              networkLogo: BRANDS.AIRCLOUD,
-              generatedAt: new Date(),
-            },
           },
         ],
         { session },

@@ -5,7 +5,7 @@ import FWS from "../../../models/tizzyos/fws/fwsWareHouse";
 import SellerLocation from "../../../models/tizzyos/seller/locations/locations";
 import ShippingLocation from "../../../models/tizzyos/shipping/fws/fwsRiderLocation";
 import User from "../../../models/tizzygo/auths/User";
-import Order from "../../../models/tizzyos/shipping/order/order";
+import Order from "../../../models/tizzygo/checkout/order";
 import { calculateDistance } from "../../../utils/tizzyos/shippings/trackingUtils";
 import {
   IProximityCheckResponse,

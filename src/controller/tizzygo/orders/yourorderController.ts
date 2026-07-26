@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import Order from '../../../models/tizzyos/shipping/order/order';
+import Order from '../../../models/tizzygo/checkout/order';
 
 /**
  * 🔹 API 1: Get ALL orders of logged-in buyer
