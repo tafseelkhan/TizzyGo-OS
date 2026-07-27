@@ -1,29 +1,21 @@
 import { ZeptPay } from "@flixora/zeptpay-payment-core";
 import {
-  ZeptPayPaymentGateway,
-  CreatePaymentIntentParams,
-  ProcessPaymentParams,
-  RefundPaymentParams,
-  PaymentIntentResponse,
-  PaymentProcessResponse,
-  PaymentCaptureResponse,
-  RefundResponse,
-  PaymentVoidResponse,
-  PaymentStatusResponse,
-  PaymentDetailsResponse,
-  NormalizedWebhookEvent,
-  CreateCustomerParams,
-  CustomerResponse,
-  AccountResponse,
-  BalanceResponse,
-} from "../interfaces/seller/PaymentGateway";
+  IPaymentGateway,
+  ICreatePaymentIntentParams,
+  IProcessPaymentParams,
+  IPaymentIntentResponse,
+  IPaymentProcessResponse,
+  IPaymentCaptureResponse,
+  IPaymentStatusResponse,
+  INormalizedWebhookEvent,
+} from "../interfaces/seller/IPaymentGateway";
 import {
   PaymentGatewayType,
   PaymentStatus,
   WebhookEventType,
 } from "../enums/PaymentGatewayType";
 
-export class ZeptPayGateway implements ZeptPayPaymentGateway {
+export class ZeptPayGateway implements IPaymentGateway {
   readonly gatewayType = PaymentGatewayType.ZEPTPAY;
   private client: ZeptPay;
 
@@ -35,10 +27,10 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
   }
 
   async createPaymentIntent(
-    params: CreatePaymentIntentParams,
-  ): Promise<PaymentIntentResponse> {
+    params: ICreatePaymentIntentParams,
+  ): Promise<IPaymentIntentResponse> {
     try {
-      const createPaymentRequest: any = {
+      const response = await this.client.flixora.payments.createPayment({
         zeptPayAccountId: params.accountId,
         amount: params.amount,
         currency: params.currency || "INR",
@@ -48,14 +40,7 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
           name: params.customerName || "Customer",
           email: params.customerEmail || "",
         },
-        meta: {
-          ...params.metadata,
-          idempotencyKey: params.idempotencyKey,
-        },
-      };
-
-      const response =
-        await this.client.flixora.payments.createPayment(createPaymentRequest);
+      });
 
       return {
         paymentIntentId: response.zeptpayTransactionId || response._id,
@@ -71,11 +56,10 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
   }
 
   async processPayment(
-    params: ProcessPaymentParams,
-  ): Promise<PaymentProcessResponse> {
+    params: IProcessPaymentParams,
+  ): Promise<IPaymentProcessResponse> {
     try {
-      // ZeptPay processes payment on creation, no separate process call needed
-      // This is a no-op for ZeptPay as payment is already processed
+      // ZeptPay processes payment on creation
       return {
         paymentIntentId: params.paymentIntentId,
         transactionId: params.paymentIntentId,
@@ -91,9 +75,9 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
 
   async capturePayment(
     paymentIntentId: string,
-  ): Promise<PaymentCaptureResponse> {
+  ): Promise<IPaymentCaptureResponse> {
     try {
-      // ZeptPay automatically captures, implement if needed
+      // ZeptPay automatically captures
       return {
         paymentIntentId,
         status: PaymentStatus.CAPTURED,
@@ -110,36 +94,45 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
     signature: string,
   ): Promise<boolean> {
     try {
-      // ZeptPay webhook verification
-      return true; // Implement actual verification if needed
+      // ZeptPay webhook verification using raw body
+      const timestamp = JSON.parse(payload).timestamp || Date.now();
+      const verified = this.client.flixora.webhook.verifyEventZPTFXO(
+        JSON.parse(payload),
+        signature,
+        timestamp,
+        process.env.ZEPTPAY_WEBHOOK_KEY!,
+      );
+      return !!verified;
     } catch (error: any) {
       console.error("ZeptPay webhook signature verification failed:", error);
       return false;
     }
   }
 
-  async parseWebhookEvent(payload: any): Promise<NormalizedWebhookEvent> {
+  async parseWebhookEvent(payload: any): Promise<INormalizedWebhookEvent> {
     try {
       const eventType = this.normalizeEventType(payload.event || payload.type);
-      const paymentIntentId = payload.zeptpayTransactionId || payload._id;
+      const entity = payload.data?.object || payload;
+      const paymentIntentId =
+        entity.zeptpayTransactionId || entity._id || payload.id;
 
       return {
         eventType,
         gatewayType: PaymentGatewayType.ZEPTPAY,
-        gatewayEventId: payload._id || payload.eventId,
+        gatewayEventId: payload.id || payload.eventId,
         paymentIntentId: paymentIntentId,
         transactionId: paymentIntentId,
-        orderId: payload.meta?.orderId,
-        amount: payload.amount || 0,
-        currency: payload.currency || "INR",
-        status: this.normalizeStatus(payload.status),
+        orderId: entity.meta?.orderId || entity.metadata?.orderId,
+        amount: entity.amount || 0,
+        currency: entity.currency || "INR",
+        status: this.normalizeStatus(entity.status),
         timestamp: new Date(
-          payload.timestamp || payload.createdAt || Date.now(),
+          payload.created_at || payload.created || Date.now(),
         ),
         rawPayload: payload,
         normalizedPayload: {
-          ...payload,
-          status: this.normalizeStatus(payload.status),
+          ...entity,
+          status: this.normalizeStatus(entity.status),
           eventType,
         },
       };
@@ -148,47 +141,39 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
     }
   }
 
-  async createCustomer(
-    params: CreateCustomerParams,
-  ): Promise<CustomerResponse> {
+  // ✅ FIX: ZeptPay doesn't have getPaymentStatus directly
+  // Instead, use getPaymentDetails or fetch from database
+  async getPaymentStatus(
+    paymentIntentId: string,
+  ): Promise<IPaymentStatusResponse> {
     try {
-      // ZeptPay doesn't have explicit customer creation
-      return {
-        customerId: params.email || params.name,
-        name: params.name,
-        email: params.email,
-        phone: params.phone,
-        gatewayResponse: {},
-      };
-    } catch (error: any) {
-      throw new Error(`ZeptPay create customer failed: ${error.message}`);
-    }
-  }
+      // ZeptPay doesn't have direct getPaymentStatus method
+      // Option 1: Try getPaymentDetails if available
+      // Option 2: Query from database
+      // Option 3: Return cached status
 
-  async getCustomer(customerId: string): Promise<CustomerResponse> {
-    try {
-      // ZeptPay doesn't support customer retrieval
-      return {
-        customerId,
-        name: "",
-        gatewayResponse: {},
-      };
-    } catch (error: any) {
-      throw new Error(`ZeptPay get customer failed: ${error.message}`);
-    }
-  }
+      console.warn(`⚠️ ZeptPay getPaymentStatus called for ${paymentIntentId}`);
+      console.warn(`ℹ️ ZeptPay SDK doesn't support direct status query`);
 
-  async getAccountDetails(accountId: string): Promise<AccountResponse> {
-    try {
-      // ZeptPay account details
+      // Return a default response
+      // In production, you would fetch from your database
       return {
-        accountId,
-        name: "",
-        status: "active",
-        gatewayResponse: {},
+        paymentIntentId,
+        status: PaymentStatus.PROCESSING,
+        amount: 0,
+        currency: "INR",
+        gatewayResponse: {
+          message: "ZeptPay status query not supported",
+          paymentIntentId,
+        },
       };
+
+      // ❌ Ye line nahi chalegi:
+      // const response = await this.client.flixora.payments.getPaymentStatus({
+      //   zeptPayTransactionId: paymentIntentId,
+      // });
     } catch (error: any) {
-      throw new Error(`ZeptPay get account details failed: ${error.message}`);
+      throw new Error(`ZeptPay get payment status failed: ${error.message}`);
     }
   }
 
@@ -213,12 +198,17 @@ export class ZeptPayGateway implements ZeptPayPaymentGateway {
 
   private normalizeEventType(event: string): WebhookEventType {
     const eventMap: Record<string, WebhookEventType> = {
-      "payment.created": WebhookEventType.PAYMENT_CAPTURED,
-      "payment.succeeded": WebhookEventType.PAYMENT_CAPTURED,
-      "payment.captured": WebhookEventType.PAYMENT_CAPTURED,
-      "payment.authorized": WebhookEventType.PAYMENT_AUTHORIZED,
-      "payment.failed": WebhookEventType.PAYMENT_FAILED,
-      "payment.refunded": WebhookEventType.PAYMENT_REFUNDED,
+      "zeptpay-flixora.payment_intent.created":
+        WebhookEventType.PAYMENT_CAPTURED,
+      "zeptpay-flixora.payment_intent.succeeded":
+        WebhookEventType.PAYMENT_CAPTURED,
+      "zeptpay-flixora.payment_intent.captured":
+        WebhookEventType.PAYMENT_CAPTURED,
+      "zeptpay-flixora.payment_intent.authorized":
+        WebhookEventType.PAYMENT_AUTHORIZED,
+      "zeptpay-flixora.payment_intent.payment_failed":
+        WebhookEventType.PAYMENT_FAILED,
+      "zeptpay-flixora.charge.refunded": WebhookEventType.PAYMENT_REFUNDED,
     };
     return eventMap[event] || WebhookEventType.PAYMENT_CAPTURED;
   }

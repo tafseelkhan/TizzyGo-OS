@@ -1,5 +1,6 @@
+// services/tizzygo/transactionService.ts - RAZORPAY VERSION
 import mongoose from "mongoose";
-import { ZeptPay } from "@flixora/zeptpay-payment-core";
+import Razorpay from "razorpay";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import Order from "../../models/tizzygo/checkout/order";
 import User from "../../models/tizzygo/auths/User";
@@ -11,10 +12,12 @@ import {
   PaymentStatus,
 } from "../../utils/tizzygo/transactionHelpers";
 
-const zeptpay = new ZeptPay({
-  clientKey: process.env.ZEPTPAY_CLIENT_KEY!,
-  secretKey: process.env.ZEPTPAY_SECRET_KEY!,
+// ✅ Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
+
 interface ProcessPaymentParams {
   checkoutSessionId: string;
   paymentType: string;
@@ -84,12 +87,7 @@ export const processPayment = async ({
     firstItem?.calculated || cartSnapshot?.calculatedData || {};
 
   const amount = extractPaymentAmount(calculatedData);
-  const zeptPayAccountId = productData?.zeptPayAccountId;
   const appName = productData?.appName || "TizzyGo";
-
-  if (!zeptPayAccountId) {
-    throw new Error("zeptPayAccountId missing");
-  }
 
   if (!amount || amount <= 0) {
     throw new Error("Invalid payment amount");
@@ -100,6 +98,7 @@ export const processPayment = async ({
   if (!userAccount) {
     throw new Error("User not found");
   }
+
   const payer = {
     userId: user.userId,
     name: userAccount.name || "Customer",
@@ -110,20 +109,19 @@ export const processPayment = async ({
   order.status = "processing";
   order.paymentStatus = "processing";
   checkoutSession.status = "processing";
-  checkoutSession.paymentGateway = "zeptpay";
+  checkoutSession.paymentGateway = "razorpay"; // ✅ Razorpay
 
   await order.save({ session });
   await checkoutSession.save({ session });
 
-  // Call ZeptPay SDK
-  let zeptpayResponse: any = {};
+  // ✅ Call Razorpay SDK
+  let razorpayResponse: any = {};
 
   try {
     console.log("========================================");
-    console.log("🚀 BEFORE ZEPTPAY SDK CALL");
+    console.log("🚀 BEFORE RAZORPAY SDK CALL");
     console.log("========================================");
     console.log("Payment Type:", paymentType);
-    console.log("Vendor Code:", zeptPayAccountId);
     console.log("Amount:", amount);
     console.log("Currency:", "INR");
     console.log("App Name:", appName);
@@ -144,80 +142,61 @@ export const processPayment = async ({
 
     const sdkStart = Date.now();
 
+    // ✅ Razorpay Order Create (if not already created)
     if (paymentType === "normal") {
-      console.log("💳 Calling createPayment()...");
+      console.log("💳 Calling Razorpay orders.create()...");
 
-      zeptpayResponse = await zeptpay.flixora.payments.createPayment({
-        zeptPayAccountId,
-        amount,
+      // Check if order already has razorpay order ID
+      let razorpayOrderId = order.paymentIntentId;
+
+      if (!razorpayOrderId) {
+        // Create new Razorpay order
+        const razorpayOrder = await razorpay.orders.create({
+          amount: Math.round(amount * 100), // paise mein
+          currency: "INR",
+          receipt: `receipt_${Date.now()}`,
+          notes: {
+            checkoutSessionId: checkoutSessionId,
+            orderId: order.orderId,
+            buyerId: userId,
+            transactionId: transactionId || "",
+          },
+        });
+        razorpayOrderId = razorpayOrder.id;
+        order.paymentIntentId = razorpayOrderId;
+        checkoutSession.paymentIntentId = razorpayOrderId;
+        await order.save({ session });
+        await checkoutSession.save({ session });
+        console.log(`✅ Razorpay Order Created: ${razorpayOrderId}`);
+      }
+
+      razorpayResponse = {
+        paymentIntentId: razorpayOrderId,
+        status: "created",
+        orderId: order.orderId,
+        amount: amount,
         currency: "INR",
-        appName,
-        payer,
-        meta: {
-          checkoutSessionId,
-          orderId: order.orderId,
-          buyerId: userId,
-          transactionId,
-        },
-      } as any);
+      };
 
-      console.log(`✅ createPayment SUCCESS (${Date.now() - sdkStart}ms)`);
+      console.log(`✅ Razorpay order prepared (${Date.now() - sdkStart}ms)`);
     } else if (paymentType === "qr") {
-      console.log("📱 Calling generateTestQR()...");
-
-      zeptpayResponse = await zeptpay.flixora.qr.generateTestQR({
-        zeptPayAccountId,
-        amount,
-        currency: "INR",
-        appName,
-        payer,
-        meta: {
-          checkoutSessionId,
-          orderId: order.orderId,
-          buyerId: userId,
-          transactionId,
-        },
-      } as any);
-
-      console.log(`✅ generateTestQR SUCCESS (${Date.now() - sdkStart}ms)`);
+      console.log("📱 QR payment not supported in Razorpay currently");
+      throw new Error("QR payment type not supported in Razorpay");
     } else if (paymentType === "autopay") {
-      console.log("🔄 Calling createAutoPayTransaction()...");
-
-      zeptpayResponse = await zeptpay.flixora.autopay.createAutoPayTransaction({
-        zeptPayAccountId,
-        amount,
-        currency: "INR",
-        appName,
-        payer,
-        frequency: frequency || "monthly",
-        startDate: startDate || new Date(),
-        endDate: endDate || null,
-        meta: {
-          checkoutSessionId,
-          orderId: order.orderId,
-          buyerId: userId,
-          transactionId,
-        },
-      } as any);
-
-      console.log(
-        `✅ createAutoPayTransaction SUCCESS (${Date.now() - sdkStart}ms)`,
-      );
+      console.log("🔄 Autopay not supported in Razorpay currently");
+      throw new Error("Autopay not supported in Razorpay");
     }
 
     console.log("========================================");
-    console.log("📦 ZEPTPAY RESPONSE");
+    console.log("📦 RAZORPAY RESPONSE");
     console.log("========================================");
-    console.log(JSON.stringify(zeptpayResponse, null, 2));
+    console.log(JSON.stringify(razorpayResponse, null, 2));
   } catch (sdkError: any) {
     console.log("========================================");
-    console.log("❌ ZEPTPAY SDK ERROR");
+    console.log("❌ RAZORPAY SDK ERROR");
     console.log("========================================");
     console.log("Message:", sdkError?.message);
-    console.log("Name:", sdkError?.name);
     console.log("Code:", sdkError?.code);
-    console.log("Status:", sdkError?.status);
-    console.log("Response:", sdkError?.response);
     console.log("Stack:", sdkError?.stack);
 
     order.status = "failed";
@@ -233,14 +212,14 @@ export const processPayment = async ({
   }
 
   // Process response
-  const paymentIntentId = normalizePaymentIntentId(zeptpayResponse);
-  const paymentStatus = getPaymentStatus(zeptpayResponse);
+  const paymentIntentId = normalizePaymentIntentId(razorpayResponse);
+  const paymentStatus = getPaymentStatus(razorpayResponse);
 
   const paymentAttempt = createPaymentAttempt(
     paymentIntentId,
     paymentType,
     paymentStatus,
-    { ...zeptpayResponse, transactionId },
+    { ...razorpayResponse, transactionId },
   );
 
   if (!order.paymentAttempts) order.paymentAttempts = [];
@@ -249,10 +228,6 @@ export const processPayment = async ({
   if (paymentIntentId) {
     order.paymentIntentId = paymentIntentId;
     checkoutSession.paymentIntentId = paymentIntentId;
-  }
-
-  if (zeptpayResponse?.qrCodeId) {
-    checkoutSession.qrCodeId = zeptpayResponse.qrCodeId;
   }
 
   // Update status based on payment result
@@ -289,7 +264,7 @@ export const processPayment = async ({
   return {
     order,
     checkoutSession,
-    zeptpayResponse,
+    razorpayResponse,
     paymentIntentId,
     paymentStatus,
     amount,

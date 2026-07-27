@@ -1,9 +1,9 @@
+// services/tizzygo/paymentService.ts - FINAL FIXED VERSION
+
 import mongoose from "mongoose";
 import { PaymentGatewayFactory } from "../../factories/PaymentGatewayFactory";
-import {
-  PaymentGatewayType,
-  PaymentStatus,
-} from "../../enums/PaymentGatewayType";
+import { IPaymentGateway } from "../../interfaces/seller/IPaymentGateway";
+import { PaymentStatus } from "../../enums/PaymentGatewayType";
 import Order from "../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import User from "../../models/tizzygo/auths/User";
@@ -17,24 +17,19 @@ import {
   getFinalAmount,
   generateQrCodeDataUrl,
 } from "../../utils/tizzygo/paymentHelpers";
-import { normalizePaymentIntentId } from "../../utils/tizzygo/transactionHelpers";
+import Razorpay from "razorpay";
+
+// ✅ Razorpay initialization
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
 
 interface CreatePaymentIntentParams {
   userId: string;
   address: any;
   paymentMethod: string;
   session: mongoose.ClientSession;
-  idempotencyKey?: string;
-}
-
-interface GatewayCreatePaymentIntentParams {
-  amount: number;
-  currency: string;
-  accountId: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  metadata?: Record<string, any>;
   idempotencyKey?: string;
 }
 
@@ -87,6 +82,7 @@ export const createPaymentIntent = async ({
           productData: {},
           userDetails: {},
           isDuplicate: true,
+          paymentIntentId: existingOrder.paymentIntentId || null,
         };
       }
     }
@@ -185,6 +181,35 @@ export const createPaymentIntent = async ({
       sellerId,
     );
 
+    // ✅ RAZORPAY ORDER CREATE (Only for online payments)
+    let razorpayOrderId = null;
+    if (paymentMethod !== "cod") {
+      try {
+        console.log("💰 Creating Razorpay Order...");
+        const razorpayOrder = await razorpay.orders.create({
+          amount: Math.round(finalAmount * 100), // paise mein
+          currency: "INR",
+          receipt: `receipt_${Date.now()}`,
+          notes: {
+            checkoutSessionId: checkoutSessionId,
+            orderId: orderId,
+            userId: userId,
+            productId: customProductId,
+          },
+        });
+        razorpayOrderId = razorpayOrder.id; // ✅ 'order_xxx'
+        console.log("✅ Razorpay Order Created:", razorpayOrderId);
+      } catch (razorpayError: any) {
+        console.error(
+          "❌ Razorpay Order Creation Failed:",
+          razorpayError.message,
+        );
+        throw new Error(
+          "Failed to create Razorpay order: " + razorpayError.message,
+        );
+      }
+    }
+
     // Create order
     const order = new Order({
       orderId,
@@ -239,7 +264,7 @@ export const createPaymentIntent = async ({
       couponData: calculatedData.couponData || null,
       coFundApplied: calculatedData.coFundApplied || false,
       fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
-      paymentIntentId: null,
+      paymentIntentId: razorpayOrderId, // ✅ Store Razorpay order ID
       shippingLabel: {
         qrCodeUrl: qrCodeUrl,
         qrData: {
@@ -298,8 +323,8 @@ export const createPaymentIntent = async ({
       },
       paymentMethod,
       status: paymentMethod === "cod" ? "completed" : "pending",
-      paymentGateway: paymentMethod === "cod" ? null : "zeptpay",
-      paymentIntentId: null,
+      paymentGateway: paymentMethod === "cod" ? null : "razorpay",
+      paymentIntentId: razorpayOrderId, // ✅ Store Razorpay order ID
       qrCodeId: null,
       expiresAt,
     });
@@ -311,6 +336,7 @@ export const createPaymentIntent = async ({
     await Cart.deleteMany({ userId }, { session });
     console.log("🗑️ Cart cleared for", paymentMethod, "order");
 
+    // ✅ Return with paymentIntentId
     return {
       order,
       checkoutSession,
@@ -322,6 +348,7 @@ export const createPaymentIntent = async ({
       userDetails,
       zeptPayAccountId,
       isDuplicate: false,
+      paymentIntentId: razorpayOrderId, // ✅ YAHI - Razorpay order ID
     };
   } catch (error: any) {
     console.error("❌ Payment Service Error:", error.message);
@@ -413,16 +440,19 @@ export const processPayment = async ({
   order.status = "processing";
   order.paymentStatus = "processing";
   checkoutSession.status = "processing";
-  checkoutSession.paymentGateway = "zeptpay";
+
+  // Store which gateway will be used
+  const activeGatewayType = PaymentGatewayFactory.getActiveGatewayType();
+  checkoutSession.paymentGateway = activeGatewayType;
 
   await order.save({ session });
   await checkoutSession.save({ session });
 
   // Get active gateway
-  const gateway = PaymentGatewayFactory.getGateway();
+  const gateway: IPaymentGateway = PaymentGatewayFactory.getGateway();
 
   // Prepare payment parameters
-  const paymentParams: GatewayCreatePaymentIntentParams = {
+  const paymentParams = {
     amount,
     currency: "INR",
     accountId,
@@ -459,7 +489,6 @@ export const processPayment = async ({
 
     const sdkStart = Date.now();
 
-    // Process payment based on payment type
     if (paymentType === "normal") {
       console.log("💳 Calling createPaymentIntent()...");
       gatewayResponse = await gateway.createPaymentIntent(paymentParams);
@@ -468,7 +497,6 @@ export const processPayment = async ({
       );
     } else if (paymentType === "qr") {
       console.log("📱 Calling createPaymentIntent with QR...");
-      // For QR, we still use createPaymentIntent but with QR metadata
       const qrParams = {
         ...paymentParams,
         metadata: {
@@ -613,7 +641,7 @@ export const processPayment = async ({
   return {
     order,
     checkoutSession,
-    zeptpayResponse: gatewayResponse, // Backward compatibility
+    zeptpayResponse: gatewayResponse,
     paymentIntentId,
     paymentStatus,
     amount,
@@ -636,7 +664,7 @@ export const getOrderStatus = async (orderId: string, userId: string) => {
   return order;
 };
 
-// Helper functions (unchanged from original)
+// Helper functions
 function extractPaymentAmount(calculatedData: any): number {
   return Number(
     calculatedData?.grandTotal ||

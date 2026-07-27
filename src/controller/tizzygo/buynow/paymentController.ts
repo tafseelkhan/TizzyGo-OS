@@ -1,3 +1,5 @@
+// controllers/tizzygo/paymentController.ts - FINAL FIXED VERSION
+
 import { Response } from "express";
 import mongoose from "mongoose";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
@@ -20,7 +22,6 @@ export const createPaymentIntentHandler = async (
 
   try {
     const user = req.user;
-    // 🔥 FIX: Add idempotencyKey from request body
     const { address, paymentMethod = "online", idempotencyKey } = req.body;
 
     console.log("📥 Request received:");
@@ -29,7 +30,6 @@ export const createPaymentIntentHandler = async (
     console.log("  - Idempotency Key:", idempotencyKey);
     console.log("  - Has Address:", !!address);
 
-    // Validation
     if (!user?.userId) {
       await mongoSession.abortTransaction();
       return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -42,7 +42,7 @@ export const createPaymentIntentHandler = async (
         .json({ success: false, error: "Address is required" });
     }
 
-    // 🔥 FIX: Check for duplicate order using idempotency key
+    // Check for duplicate order using idempotency key
     if (idempotencyKey) {
       console.log("🔍 Checking for existing order with idempotency key...");
 
@@ -68,6 +68,7 @@ export const createPaymentIntentHandler = async (
           message: "Order already exists",
           checkoutSessionId: existingCheckoutSession?.checkoutSessionId,
           orderId: existingOrder.orderId,
+          paymentIntentId: existingOrder.paymentIntentId || null, // ✅ Razorpay order ID
           paymentMethod:
             existingCheckoutSession?.paymentMethod || paymentMethod,
           finalAmount: existingOrder.finalAmount,
@@ -96,10 +97,9 @@ export const createPaymentIntentHandler = async (
       address,
       paymentMethod,
       session: mongoSession,
-      idempotencyKey, // 🔥 Pass idempotency key to service
+      idempotencyKey,
     });
 
-    // Commit transaction
     await mongoSession.commitTransaction();
     mongoSession.endSession();
 
@@ -107,7 +107,7 @@ export const createPaymentIntentHandler = async (
       ? result.userDetails[0]
       : result.userDetails;
 
-    // Return response
+    // ✅ Return response with paymentIntentId (Razorpay order ID)
     return res.status(200).json({
       success: true,
       message: result.isDuplicate
@@ -117,6 +117,7 @@ export const createPaymentIntentHandler = async (
           : "✅ Order created successfully",
       checkoutSessionId: result.checkoutSessionId,
       orderId: result.orderId,
+      paymentIntentId: result.paymentIntentId, // ✅ YAHI - Razorpay order ID (starts with 'order_')
       paymentMethod,
       finalAmount: result.finalAmount,
       currency: "INR",
@@ -205,10 +206,7 @@ export const getSessionStatusHandler = async (
       });
     }
 
-    // 🔥 FIX: Also fetch order details
     const order = await Order.findById(session.orderId).lean();
-
-    // normalize order in case mongoose returns an array for some queries
     const orderDoc = Array.isArray(order) ? order[0] : order;
 
     console.log("✅ Session found:");
@@ -223,7 +221,7 @@ export const getSessionStatusHandler = async (
         checkoutSessionId: session.checkoutSessionId,
         status: session.status,
         paymentMethod: session.paymentMethod,
-        paymentIntentId: session.paymentIntentId,
+        paymentIntentId: session.paymentIntentId, // ✅ Razorpay order ID
         expiresAt: session.expiresAt,
       },
       order: orderDoc

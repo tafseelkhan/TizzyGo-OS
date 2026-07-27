@@ -1,96 +1,137 @@
+// src/controllers/tizzygo/payment/webhookController.ts - FINAL FIXED VERSION
+
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { PaymentGatewayFactory } from "../../../factories/PaymentGatewayFactory";
-import {
-  PaymentGatewayType,
-  WebhookEventType,
-} from "../../../enums/PaymentGatewayType";
+import { IPaymentGateway } from "../../../interfaces/seller/IPaymentGateway";
+import { PaymentGatewayType } from "../../../enums/PaymentGatewayType";
 import Order from "../../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../../models/tizzygo/checkout/CheckoutSession";
 import WebhookEvent from "../../../models/tizzygo/checkout/WebhookEvent";
-import { generateCheckoutSessionId } from "../../../utils/tizzygo/paymentHelpers";
+import Transaction from "../../../models/tizzygo/checkout/Transaction";
+
+// ✅ Retry function with exponential backoff
+const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 100,
+): Promise<T> => {
+  let lastError: any;
+  let delay = initialDelay;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+
+      // ✅ Only retry on write conflict
+      if (error.code === 112 || error.codeName === "WriteConflict") {
+        console.log(
+          `⚠️ Write conflict, retry ${attempt}/${maxRetries} after ${delay}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+        continue;
+      }
+
+      // ✅ For other errors, throw immediately
+      throw error;
+    }
+  }
+
+  throw lastError;
+};
 
 export const webhookHandler = async (req: Request, res: Response) => {
   console.log("========================================");
   console.log("🔔 WEBHOOK RECEIVED");
   console.log("========================================");
-  console.log("Gateway:", req.params.gateway);
-  console.log("Headers:", req.headers);
-  console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("URL:", req.url);
+  console.log("Method:", req.method);
 
-  const gatewayType = req.params.gateway as PaymentGatewayType;
-  const signature =
-    (req.headers["x-razorpay-signature"] as string) ||
-    (req.headers["x-zeptpay-signature"] as string);
+  const rawBody =
+    req.body instanceof Buffer
+      ? req.body.toString("utf8")
+      : JSON.stringify(req.body);
 
-  const mongoSession = await mongoose.startSession();
-  mongoSession.startTransaction();
+  console.log("Raw Body Length:", rawBody.length);
+  console.log("Raw Body Preview:", rawBody.substring(0, 200) + "...");
+
+  let parsedBody: any;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch (e) {
+    parsedBody = req.body;
+  }
+
+  console.log("✅ Body parsed successfully");
+
+  let gatewayType: PaymentGatewayType = PaymentGatewayType.RAZORPAY;
+  if (req.headers["x-razorpay-signature"]) {
+    gatewayType = PaymentGatewayType.RAZORPAY;
+  }
+
+  console.log("✅ Gateway detected:", gatewayType);
+
+  let signature = "";
+  if (gatewayType === PaymentGatewayType.RAZORPAY) {
+    signature = req.headers["x-razorpay-signature"] as string;
+  }
 
   try {
-    // Get gateway
-    const gateway = PaymentGatewayFactory.getGatewayByType(gatewayType);
+    const gateway: IPaymentGateway =
+      PaymentGatewayFactory.getGatewayByType(gatewayType);
 
-    // Verify webhook signature
-    const payload = JSON.stringify(req.body);
-    const isValid = await gateway.verifyWebhookSignature(payload, signature);
+    let isValid = false;
+    if (signature) {
+      try {
+        isValid = await gateway.verifyWebhookSignature(rawBody, signature);
+        console.log(
+          "✅ Signature verification:",
+          isValid ? "PASSED" : "FAILED",
+        );
+      } catch (sigError: any) {
+        console.error("❌ Signature verification error:", sigError.message);
+        if (process.env.NODE_ENV === "development") {
+          console.log("⚠️ Development mode: Allowing despite signature error");
+          isValid = true;
+        }
+      }
+    } else {
+      if (process.env.NODE_ENV === "development") {
+        console.log("⚠️ Development mode: No signature, allowing");
+        isValid = true;
+      }
+    }
 
     if (!isValid) {
       console.error("❌ Invalid webhook signature");
-      await mongoSession.abortTransaction();
       return res
         .status(401)
         .json({ success: false, error: "Invalid signature" });
     }
 
-    // Parse webhook event
-    const normalizedEvent = await gateway.parseWebhookEvent(req.body);
-    console.log("✅ Webhook parsed:", normalizedEvent);
+    const normalizedEvent = await gateway.parseWebhookEvent(parsedBody);
+    console.log("✅ Webhook parsed:", normalizedEvent.eventType);
+    console.log("✅ Event ID:", normalizedEvent.gatewayEventId);
+    console.log("✅ Payment Intent ID:", normalizedEvent.paymentIntentId);
+    console.log("✅ Transaction ID:", normalizedEvent.transactionId);
+    console.log("✅ Internal Order ID:", normalizedEvent.internalOrderId);
 
-    // Check for duplicate webhook
-    const existingWebhook = await WebhookEvent.findOne({
-      gateway: gatewayType,
-      gatewayEventId: normalizedEvent.gatewayEventId,
-    }).session(mongoSession);
-
-    if (existingWebhook) {
-      console.log("⚠️ Duplicate webhook event, ignoring");
-      await mongoSession.commitTransaction();
-      return res
-        .status(200)
-        .json({ success: true, message: "Duplicate webhook ignored" });
+    if (!normalizedEvent.gatewayEventId) {
+      normalizedEvent.gatewayEventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
-    // Create webhook event record
-    const webhookEvent = new WebhookEvent({
-      webhookEventId: generateCheckoutSessionId(),
-      gateway: gatewayType,
-      gatewayEventId: normalizedEvent.gatewayEventId,
-      eventType: normalizedEvent.eventType,
-      status: "pending",
-      payload: req.body,
-      retryCount: 0,
+    // ✅ Process webhook with retry - NO TRANSACTION
+    await retryWithBackoff(async () => {
+      await processWebhookEventWithoutTransaction(normalizedEvent);
     });
-
-    await webhookEvent.save({ session: mongoSession });
-
-    // Process webhook event
-    await processWebhookEvent(normalizedEvent, mongoSession);
-
-    // Mark webhook as processed
-    webhookEvent.status = "processed";
-    webhookEvent.processedAt = new Date();
-    await webhookEvent.save({ session: mongoSession });
-
-    await mongoSession.commitTransaction();
-    mongoSession.endSession();
 
     console.log("✅ Webhook processed successfully");
     return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error("❌ Webhook processing error:", error);
-    await mongoSession.abortTransaction();
-    mongoSession.endSession();
-
     return res.status(500).json({
       success: false,
       error: error.message || "Webhook processing failed",
@@ -98,134 +139,242 @@ export const webhookHandler = async (req: Request, res: Response) => {
   }
 };
 
-// Normalized webhook event shape used throughout this controller
-type NormalizedWebhookEvent = {
-  gatewayEventId: string;
-  eventType: WebhookEventType;
-  paymentIntentId?: string;
-  payload?: any;
-  amount?: number;
-};
-
-async function processWebhookEvent(
-  event: NormalizedWebhookEvent,
-  session: mongoose.ClientSession,
-) {
+// ✅ Process webhook WITHOUT transaction (to avoid write conflicts)
+async function processWebhookEventWithoutTransaction(event: any) {
   console.log("🔄 Processing webhook event:", event.eventType);
 
+  let order = null;
+
+  // ✅ Try multiple ways to find order
+  if (event.paymentIntentId) {
+    order = await Order.findOne({
+      paymentIntentId: event.paymentIntentId,
+    });
+    if (order) {
+      console.log("✅ Order found by paymentIntentId:", event.paymentIntentId);
+    }
+  }
+
+  if (!order && event.internalOrderId) {
+    order = await Order.findOne({
+      orderId: event.internalOrderId,
+    });
+    if (order) {
+      console.log("✅ Order found by internal orderId:", event.internalOrderId);
+    }
+  }
+
+  if (!order && event.transactionId) {
+    order = await Order.findOne({
+      "paymentAttempts.paymentIntentId": event.transactionId,
+    });
+    if (order) {
+      console.log("✅ Order found by transactionId:", event.transactionId);
+    }
+  }
+
+  if (!order && event.orderId) {
+    order = await Order.findOne({
+      paymentIntentId: event.orderId,
+    });
+    if (order) {
+      console.log("✅ Order found by orderId (Razorpay):", event.orderId);
+    }
+  }
+
+  if (!order) {
+    console.error("❌ Order not found for payment:", event.paymentIntentId);
+    return;
+  }
+
+  console.log(`📦 Processing webhook for order ${order.orderId}`);
+
+  // ✅ Check if already processed
+  if (
+    order.paymentStatus === "captured" ||
+    order.paymentStatus === "refunded"
+  ) {
+    console.log(
+      `⚠️ Order ${order.orderId} already ${order.paymentStatus}, skipping`,
+    );
+    return;
+  }
+
   switch (event.eventType) {
-    case WebhookEventType.PAYMENT_CAPTURED:
-      await handlePaymentCaptured(event, session);
+    case "payment.captured":
+    case "payment.succeeded":
+      await handlePaymentCapturedNoTransaction(order, event);
       break;
-    case WebhookEventType.PAYMENT_AUTHORIZED:
-      await handlePaymentAuthorized(event, session);
+    case "payment.authorized":
+      await handlePaymentAuthorizedNoTransaction(order, event);
       break;
-    case WebhookEventType.PAYMENT_FAILED:
-      await handlePaymentFailed(event, session);
+    case "payment.failed":
+      await handlePaymentFailedNoTransaction(order, event);
       break;
-    case WebhookEventType.PAYMENT_REFUNDED:
-      await handlePaymentRefunded(event, session);
+    case "payment.refunded":
+    case "payment.partially_refunded":
+      await handlePaymentRefundedNoTransaction(order, event);
       break;
     default:
       console.log("⚠️ Unhandled webhook event type:", event.eventType);
   }
 }
 
-async function handlePaymentCaptured(
-  event: NormalizedWebhookEvent,
-  session: mongoose.ClientSession,
-) {
-  // Find order by payment intent ID
-  const order = await Order.findOne({
-    paymentIntentId: event.paymentIntentId,
-  }).session(session);
+// ✅ NO TRANSACTION versions
+async function handlePaymentCapturedNoTransaction(order: any, event: any) {
+  console.log(`💰 Handling payment captured for order ${order.orderId}`);
 
-  if (!order) {
-    console.error("❌ Order not found for payment:", event.paymentIntentId);
+  // ✅ Use findOneAndUpdate with condition to avoid duplicate updates
+  const result = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      paymentStatus: { $ne: "captured" },
+    },
+    {
+      $set: {
+        status: "captured",
+        paymentStatus: "captured",
+        paidAt: new Date(),
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  if (!result) {
+    console.log(`⚠️ Order ${order.orderId} already captured or not found`);
     return;
   }
 
-  // Update order
-  order.status = "captured";
-  order.paymentStatus = "captured";
+  // ✅ Update checkout session
+  await CheckoutSession.findOneAndUpdate(
+    { orderId: order._id },
+    {
+      $set: {
+        status: "completed",
+        completedAt: new Date(),
+      },
+    },
+  );
 
-  // Update checkout session
-  const checkoutSession = await CheckoutSession.findOne({
+  // ✅ Create transaction record
+  const transaction = new Transaction({
+    transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    transactionType: "payment",
+    status: "captured",
+    amount: event.amount || result.finalAmount,
+    currency: event.currency || "INR",
+    gateway: event.gatewayType || "razorpay",
+    gatewayTransactionId: event.transactionId || event.paymentIntentId,
+    gatewayOrderId: event.orderId || result.orderId,
+    gatewayPaymentId: event.paymentIntentId,
+    orderId: result._id,
+    orderNumber: result.orderId,
+    userId: result.buyerId,
+    payerName: result.buyerName,
+    receiverName: "TizzyGo",
+    receiverAccountId: result.zeptPayAccountId,
+    rawResponse: event.rawPayload || event,
+    completedAt: new Date(),
+  });
+
+  await transaction.save();
+
+  // ✅ Update order with transaction reference
+  await Order.findOneAndUpdate(
+    { _id: result._id },
+    { $set: { transactionId: transaction._id } },
+  );
+
+  console.log(`✅ Payment captured for ${result.orderId}`);
+  console.log(`✅ Transaction created: ${transaction.transactionId}`);
+}
+
+async function handlePaymentAuthorizedNoTransaction(order: any, event: any) {
+  console.log(`🔐 Payment authorized for order ${order.orderId}`);
+
+  await Order.findOneAndUpdate(
+    { _id: order._id },
+    {
+      $set: {
+        status: "authorized",
+        paymentStatus: "authorized",
+      },
+    },
+  );
+
+  await CheckoutSession.findOneAndUpdate(
+    { orderId: order._id },
+    { $set: { status: "authorized" } },
+  );
+
+  console.log(`✅ Payment authorized for ${order.orderId}`);
+}
+
+async function handlePaymentFailedNoTransaction(order: any, event: any) {
+  console.log(`❌ Payment failed for order ${order.orderId}`);
+
+  await Order.findOneAndUpdate(
+    { _id: order._id },
+    {
+      $set: {
+        status: "failed",
+        paymentStatus: "failed",
+      },
+    },
+  );
+
+  await CheckoutSession.findOneAndUpdate(
+    { orderId: order._id },
+    {
+      $set: {
+        status: "failed",
+        failedAt: new Date(),
+      },
+    },
+  );
+
+  console.log(`❌ Payment failed for ${order.orderId}`);
+}
+
+async function handlePaymentRefundedNoTransaction(order: any, event: any) {
+  console.log(`↩️ Payment refunded for order ${order.orderId}`);
+
+  await Order.findOneAndUpdate(
+    { _id: order._id },
+    {
+      $set: {
+        status: "refunded",
+        paymentStatus: "refunded",
+        refundedAt: new Date(),
+      },
+    },
+  );
+
+  await CheckoutSession.findOneAndUpdate(
+    { orderId: order._id },
+    { $set: { status: "refunded", refundedAt: new Date() } },
+  );
+
+  const transaction = new Transaction({
+    transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    transactionType: "refund",
+    status: "refunded",
+    amount: event.amount,
+    currency: event.currency || "INR",
+    gateway: event.gatewayType || "razorpay",
+    gatewayTransactionId: event.transactionId || event.paymentIntentId,
+    gatewayOrderId: event.orderId || order.orderId,
+    gatewayPaymentId: event.paymentIntentId,
     orderId: order._id,
-  }).session(session);
+    orderNumber: order.orderId,
+    userId: order.buyerId,
+    payerName: order.buyerName,
+    receiverName: "TizzyGo",
+    receiverAccountId: order.zeptPayAccountId,
+    rawResponse: event.rawPayload || event,
+    completedAt: new Date(),
+  });
 
-  if (checkoutSession) {
-    checkoutSession.status = "completed";
-    await checkoutSession.save({ session });
-  }
-
-  await order.save({ session });
-  console.log("✅ Order updated:", order.orderId);
-}
-
-async function handlePaymentAuthorized(
-  event: NormalizedWebhookEvent,
-  session: mongoose.ClientSession,
-) {
-  const order = await Order.findOne({
-    paymentIntentId: event.paymentIntentId,
-  }).session(session);
-
-  if (!order) {
-    console.error("❌ Order not found for payment:", event.paymentIntentId);
-    return;
-  }
-
-  order.status = "authorized";
-  order.paymentStatus = "authorized";
-  await order.save({ session });
-  console.log("✅ Order authorized:", order.orderId);
-}
-
-async function handlePaymentFailed(
-  event: NormalizedWebhookEvent,
-  session: mongoose.ClientSession,
-) {
-  const order = await Order.findOne({
-    paymentIntentId: event.paymentIntentId,
-  }).session(session);
-
-  if (!order) {
-    console.error("❌ Order not found for payment:", event.paymentIntentId);
-    return;
-  }
-
-  order.status = "failed";
-  order.paymentStatus = "failed";
-
-  const checkoutSession = await CheckoutSession.findOne({
-    orderId: order._id,
-  }).session(session);
-
-  if (checkoutSession) {
-    checkoutSession.status = "failed";
-    await checkoutSession.save({ session });
-  }
-
-  await order.save({ session });
-  console.log("✅ Order failed:", order.orderId);
-}
-
-async function handlePaymentRefunded(
-  event: NormalizedWebhookEvent,
-  session: mongoose.ClientSession,
-) {
-  const order = await Order.findOne({
-    paymentIntentId: event.paymentIntentId,
-  }).session(session);
-
-  if (!order) {
-    console.error("❌ Order not found for refund:", event.paymentIntentId);
-    return;
-  }
-
-  order.status = "refunded";
-  order.paymentStatus = "refunded";
-  await order.save({ session });
-  console.log("✅ Order refunded:", order.orderId);
+  await transaction.save({ session });
+  console.log(`✅ Payment refunded for ${order.orderId}`);
 }

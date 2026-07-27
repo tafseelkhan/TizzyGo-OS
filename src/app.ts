@@ -8,7 +8,7 @@ import { runCleanupJob } from "./jobs/cronMediaCleanup";
 import { logger } from "./utils/tizzyos/seller/logger";
 
 // 🔥 IMPORT WEBHOOK FIRST
-import webhookRoutes from "./routes/tizzygo/buynow/webhookRoutes";
+import webhookRoutes from "./routes/tizzygo/buynow/razorpayWebhookRoutes";
 
 import authRoutes from "./routes/tizzygo/auths/authRoutes";
 import colorRoutes from "./routes/tizzygo/auths/colorRoutes";

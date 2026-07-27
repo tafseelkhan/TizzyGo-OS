@@ -1,15 +1,18 @@
-import { RazorpayPaymentGateway } from "../interfaces/seller/PaymentGateway";
+import { IPaymentGateway } from "../interfaces/seller/IPaymentGateway";
 import { PaymentGatewayType } from "../enums/PaymentGatewayType";
 import { ZeptPayGateway } from "../gateways/ZeptPayGateway";
 import { RazorpayGateway } from "../gateways/RazorpayGateway";
 
 export class PaymentGatewayFactory {
-  private static gateways: Map<PaymentGatewayType, RazorpayPaymentGateway | ZeptPayGateway> = new Map();
+  private static gateways: Map<PaymentGatewayType, IPaymentGateway> = new Map();
   private static activeGatewayType: PaymentGatewayType;
 
   static initialize(): void {
     // Register all gateways
-    this.gateways.set(PaymentGatewayType.ZEPTPAY, new ZeptPayGateway());
+    this.gateways.set(
+      PaymentGatewayType.ZEPTPAY,
+      new ZeptPayGateway() as unknown as IPaymentGateway,
+    );
     this.gateways.set(PaymentGatewayType.RAZORPAY, new RazorpayGateway());
 
     // Set active gateway from environment
@@ -21,10 +24,10 @@ export class PaymentGatewayFactory {
       throw new Error(`Payment gateway "${gatewayEnv}" is not registered`);
     }
 
-    console.log(`✅ Payment gateway initialized: ${this.activeGatewayType}`);
   }
 
-  static getGateway(): RazorpayPaymentGateway | ZeptPayGateway {
+  // CRITICAL: Returns COMMON interface, not union type
+  static getGateway(): IPaymentGateway {
     const gateway = this.gateways.get(this.activeGatewayType);
     if (!gateway) {
       throw new Error(`Gateway "${this.activeGatewayType}" not found`);
@@ -32,12 +35,15 @@ export class PaymentGatewayFactory {
     return gateway;
   }
 
-  static getGatewayByType(type: PaymentGatewayType): RazorpayPaymentGateway | ZeptPayGateway {
+  // Use this ONLY when you need gateway-specific features
+  static getGatewayByType<T extends IPaymentGateway>(
+    type: PaymentGatewayType,
+  ): T {
     const gateway = this.gateways.get(type);
     if (!gateway) {
       throw new Error(`Gateway "${type}" not found`);
     }
-    return gateway;
+    return gateway as T;
   }
 
   static setActiveGateway(type: PaymentGatewayType): void {
