@@ -54,6 +54,7 @@ const userSchema = new Schema<IUser>(
     },
     color: {
       type: String,
+      default: "WHITE",
       required: false,
     },
     isEmailVerified: {

@@ -2,7 +2,7 @@ import { DeliveryBreakdown } from "../../types/tizzygo/buyer";
 
 export const DELIVERY_RATE_PER_KM = 3.3;
 export const DELIVERY_RATE_PER_KG = 5.5;
-export const COUPON_SERVICE_URL = "http://172.20.10.12:6060";
+export const COUPON_SERVICE_URL = "http://10.86.78.121:6060";
 
 // ============================================================
 // UNIT CONVERSION HELPERS

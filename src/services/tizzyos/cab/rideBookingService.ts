@@ -3,10 +3,13 @@
 import mongoose from "mongoose";
 import RideBooking from "../../../models/tizzyos/cab/rideBooking";
 import RideQuote from "../../../models/tizzyos/cab/rideQuote";
+import AirportQuote from "../../../models/tizzyos/cab/airportQuote"; // ✅ NEW: Import AirportQuote
 import {
   generateBookingId,
   generateRideCode,
   generateQuoteCode,
+  generateLocalRideFwsId,
+  generateAirportFwsId,
 } from "../../../utils/tizzyos/cab/idGenerator";
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
@@ -17,6 +20,7 @@ import { RideDispatchService } from "../../../services/tizzyos/cab/rideDispatchS
 interface IBookingData {
   customerId: string | mongoose.Types.ObjectId;
   quoteId: string; // Quote ID from database
+  serviceType: "LOCAL_RIDE" | "AIRPORT";
   paymentMethod: "COC" | "ONLINE";
 }
 
@@ -31,6 +35,67 @@ interface IUpdateData {
   currentBatch?: number;
   searchRadius?: number;
   trackingId?: string;
+}
+
+// ✅ NEW: Common quote interface for type safety
+interface INormalizedQuote {
+  quoteId: string;
+  totalFare: number;
+  vehicle: {
+    categoryCode: string;
+    companyCode: string;
+    modelCode: string;
+    vehicleType: string;
+    class: string;
+    baseFare: number;
+    classFare: number;
+    maxPassengers: number;
+  };
+  pickup: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    googlePlaceId: string;
+  };
+  drop: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    googlePlaceId: string;
+  };
+  routeData: {
+    roadDistanceKm: number;
+    normalDurationMinutes: number;
+    trafficDurationMinutes: number;
+    encodedPolyline: string;
+    routeSummary: {
+      startAddress: string;
+      endAddress: string;
+      durationText: string;
+      distanceText: string;
+      steps: Array<{
+        distance: number;
+        duration: number;
+        instruction: string;
+        polyline: string;
+        travelMode: string;
+        maneuver: string;
+      }>;
+    };
+  };
+  fareComponents: {
+    baseFare: number;
+    classFare: number;
+    distanceFare: number;
+    timeFare: number;
+    platformFees: number;
+    subTotal: number;
+    gstFare: number;
+    totalFare: number;
+    gstPercentage: number;
+    perKmRate: number;
+    perMinuteRate: number;
+  };
 }
 
 export class RideBookingService {
@@ -53,17 +118,7 @@ export class RideBookingService {
   // Does NOT call Google Routes API again.
   // Locks the fare at the quoted price.
   //
-  // Called By:
-  // Customer Frontend (POST /api/ride/book)
-  //
-  // Creates Booking?
-  // YES
-  //
-  // Uses Google Routes API?
-  // NO (uses stored route data from quote)
-  //
-  // Starts Driver Dispatch?
-  // YES (calls startDispatch)
+  // ✅ FIXED: Now supports both LOCAL_RIDE and AIRPORT quotes
   // =====================================================
 
   async createBooking(bookingData: IBookingData): Promise<any> {
@@ -73,6 +128,7 @@ export class RideBookingService {
     console.log("📋 Booking Data:", {
       customerId: bookingData.customerId,
       quoteId: bookingData.quoteId,
+      serviceType: bookingData.serviceType,
       paymentMethod: bookingData.paymentMethod,
     });
 
@@ -83,30 +139,94 @@ export class RideBookingService {
       const customerId = this.validateObjectId(bookingData.customerId);
       console.log("✅ Customer ID validated:", customerId);
 
-      // Get quote from database
-      console.log("🔍 Fetching quote from database:", bookingData.quoteId);
-      const quote = await RideQuote.findOne({
-        quoteId: bookingData.quoteId,
-        expiresAt: { $gt: new Date() },
-        isUsed: false,
-      }).session(session);
+      const serviceType = bookingData.serviceType || "LOCAL_RIDE";
+
+      // ============================================================
+      // ✅ STEP 1: Fetch quote from correct model based on serviceType
+      // ============================================================
+      let quote: INormalizedQuote | null = null;
+      let quoteModelName = "";
+
+      if (serviceType === "LOCAL_RIDE") {
+        console.log(
+          `🔍 Fetching LOCAL_RIDE quote from RideQuote: ${bookingData.quoteId}`,
+        );
+        const localQuote = await RideQuote.findOne({
+          quoteId: bookingData.quoteId,
+          expiresAt: { $gt: new Date() },
+          isUsed: false,
+        }).session(session);
+
+        if (localQuote) {
+          console.log(`✅ LOCAL_RIDE quote found: ${localQuote.quoteId}`);
+          quoteModelName = "RideQuote";
+          // ✅ Normalize LOCAL_RIDE quote to common structure
+          quote = {
+            quoteId: localQuote.quoteId,
+            totalFare: localQuote.totalFare,
+            vehicle: localQuote.vehicle,
+            pickup: localQuote.pickup,
+            drop: localQuote.drop,
+            routeData: localQuote.routeData,
+            fareComponents: localQuote.fareComponents,
+          };
+          // Mark as used
+          localQuote.isUsed = true;
+          await localQuote.save({ session });
+        } else {
+          console.log(
+            `❌ LOCAL_RIDE quote not found or expired: ${bookingData.quoteId}`,
+          );
+        }
+      } else if (serviceType === "AIRPORT") {
+        console.log(
+          `🔍 Fetching AIRPORT quote from AirportQuote: ${bookingData.quoteId}`,
+        );
+        const airportQuote = await AirportQuote.findOne({
+          quoteId: bookingData.quoteId,
+          expiresAt: { $gt: new Date() },
+          isUsed: false,
+        }).session(session);
+
+        if (airportQuote) {
+          console.log(`✅ AIRPORT quote found: ${airportQuote.quoteId}`);
+          quoteModelName = "AirportQuote";
+          // ✅ Normalize AIRPORT quote to common structure
+          quote = {
+            quoteId: airportQuote.quoteId,
+            totalFare: airportQuote.totalFare,
+            vehicle: airportQuote.vehicle,
+            pickup: airportQuote.pickup,
+            drop: airportQuote.drop,
+            routeData: airportQuote.routeData,
+            fareComponents: airportQuote.fareComponents,
+          };
+          // Mark as used
+          airportQuote.isUsed = true;
+          airportQuote.usedAt = new Date();
+          await airportQuote.save({ session });
+        } else {
+          console.log(
+            `❌ AIRPORT quote not found or expired: ${bookingData.quoteId}`,
+          );
+        }
+      } else {
+        throw new Error(`Invalid service type: ${serviceType}`);
+      }
 
       if (!quote) {
-        console.log("❌ Quote not found or expired:", bookingData.quoteId);
         throw new Error("Invalid or expired quote. Please get a new quote.");
       }
-      console.log("✅ Quote found:", {
+
+      console.log(`✅ Quote found from ${quoteModelName}:`, {
         quoteId: quote.quoteId,
         totalFare: quote.totalFare,
-        rideType: quote.vehicle.vehicleType,
+        vehicleType: quote.vehicle.vehicleType,
       });
 
-      // Mark quote as used
-      quote.isUsed = true;
-      await quote.save({ session });
-      console.log("✅ Quote marked as used");
-
-      // Use route data from quote (NO Google Routes API call)
+      // ============================================================
+      // ✅ STEP 2: Use normalized quote data
+      // ============================================================
       const route = quote.routeData;
       console.log("🗺️ Route data from quote:", {
         roadDistanceKm: route.roadDistanceKm,
@@ -114,7 +234,6 @@ export class RideBookingService {
         hasPolyline: !!route.encodedPolyline,
       });
 
-      // Use fare from quote (NO recalculation needed)
       const fareComponents = quote.fareComponents;
       const lockedFare = quote.totalFare;
       console.log("💰 Locked fare from quote:", {
@@ -125,9 +244,22 @@ export class RideBookingService {
         gstFare: fareComponents.gstFare,
       });
 
+      // Generate FWS IDs based on service type
+      const fwsLocalRideId =
+        serviceType === "LOCAL_RIDE" ? generateLocalRideFwsId() : undefined;
+      const fwsAirportRideId =
+        serviceType === "AIRPORT" ? generateAirportFwsId() : undefined;
+
+      // ============================================================
+      // ✅ STEP 3: Create common RideBooking
+      // ============================================================
       const booking = new RideBooking({
         bookingId: generateBookingId(),
         rideCode: generateRideCode(),
+        serviceType: serviceType,
+        quoteId: quote.quoteId,
+        fwsLocalRideId: fwsLocalRideId,
+        fwsAirportRideId: fwsAirportRideId,
         customerId: customerId,
         driverId: null, // Will be assigned during dispatch
         vehicle: quote.vehicle,
@@ -136,7 +268,7 @@ export class RideBookingService {
         paymentMethod: bookingData.paymentMethod || "COC",
         paymentStatus: "PENDING",
         status: "searching",
-        searchRadius: 5,
+        searchRadius: serviceType === "LOCAL_RIDE" ? 5 : 20,
         currentBatch: 0,
         searchCompleted: false,
         pickupVerified: false,
@@ -162,12 +294,15 @@ export class RideBookingService {
           perMinuteRate: fareComponents.perMinuteRate,
         },
         originalFare: lockedFare,
-        quoteId: quote.quoteId,
       });
 
       console.log("📦 Booking object created:", {
         bookingId: booking.bookingId,
         rideCode: booking.rideCode,
+        serviceType: booking.serviceType,
+        quoteId: booking.quoteId,
+        fwsLocalRideId: booking.fwsLocalRideId,
+        fwsAirportRideId: booking.fwsAirportRideId,
         status: booking.status,
         totalFare: booking.fare.totalFare,
       });
@@ -199,6 +334,11 @@ export class RideBookingService {
       console.log("📤 BOOKING CREATED SUCCESSFULLY");
       console.log("=========================================");
       console.log(`   Booking ID: ${booking.bookingId}`);
+      console.log(`   Service Type: ${booking.serviceType}`);
+      console.log(`   Quote Model: ${quoteModelName}`);
+      console.log(`   Quote ID: ${booking.quoteId}`);
+      console.log(`   FWS Local ID: ${booking.fwsLocalRideId || "N/A"}`);
+      console.log(`   FWS Airport ID: ${booking.fwsAirportRideId || "N/A"}`);
       console.log(`   Ride Code: ${booking.rideCode}`);
       console.log(`   Total Fare: ₹${booking.fare.totalFare}`);
       console.log(`   Status: ${booking.status}`);
@@ -346,6 +486,7 @@ export class RideBookingService {
 
     console.log("✅ Booking found:", {
       bookingId: booking.bookingId,
+      serviceType: booking.serviceType,
       status: booking.status,
       fare: booking.fare?.totalFare,
     });
@@ -375,6 +516,10 @@ export class RideBookingService {
 
     const statusResponse = {
       bookingId: booking.bookingId,
+      serviceType: booking.serviceType,
+      quoteId: booking.quoteId,
+      fwsLocalRideId: booking.fwsLocalRideId,
+      fwsAirportRideId: booking.fwsAirportRideId,
       status: booking.status,
       currentBatch: booking.currentBatch,
       searchRadius: booking.searchRadius,

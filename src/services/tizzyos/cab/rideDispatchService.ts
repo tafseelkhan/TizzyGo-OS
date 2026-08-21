@@ -13,6 +13,8 @@ import { RideBookingService } from "./rideBookingService";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateTrackingId } from "../../../utils/tizzyos/cab/idGenerator";
+// ✅ Import User model for customer details
+import User from "../../../models/tizzygo/auths/User";
 
 // =====================================================
 // DISPATCH CONFIG
@@ -431,7 +433,7 @@ export class RideDispatchService extends EventEmitter {
           `📤 [DISPATCH BATCH] Created ${requests.length} ride requests`,
         );
 
-        // ✅ Send requests to drivers with full details
+        // ✅ Send requests to drivers with complete details
         for (const request of requests) {
           const driverStatus = await RideDriverStatus.findOne({
             userId: request.driverId,
@@ -449,26 +451,74 @@ export class RideDispatchService extends EventEmitter {
             console.log(`🚗 [DISPATCH] Fare: ₹${fare}`);
             console.log(`🚗 [DISPATCH] Is Retry: ${isRetry}`);
 
+            // ✅ Fetch customer details from User model
+            let customerDetails = null;
+            try {
+              customerDetails = await User.findById(booking.customerId)
+                .select("name email image roles")
+                .lean()
+                .exec();
+              console.log(
+                `👤 [DISPATCH] Customer found: ${customerDetails?.name}`,
+              );
+            } catch (err) {
+              console.error("⚠️ [DISPATCH] Failed to fetch customer:", err);
+            }
+
+            // ✅ Build complete payload with customer and booking details
+            const completePayload = {
+              requestId: request._id.toString(),
+              customer: {
+                customerId: booking.customerId.toString(),
+                name: customerDetails?.name || "Customer",
+                profilePicture: customerDetails?.image || undefined,
+              },
+              booking: {
+                bookingId: booking.bookingId,
+                rideCode: booking.rideCode || "",
+                serviceType: booking.serviceType || "STANDARD",
+                quoteId: booking.quoteId || "",
+                fwsAirportRideId: booking.fwsAirportRideId || "",
+              },
+              fare: fare,
+              distance: booking.distance || 0,
+              pickup: {
+                address: booking.pickup?.address || "Loading...",
+                latitude: booking.pickup?.latitude || 0,
+                longitude: booking.pickup?.longitude || 0,
+              },
+              destination: {
+                address: booking.destination?.address || "Loading...",
+                latitude: booking.destination?.latitude || 0,
+                longitude: booking.destination?.longitude || 0,
+              },
+              expiresAt:
+                request.expiresAt || new Date(Date.now() + 20000).toISOString(),
+              isRetry: isRetry || false,
+              batchNumber: String(currentBatch + 1),
+            };
+
+            console.log(
+              `📤 [DISPATCH] Complete Payload:`,
+              JSON.stringify(completePayload, null, 2),
+            );
+
+            // ✅ Emit with complete payload
             this.socketService.emitToDriver(
               request.driverId.toString(),
               "new-ride-request",
-              {
-                requestId: request._id.toString(),
-                bookingId: booking.bookingId,
-                pickup: booking.pickup,
-                destination: booking.destination,
-                distance: booking.distance,
-                fare: fare,
-                originalFare: originalFare,
-                isRetry: isRetry,
-                batchNumber: currentBatch + 1,
-                expiresAt: request.expiresAt,
-              },
+              completePayload,
               driverStatus.socketId,
             );
 
             console.log(
               `✅ [DISPATCH] new-ride-request sent to driver ${request.driverId}`,
+            );
+            console.log(
+              `✅ [DISPATCH] Customer: ${completePayload.customer.name}`,
+            );
+            console.log(
+              `✅ [DISPATCH] Booking: ${completePayload.booking.bookingId}`,
             );
 
             this.setDriverResponseTimeout(request._id.toString(), booking);
@@ -570,6 +620,8 @@ export class RideDispatchService extends EventEmitter {
     }
   }
 
+  // services/tizzyos/cab/rideDispatchService.ts
+
   private setDriverResponseTimeout(requestId: string, booking: IBooking): void {
     this.clearResponseTimeout(requestId);
 
@@ -605,12 +657,15 @@ export class RideDispatchService extends EventEmitter {
         });
 
         const customerId = this.validateObjectId(booking.customerId);
+
+        // ✅ Customer: driver-timeout (NO trackingId)
         this.socketService.emitToCustomer(
           customerId.toString(),
           "driver-timeout",
           {
             bookingId: booking.bookingId,
             driverId: request.driverId.toString(),
+            requestId: requestId,
             message: "Driver did not respond in time",
           },
         );
@@ -684,21 +739,53 @@ export class RideDispatchService extends EventEmitter {
             activeRequestIds.add(request._id.toString());
             this.activeRequests.set(bookingId, activeRequestIds);
 
+            // ✅ Fetch customer details for replenish
+            let customerDetails = null;
+            try {
+              customerDetails = await User.findById(booking.customerId)
+                .select("name email image roles")
+                .lean()
+                .exec();
+            } catch (err) {
+              console.error("⚠️ [REPLENISH] Failed to fetch customer:", err);
+            }
+
+            const completePayload = {
+              requestId: request._id.toString(),
+              customer: {
+                customerId: booking.customerId.toString(),
+                name: customerDetails?.name || "Customer",
+                profilePicture: customerDetails?.image || undefined,
+              },
+              booking: {
+                bookingId: booking.bookingId,
+                rideCode: booking.rideCode || "",
+                serviceType: booking.serviceType || "STANDARD",
+                quoteId: booking.quoteId || "",
+                fwsAirportRideId: booking.fwsAirportRideId || "",
+              },
+              fare: fare,
+              distance: booking.distance || 0,
+              pickup: {
+                address: booking.pickup?.address || "Loading...",
+                latitude: booking.pickup?.latitude || 0,
+                longitude: booking.pickup?.longitude || 0,
+              },
+              destination: {
+                address: booking.destination?.address || "Loading...",
+                latitude: booking.destination?.latitude || 0,
+                longitude: booking.destination?.longitude || 0,
+              },
+              expiresAt:
+                request.expiresAt || new Date(Date.now() + 20000).toISOString(),
+              isRetry: isRetry || false,
+              batchNumber: String(currentBatch + 1),
+            };
+
             this.socketService.emitToDriver(
               request.driverId.toString(),
               "new-ride-request",
-              {
-                requestId: request._id.toString(),
-                bookingId: booking.bookingId,
-                pickup: booking.pickup,
-                destination: booking.destination,
-                distance: booking.distance,
-                fare: fare,
-                originalFare: originalFare,
-                isRetry: isRetry,
-                batchNumber: currentBatch + 1,
-                expiresAt: request.expiresAt,
-              },
+              completePayload,
               driverStatus.socketId,
             );
 
@@ -871,10 +958,14 @@ export class RideDispatchService extends EventEmitter {
     console.log(`✅ [STOP DISPATCH] Stopped for booking: ${bookingId}`);
   }
 
+  /**
+   * ✅ CHANGED: Return type from Promise<void> to Promise<string>
+   * Now returns the trackingId after successful acceptance
+   */
   async handleDriverAccept(
     bookingId: string,
     requestId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     console.log(
       `✅ [DRIVER ACCEPT] Booking: ${bookingId}, Request: ${requestId}`,
     );
@@ -892,6 +983,8 @@ export class RideDispatchService extends EventEmitter {
     if (!locked) {
       throw new Error("Another driver is already accepting this ride");
     }
+
+    let trackingId: string | null = null;
 
     try {
       const session = await mongoose.startSession();
@@ -924,19 +1017,21 @@ export class RideDispatchService extends EventEmitter {
         const customerId = this.validateObjectId(booking.customerId);
         const rideId = this.validateObjectId(booking._id);
 
+        // ✅ Generate trackingId
+        trackingId = generateTrackingId();
+        if (!trackingId) {
+          throw new Error("Failed to generate tracking ID");
+        }
+
+        // ✅ Update booking
         booking.driverId = driverId;
         booking.status = "accepted";
         booking.acceptedAt = new Date();
         booking.searchCompleted = true;
-
-        const trackingId = generateTrackingId();
-        if (!trackingId) {
-          throw new Error("Failed to generate tracking ID");
-        }
         booking.trackingId = trackingId;
-
         await booking.save({ session });
 
+        // ✅ Create tracking
         const tracking = new RideTracking({
           bookingId: booking.bookingId,
           trackingId: booking.trackingId,
@@ -965,15 +1060,16 @@ export class RideDispatchService extends EventEmitter {
           encodedPolyline: booking.encodedPolyline,
           routeSummary: booking.routeSummary,
         });
-
         await tracking.save({ session });
 
+        // ✅ Mark driver unavailable
         await RideDriverStatus.findOneAndUpdate(
           { userId: driverId },
           { $set: { isAvailable: false } },
           { session },
         );
 
+        // ✅ Cancel other pending requests
         await this.requestService.cancelPendingRequests(
           bookingId,
           driverId,
@@ -982,6 +1078,7 @@ export class RideDispatchService extends EventEmitter {
 
         this.activeRequests.delete(bookingId);
 
+        // ✅ Generate QR tokens
         const pickupToken = this.qrTokenService.generateQRToken({
           bookingId: booking.bookingId,
           trackingId: trackingId,
@@ -1009,74 +1106,84 @@ export class RideDispatchService extends EventEmitter {
           token: pickupToken,
           qrUrl: pickupQR,
         };
-
         await booking.save({ session });
+
+        // ✅ COMMIT TRANSACTION FIRST
         await session.commitTransaction();
         committed = true;
 
         console.log(
-          `✅ [DRIVER ACCEPT] Driver ${driverId} accepted ride ${bookingId}`,
+          `✅ [DRIVER ACCEPT] Tracking ID: ${trackingId} saved in DB`,
         );
 
+        // =============================================
+        // ✅ SOCKET EVENTS - ONLY AFTER COMMIT
+        // =============================================
+
+        // 1. Customer: driver-accepted
         this.socketService.emitToCustomer(
           customerId.toString(),
           "driver-accepted",
           {
             bookingId: booking.bookingId,
-            trackingId: booking.trackingId,
+            trackingId: trackingId,
             driverId: driverId.toString(),
             message: "Driver has accepted your ride request",
-            driverDetails: {
-              name: "Driver",
-              rating: 4.5,
-              vehicleNumber: "KA-01-1234",
-            },
           },
         );
 
+        // 2. Driver: ride-accepted
         this.socketService.emitToDriver(driverId.toString(), "ride-accepted", {
           bookingId: booking.bookingId,
-          trackingId: booking.trackingId,
+          trackingId: trackingId,
           customerId: customerId.toString(),
           pickup: booking.pickup,
           destination: booking.destination,
-          message: "You have accepted the ride",
           fare: booking.fare?.totalFare || 0,
+          message: "You have accepted the ride",
         });
 
+        // 3. Customer: qr-generated
         this.socketService.emitToCustomer(
           customerId.toString(),
           "qr-generated",
           {
             bookingId: booking.bookingId,
+            trackingId: trackingId, // ✅ ADDED
             pickupQR: pickupQR,
             dropQR: dropQR,
             message: "QR codes generated for pickup and drop verification",
           },
         );
 
+        // 4. Driver: qr-generated
         this.socketService.emitToDriver(driverId.toString(), "qr-generated", {
           bookingId: booking.bookingId,
+          trackingId: trackingId, // ✅ ADDED
           pickupQR: pickupQR,
           dropQR: dropQR,
           message: "QR codes ready for verification",
         });
 
+        // 5. Customer: ride-status-change
         this.socketService.emitToCustomer(
           customerId.toString(),
           "ride-status-change",
           {
             bookingId: booking.bookingId,
+            trackingId: trackingId, // ✅ ADDED
             status: "accepted",
             message: "Driver is on the way",
           },
         );
 
+        // 6. Driver: ride-status-change
         this.socketService.emitToDriver(
           driverId.toString(),
           "ride-status-change",
           {
             bookingId: booking.bookingId,
+            trackingId: trackingId, // ✅ ADDED
             status: "accepted",
             message: "Ride accepted",
           },
@@ -1087,6 +1194,8 @@ export class RideDispatchService extends EventEmitter {
           driverId: driverId.toString(),
           customerId: customerId.toString(),
         });
+
+        return trackingId;
       } catch (error) {
         if (!committed && session.inTransaction()) {
           await session.abortTransaction();
@@ -1100,6 +1209,9 @@ export class RideDispatchService extends EventEmitter {
     }
   }
 
+  /**
+   * ✅ FIXED: handleDriverReject with proper event
+   */
   async handleDriverReject(
     bookingId: string,
     requestId: string,
@@ -1145,12 +1257,15 @@ export class RideDispatchService extends EventEmitter {
         });
 
         const customerId = this.validateObjectId(booking.customerId);
+
+        // ✅ Customer: driver-rejected (NO trackingId)
         this.socketService.emitToCustomer(
           customerId.toString(),
           "driver-rejected",
           {
             bookingId: booking.bookingId,
             driverId: request.driverId.toString(),
+            requestId: requestId,
             message: "Driver declined the request",
           },
         );
@@ -1168,7 +1283,6 @@ export class RideDispatchService extends EventEmitter {
       throw error;
     }
   }
-
   private getRadiusForBatch(batchNumber: number): number {
     const index = Math.min(
       batchNumber,

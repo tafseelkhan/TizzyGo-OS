@@ -1227,13 +1227,13 @@ const BRANDS = {
     logo: "https://via.placeholder.com/150/00A8E8/FFFFFF?text=TizzyOS",
     smallLogo: "https://via.placeholder.com/60/00A8E8/FFFFFF?text=TO",
   },
-  AIRCLOUD: {
-    name: "AirCloud",
+  QUTON: {
+    name: "Quton",
     color: "#8AC926",
     slogan: "Seamless Delivery Coordination",
-    website: "https://aircloud.io",
-    supportEmail: "support@aircloud.io",
-    logo: "https://via.placeholder.com/150/8AC926/FFFFFF?text=AirCloud",
+    website: "https://quton.io",
+    supportEmail: "support@quton.io",
+    logo: "https://via.placeholder.com/150/8AC926/FFFFFF?text=Quton",
     smallLogo: "https://via.placeholder.com/60/8AC926/FFFFFF?text=AC",
   },
 };
@@ -1262,7 +1262,7 @@ ${content}
 
 Thank you for choosing ${brandConfig.name}!
 
-Powered by AirCloud Delivery Network
+Powered by Quton Delivery Network
   `.trim();
 };
 
@@ -1291,12 +1291,12 @@ IMPORTANT SECURITY NOTES:
 • Only provide OTP at the time of delivery
 • If you didn't request this OTP, please contact support immediately
 
-Your order is being delivered through our secure network powered by AirCloud technology.
+Your order is being delivered through our secure network powered by Quton technology.
 
 Delivery Executive Details:
 • Platform: TizzyGo
 • Order Management: TizzyOS
-• Delivery Network: AirCloud
+• Delivery Network: Quton
 
 We're excited to serve you! Your package is just moments away.
   `;
@@ -1328,7 +1328,7 @@ Your order has been successfully delivered!
 
 Your delivery journey:
 1️⃣ Order Placed → TizzyOS Platform
-2️⃣ Order Processed → AirCloud Network
+2️⃣ Order Processed → Quton Network
 3️⃣ Delivery Executed → TizzyGo Rider
 4️⃣ OTP Verified → Secure Handover
 
@@ -1371,7 +1371,7 @@ Great job, ${riderName}! You have successfully completed the delivery.
 TECHNOLOGY PARTNERS:
 TizzyGo: Last-mile delivery execution
 TizzyOS: Order management platform
-AirCloud: Delivery coordination network
+Quton: Delivery coordination network
 
 Your commitment to secure and timely delivery is appreciated! This delivery has been logged in our system and will reflect in your performance metrics.
 
@@ -1429,7 +1429,7 @@ const sendComprehensiveNotifications = async (
     // SMS - First message (OTP)
     if (user.phone) {
       try {
-        const smsContent = `Your TizzyGo delivery OTP is ${otp} for Order ${orderId}. Valid for 5 minutes. Do not share with anyone. Powered by AirCloud.`;
+        const smsContent = `Your TizzyGo delivery OTP is ${otp} for Order ${orderId}. Valid for 5 minutes. Do not share with anyone. Powered by Quton.`;
         const smsSent = await sendSmsWithRetry(user.phone, smsContent);
         if (smsSent) {
           notifications.push({
@@ -1529,8 +1529,8 @@ const sendComprehensiveNotifications = async (
                       <p style="margin: 0; font-size: 11px;">Order Platform</p>
                     </div>
                     <div class="brand">
-                      <div style="background: ${BRANDS.AIRCLOUD.color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-weight: bold;">AC</div>
-                      <p style="margin: 5px 0; font-weight: bold; color: ${BRANDS.AIRCLOUD.color};">AirCloud</p>
+                      <div style="background: ${BRANDS.QUTON.color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-weight: bold;">AC</div>
+                      <p style="margin: 5px 0; font-weight: bold; color: ${BRANDS.QUTON.color};">Quton</p>
                       <p style="margin: 0; font-size: 11px;">Delivery Network</p>
                     </div>
                   </div>
@@ -1542,8 +1542,8 @@ const sendComprehensiveNotifications = async (
                 
                 <div class="footer">
                   <p style="margin: 0 0 10px 0;">
-                    <div style="display: inline-block; background: ${BRANDS.AIRCLOUD.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px;">AC</div>
-                    <span style="vertical-align: middle; margin-left: 5px;">Powered by AirCloud Delivery Network</span>
+                    <div style="display: inline-block; background: ${BRANDS.QUTON.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px;">AC</div>
+                    <span style="vertical-align: middle; margin-left: 5px;">Powered by Quton Delivery Network</span>
                   </p>
                   <p style="margin: 5px 0; font-size: 11px;">
                     © ${new Date().getFullYear()} TizzyGo. All rights reserved.<br>
@@ -1576,12 +1576,12 @@ IMPORTANT SECURITY NOTES:
 • Only provide OTP at the time of delivery
 • If you didn't request this OTP, please contact support immediately
 
-Your order is being delivered through our secure network powered by AirCloud technology.
+Your order is being delivered through our secure network powered by Quton technology.
 
 Delivery Executive Details:
 • Platform: TizzyGo
 • Order Management: TizzyOS
-• Delivery Network: AirCloud
+• Delivery Network: Quton
 
 We're excited to serve you! Your package is just moments away.
 
@@ -1594,7 +1594,7 @@ We're excited to serve you! Your package is just moments away.
 
 Thank you for choosing ${BRANDS.TIZZYGO.name}!
 
-Powered by AirCloud Delivery Network
+Powered by Quton Delivery Network
           `.trim(),
         };
 
@@ -1631,7 +1631,7 @@ We've successfully generated your delivery OTP.
 
 Your delivery executive is on the way with your package. Please keep your OTP ready for verification.
 
-Powered by TizzyGo, TizzyOS & AirCloud
+Powered by TizzyGo, TizzyOS & Quton
     `.trim();
 
     if (user.phone) {
@@ -1653,7 +1653,7 @@ Powered by TizzyGo, TizzyOS & AirCloud
     // SMS Congratulations
     if (user.phone) {
       try {
-        const smsCongrats = `🎉 Congratulations! Your order ${orderId} has been delivered successfully via TizzyGo. Thank you for choosing our service powered by AirCloud! ${BRANDS.TIZZYGO.website}`;
+        const smsCongrats = `🎉 Congratulations! Your order ${orderId} has been delivered successfully via TizzyGo. Thank you for choosing our service powered by Quton! ${BRANDS.TIZZYGO.website}`;
         await sendSms(user.phone, smsCongrats);
         notifications.push({ type: "SMS_CONGRATULATIONS", status: "sent" });
       } catch (error: any) {
@@ -1677,7 +1677,7 @@ Powered by TizzyGo, TizzyOS & AirCloud
               <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                 .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-                .header { background: linear-gradient(135deg, ${BRANDS.TIZZYGO.color}, ${BRANDS.AIRCLOUD.color}); padding: 40px; text-align: center; color: white; }
+                .header { background: linear-gradient(135deg, ${BRANDS.TIZZYGO.color}, ${BRANDS.QUTON.color}); padding: 40px; text-align: center; color: white; }
                 .header img { height: 70px; display: block; margin: 0 auto 20px; }
                 .content { padding: 40px; }
                 .success-icon { font-size: 48px; margin: 20px 0; text-align: center; }
@@ -1744,10 +1744,10 @@ Powered by TizzyGo, TizzyOS & AirCloud
                     </div>
                     
                     <div class="brand-card">
-                      <div style="background: ${BRANDS.AIRCLOUD.color}; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-weight: bold; font-size: 18px;">AC</div>
-                      <h4 style="margin: 10px 0; color: ${BRANDS.AIRCLOUD.color};">${BRANDS.AIRCLOUD.name}</h4>
+                      <div style="background: ${BRANDS.QUTON.color}; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-weight: bold; font-size: 18px;">AC</div>
+                      <h4 style="margin: 10px 0; color: ${BRANDS.QUTON.color};">${BRANDS.QUTON.name}</h4>
                       <p style="font-size: 13px; color: #666; margin: 0;">Delivery Coordination Network</p>
-                      <div style="margin-top: 15px; font-size: 12px; color: ${BRANDS.AIRCLOUD.color};">📍 Step 2: Order Processed</div>
+                      <div style="margin-top: 15px; font-size: 12px; color: ${BRANDS.QUTON.color};">📍 Step 2: Order Processed</div>
                     </div>
                     
                     <div class="brand-card">
@@ -1768,7 +1768,7 @@ Powered by TizzyGo, TizzyOS & AirCloud
                   <div style="margin-bottom: 15px;">
                     <div style="display: inline-block; background: ${BRANDS.TIZZYGO.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; margin: 0 5px;">TG</div>
                     <div style="display: inline-block; background: ${BRANDS.TIZZYOS.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; margin: 0 5px;">TO</div>
-                    <div style="display: inline-block; background: ${BRANDS.AIRCLOUD.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; margin: 0 5px;">AC</div>
+                    <div style="display: inline-block; background: ${BRANDS.QUTON.color}; color: white; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; margin: 0 5px;">AC</div>
                   </div>
                   <p style="margin: 10px 0;">
                     Thank you for trusting our delivery ecosystem!<br>
@@ -1800,7 +1800,7 @@ Your order has been successfully delivered!
 
 Your delivery journey:
 1️⃣ Order Placed → TizzyOS Platform
-2️⃣ Order Processed → AirCloud Network
+2️⃣ Order Processed → Quton Network
 3️⃣ Delivery Executed → TizzyGo Rider
 4️⃣ OTP Verified → Secure Handover
 
@@ -1823,7 +1823,7 @@ Would you like to share your delivery experience? Rate your delivery executive t
 
 Thank you for choosing ${BRANDS.TIZZYGO.name}!
 
-Powered by AirCloud Delivery Network
+Powered by Quton Delivery Network
           `.trim(),
         };
 
@@ -1848,7 +1848,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
     "🚀 [DELIVERY] riderConfirmDelivery STARTED ======================",
   );
   console.log("📦 Request body:", req.body);
-  console.log("🏪 Platform: TizzyOS | Delivery: TizzyGo | Network: AirCloud");
+  console.log("🏪 Platform: TizzyOS | Delivery: TizzyGo | Network: Quton");
 
   try {
     const riderId = await getAuthenticatedRiderId(req);
@@ -1947,10 +1947,10 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
       console.log("🏪 Brands Involved:", {
         Platform: BRANDS.TIZZYOS.name,
         Delivery: BRANDS.TIZZYGO.name,
-        Network: BRANDS.AIRCLOUD.name,
+        Network: BRANDS.QUTON.name,
         PlatformLogo: BRANDS.TIZZYOS,
         DeliveryLogo: BRANDS.TIZZYGO,
-        NetworkLogo: BRANDS.AIRCLOUD,
+        NetworkLogo: BRANDS.QUTON,
       });
 
       return res.json({
@@ -1964,12 +1964,12 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
           brands: {
             platform: BRANDS.TIZZYOS,
             delivery: BRANDS.TIZZYGO,
-            network: BRANDS.AIRCLOUD,
+            network: BRANDS.QUTON,
           },
           logos: {
             platform: BRANDS.TIZZYOS,
             delivery: BRANDS.TIZZYGO,
-            network: BRANDS.AIRCLOUD,
+            network: BRANDS.QUTON,
           },
         },
       });
@@ -2016,10 +2016,10 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
           deliveryMetadata: {
             platform: BRANDS.TIZZYOS.name,
             deliveryService: BRANDS.TIZZYGO.name,
-            network: BRANDS.AIRCLOUD.name,
+            network: BRANDS.QUTON.name,
             platformLogo: BRANDS.TIZZYOS,
             deliveryLogo: BRANDS.TIZZYGO,
-            networkLogo: BRANDS.AIRCLOUD,
+            networkLogo: BRANDS.QUTON,
             otpVerified: true,
             verificationTime: new Date(),
           },
@@ -2070,8 +2070,8 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
       PlatformLogo: BRANDS.TIZZYOS,
       Delivery: BRANDS.TIZZYGO.name,
       DeliveryLogo: BRANDS.TIZZYGO,
-      Network: BRANDS.AIRCLOUD.name,
-      NetworkLogo: BRANDS.AIRCLOUD,
+      Network: BRANDS.QUTON.name,
+      NetworkLogo: BRANDS.QUTON,
     });
 
     return res.json({
@@ -2087,12 +2087,12 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
         ecosystem: {
           platform: BRANDS.TIZZYOS,
           delivery: BRANDS.TIZZYGO,
-          network: BRANDS.AIRCLOUD,
+          network: BRANDS.QUTON,
         },
         logos: {
           platform: BRANDS.TIZZYOS,
           delivery: BRANDS.TIZZYGO,
-          network: BRANDS.AIRCLOUD,
+          network: BRANDS.QUTON,
         },
         security: {
           otpVerified: true,
@@ -2126,8 +2126,8 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
         platformLogo: BRANDS.TIZZYOS,
         delivery: BRANDS.TIZZYGO.name,
         deliveryLogo: BRANDS.TIZZYGO,
-        network: BRANDS.AIRCLOUD.name,
-        networkLogo: BRANDS.AIRCLOUD,
+        network: BRANDS.QUTON.name,
+        networkLogo: BRANDS.QUTON,
       },
     });
   }

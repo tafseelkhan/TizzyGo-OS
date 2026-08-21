@@ -3,6 +3,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
 import { Product } from "../../../models/tizzyos/seller/AddProducts/Products";
 import User from "../../../models/tizzygo/auths/User";
+import BuyerLocation from "../../../models/tizzygo/locations/locations";
 import {
   findOrCreateCartItem,
   updateCartCalculations,
@@ -17,12 +18,49 @@ import {
   calculateGST,
 } from "../../../utils/tizzygo/calculations";
 import { CalculatedData } from "../../../types/tizzygo/buyer";
+import mongoose from "mongoose";
 
 // Helper for consistent rounding
 const roundToTwoDecimals = (value: number): number => {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 };
 
+/**
+ * ✅ Get buyer location from database
+ */
+async function getBuyerLocationFromDB(userId: string) {
+  const location = await BuyerLocation.findOne({
+    userId: new mongoose.Types.ObjectId(userId),
+    isDefault: true,
+  });
+
+  if (!location) {
+    return null;
+  }
+
+  return {
+    latitude: location.location.coordinates[1],
+    longitude: location.location.coordinates[0],
+    address: location.location.address,
+    googlePlaceId: (location.location as any).googlePlaceId || "",
+    city: location.location.city || "",
+    state: location.location.state || "",
+    country: location.location.country || "India",
+    pinCode: location.location.pinCode || "",
+    landmark: location.location.landmark || "",
+  };
+}
+
+/**
+ * ✅ CHECKOUT ROUTE
+ *
+ * This is the main checkout calculation endpoint.
+ * It calculates everything and stores in cart.
+ * PaymentService uses this pre-calculated data.
+ *
+ * CRITICAL: Buyer location is fetched from database automatically.
+ * Frontend does NOT need to send location.
+ */
 export const checkout = async (req: AuthRequest, res: Response) => {
   console.log("\n" + "=".repeat(60));
   console.log("🚀 CHECKOUT ROUTE HIT!");
@@ -37,10 +75,6 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       productId,
       sellerId,
       productDataId,
-      buyerLat,
-      buyerLng,
-      buyerAddress,
-      buyerGooglePlaceId,
       couponCode,
       quantity: qty,
       isLocationUpdate = "false",
@@ -50,12 +84,10 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       productId,
       sellerId,
       productDataId,
-      buyerLat,
-      buyerLng,
       quantity: qty,
     });
 
-    // Validations
+    // ✅ Validations
     if (!userId) {
       console.log("❌ No userId");
       return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -78,6 +110,32 @@ export const checkout = async (req: AuthRequest, res: Response) => {
         .status(400)
         .json({ success: false, error: "Product data ID required" });
     }
+
+    // ✅ ✅ ✅ GET BUYER LOCATION FROM DATABASE (AUTOMATIC) ✅ ✅ ✅
+    console.log("📍 Fetching buyer location from database...");
+    const buyerLocation = await getBuyerLocationFromDB(userId);
+
+    if (!buyerLocation) {
+      console.log("❌ No buyer location found in database");
+      return res.status(400).json({
+        success: false,
+        error:
+          "Buyer location not found. Please set your delivery address first.",
+        code: "LOCATION_NOT_FOUND",
+      });
+    }
+
+    console.log("✅ Buyer location found:", {
+      address: buyerLocation.address,
+      latitude: buyerLocation.latitude,
+      longitude: buyerLocation.longitude,
+    });
+
+    // ✅ Use location from database
+    const buyerLat = buyerLocation.latitude;
+    const buyerLng = buyerLocation.longitude;
+    const buyerAddress = buyerLocation.address;
+    const buyerGooglePlaceId = buyerLocation.googlePlaceId;
 
     // Get vendor code from user model
     console.log("🔍 Fetching user from database to get vendor code...");
@@ -132,7 +190,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
 
     console.log("✅ Product found:", product.title);
 
-    // Get active variant (cart selected variant or first variant or product itself)
+    // Get active variant
     const activeVariant =
       cartItem.selectedVariant || product.variants?.[0] || product;
     const finalQuantity = Math.max(quantity || cartItem.quantity || 1, 1);
@@ -175,11 +233,9 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     );
     if (finalPrice > mrp) finalPrice = mrp;
 
-    // Get GST details from variant
     const gstRate = Number(activeVariant.gstRate || 18);
     const gstType = activeVariant.gstType || "INCLUSIVE";
 
-    // Calculate GST using the helper
     const gstCalculation = calculateGST(finalPrice, gstRate, gstType);
 
     console.log("💰 GST Calculation:", {
@@ -191,7 +247,6 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       priceWithGST: gstCalculation.priceWithGST,
     });
 
-    // Calculate all prices with GST type
     const priceCalculations = calculatePrices(
       mrp,
       finalPrice,
@@ -203,20 +258,19 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     console.log("💰 Price calculations:", priceCalculations);
 
     // ============================================================
-    // DELIVERY CALCULATION WITH UNIT CONVERSIONS
+    // DELIVERY CALCULATION (using buyer location from database)
     // ============================================================
     const sellerLat = Number(product.sellerLocation.latitude);
     const sellerLng = Number(product.sellerLocation.longitude);
-    const buyerLatNum = buyerLat ? Number(buyerLat) : null;
-    const buyerLngNum = buyerLng ? Number(buyerLng) : null;
+    const buyerLatNum = buyerLat;
+    const buyerLngNum = buyerLng;
 
     console.log("📍 Delivery calculation - Seller:", { sellerLat, sellerLng });
-    console.log("📍 Delivery calculation - Buyer:", {
+    console.log("📍 Delivery calculation - Buyer (from DB):", {
       buyerLatNum,
       buyerLngNum,
     });
 
-    // Pass the variant with all unit data - delivery service will handle conversions
     const deliveryCalculations = await calculateDelivery(
       sellerLat,
       sellerLng,
@@ -286,7 +340,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
 
       // GST info (with type)
       gstRate,
-      gstType: gstType.toUpperCase(), // Add this to CalculatedData type
+      gstType: gstType.toUpperCase(),
       gstAmount: priceCalculations.totalGstAmount,
       perProductGst: priceCalculations.perProductGst,
 
@@ -313,12 +367,12 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       couponUsed: couponResult.usedCoupon,
       couponData: couponResult.couponData,
 
-      // Locations
+      // Locations (using database values)
       buyerLocation: {
         latitude: buyerLatNum,
         longitude: buyerLngNum,
-        address: buyerAddress ? String(buyerAddress) : null,
-        googlePlaceId: buyerGooglePlaceId ? String(buyerGooglePlaceId) : null,
+        address: buyerAddress,
+        googlePlaceId: buyerGooglePlaceId || null,
       },
       sellerLocation: {
         latitude: sellerLat,
@@ -328,7 +382,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       },
     };
 
-    // Save to cart
+    // ✅ Save to cart
     await updateCartCalculations({
       cartItem,
       calculated,
@@ -337,12 +391,17 @@ export const checkout = async (req: AuthRequest, res: Response) => {
       discountAmount: couponResult.discountAmount,
     });
 
-    // Return response
+    // ✅ Return response
     console.log("✅ Checkout successful, returning response");
     res.json({
       success: true,
       calculated,
       couponMessage: couponResult.message,
+      location: {
+        address: buyerAddress,
+        latitude: buyerLatNum,
+        longitude: buyerLngNum,
+      },
     });
   } catch (err: any) {
     console.error("\n❌ CHECKOUT ERROR:", err.message);

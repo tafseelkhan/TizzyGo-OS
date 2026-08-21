@@ -10,7 +10,6 @@ const logFormat = winston.format.combine(
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || "info",
   format: logFormat,
-  defaultMeta: { service: "media-cleanup" },
   transports: [
     new winston.transports.File({
       filename: "error.log",

@@ -35,11 +35,19 @@ export const acceptRequest = async (
       return;
     }
 
-    await dispatchService.handleDriverAccept(request.bookingId, requestId);
+    // ✅ CHANGED: Now handleDriverAccept returns trackingId string
+    const trackingId = await dispatchService.handleDriverAccept(
+      request.bookingId,
+      requestId,
+    );
 
+    // ✅ CHANGED: Response includes trackingId in data
     res.status(200).json({
       success: true,
       message: "Request accepted successfully",
+      data: {
+        trackingId: trackingId,
+      },
     });
   } catch (error) {
     const errorMessage =

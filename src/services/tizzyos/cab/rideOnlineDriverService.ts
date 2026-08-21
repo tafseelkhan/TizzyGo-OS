@@ -1,12 +1,9 @@
-// services/tizzyos/cab/driverStatusService.ts
-
 import mongoose from "mongoose";
 import RideDriverStatus, {
   IRideDriverStatus,
 } from "../../../models/tizzyos/cab/rideDriverStatus";
 import RideDriverRegistration from "../../../models/tizzyos/cab/rideDriver";
 
-// Interfaces
 export interface IDriverStatusResponse {
   userId: mongoose.Types.ObjectId | string;
   isOnline: boolean;
@@ -43,9 +40,6 @@ export interface IDefaultStatus {
 }
 
 class DriverStatusService {
-  /**
-   * Check if driver registration is approved
-   */
   async isDriverApproved(userId: string): Promise<boolean> {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return false;
@@ -61,9 +55,6 @@ class DriverStatusService {
     return !!driverRegistration;
   }
 
-  /**
-   * Get driver registration status
-   */
   async getDriverRegistrationStatus(userId: string): Promise<string | null> {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return null;
@@ -79,7 +70,8 @@ class DriverStatusService {
   }
 
   /**
-   * Update driver online/offline status
+   * ✅ FIXED: Update ONLY isOnline, NOT isAvailable
+   * isAvailable remains unchanged
    */
   async updateOnlineStatus(
     userId: string,
@@ -91,7 +83,6 @@ class DriverStatusService {
 
     const objectId = new mongoose.Types.ObjectId(userId);
 
-    // ✅ Check if driver is approved
     const isApproved = await this.isDriverApproved(userId);
     if (!isApproved) {
       throw new Error(
@@ -99,15 +90,19 @@ class DriverStatusService {
       );
     }
 
+    console.log(`🔄 [DriverStatus] Updating online status for ${userId} -> ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
+    // ✅ FIXED: ONLY update isOnline
+    // isAvailable ko TOUCH nahi karna hai!
     const driverStatus = await RideDriverStatus.findOneAndUpdate(
       { userId: objectId },
       {
         $set: {
           userId: objectId,
           isOnline: isOnline,
-          isAvailable: isOnline,
           lastSeen: new Date(),
         },
+        // ✅ isAvailable sirf insert time par default set karo
         $setOnInsert: {
           isAvailable: true,
         },
@@ -123,12 +118,12 @@ class DriverStatusService {
       throw new Error("Failed to update driver status");
     }
 
+    console.log(`✅ [DriverStatus] Online status updated: ${userId} -> ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    console.log(`   isOnline: ${driverStatus.isOnline}, isAvailable: ${driverStatus.isAvailable}`);
+
     return driverStatus;
   }
 
-  /**
-   * Get driver current status
-   */
   async getDriverStatus(
     userId: string,
   ): Promise<IDriverStatusResponse | IDefaultStatus> {
@@ -163,9 +158,6 @@ class DriverStatusService {
     };
   }
 
-  /**
-   * Bulk update multiple drivers status
-   */
   async bulkUpdateStatus(
     driverIds: string[],
     isOnline: boolean,
@@ -184,12 +176,12 @@ class DriverStatusService {
 
     const objectIds = validIds.map((id) => new mongoose.Types.ObjectId(id));
 
+    // ✅ FIXED: Bulk update ONLY isOnline, NOT isAvailable
     const result = await RideDriverStatus.updateMany(
       { userId: { $in: objectIds } },
       {
         $set: {
           isOnline: isOnline,
-          isAvailable: isOnline,
           lastSeen: new Date(),
         },
       },
@@ -202,9 +194,6 @@ class DriverStatusService {
     };
   }
 
-  /**
-   * Get all online drivers with pagination
-   */
   async getAllOnlineDrivers(
     limit: number = 100,
     offset: number = 0,
@@ -233,7 +222,8 @@ class DriverStatusService {
   }
 
   /**
-   * Update driver availability
+   * ✅ FIXED: Update ONLY isAvailable, NOT isOnline
+   * isOnline remains unchanged
    */
   async updateAvailability(
     userId: string,
@@ -245,6 +235,8 @@ class DriverStatusService {
 
     const objectId = new mongoose.Types.ObjectId(userId);
 
+    console.log(`🔄 [DriverStatus] Updating availability for ${userId} -> ${isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+
     const driverStatus = await RideDriverStatus.findOneAndUpdate(
       { userId: objectId },
       {
@@ -252,6 +244,7 @@ class DriverStatusService {
           isAvailable: isAvailable,
           lastSeen: new Date(),
         },
+        // ✅ isOnline sirf insert time par default set karo
         $setOnInsert: {
           isOnline: false,
         },
@@ -267,11 +260,15 @@ class DriverStatusService {
       throw new Error("Failed to update availability");
     }
 
+    console.log(`✅ [DriverStatus] Availability updated: ${userId} -> ${isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+    console.log(`   isOnline: ${driverStatus.isOnline}, isAvailable: ${driverStatus.isAvailable}`);
+
     return driverStatus;
   }
 
   /**
-   * Update driver socket ID
+   * ✅ FIXED: Update ONLY socketId
+   * isOnline and isAvailable remain unchanged
    */
   async updateSocketId(
     userId: string,
@@ -286,6 +283,8 @@ class DriverStatusService {
     }
 
     const objectId = new mongoose.Types.ObjectId(userId);
+
+    console.log(`🔌 [DriverStatus] Updating socket ID for ${userId} -> ${socketId}`);
 
     const driverStatus = await RideDriverStatus.findOneAndUpdate(
       { userId: objectId },
@@ -310,12 +309,12 @@ class DriverStatusService {
       throw new Error("Failed to update socket ID");
     }
 
+    console.log(`✅ [DriverStatus] Socket ID updated: ${userId} -> ${socketId}`);
+    console.log(`   isOnline: ${driverStatus.isOnline}, isAvailable: ${driverStatus.isAvailable}`);
+
     return driverStatus;
   }
 
-  /**
-   * Get online drivers count
-   */
   async getOnlineDriversCount(): Promise<number> {
     const count = await RideDriverStatus.countDocuments({
       isOnline: true,
@@ -323,9 +322,6 @@ class DriverStatusService {
     return count;
   }
 
-  /**
-   * Cleanup stale statuses
-   */
   async cleanupStaleStatuses(hours: number = 24): Promise<number> {
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
 
@@ -338,7 +334,7 @@ class DriverStatusService {
   }
 
   /**
-   * Toggle driver status - ✅ WITH DRIVER REGISTRATION CHECK
+   * ✅ FIXED: Toggle ONLY isOnline, NOT isAvailable
    */
   async toggleDriverStatus(
     userId: string,
@@ -350,7 +346,6 @@ class DriverStatusService {
 
     const objectId = new mongoose.Types.ObjectId(userId);
 
-    // ✅ CHECK: Driver registration approved hai ya nahi
     const isApproved = await this.isDriverApproved(userId);
     if (!isApproved) {
       const status = await this.getDriverRegistrationStatus(userId);
@@ -371,9 +366,10 @@ class DriverStatusService {
       throw new Error(errorMessage);
     }
 
-    // ✅ Get current status
     const currentStatus = await RideDriverStatus.findOne({ userId: objectId });
     const newStatus = currentStatus ? !currentStatus.isOnline : true;
+
+    console.log(`🔄 [DriverStatus] Toggling status for ${userId} -> ${newStatus ? 'ONLINE' : 'OFFLINE'}`);
 
     const updateData: any = {
       userId: objectId,
@@ -389,6 +385,7 @@ class DriverStatusService {
       { userId: objectId },
       {
         $set: updateData,
+        // ✅ isAvailable sirf insert time par default set karo
         $setOnInsert: {
           isAvailable: true,
         },
@@ -404,12 +401,12 @@ class DriverStatusService {
       throw new Error("Failed to toggle driver status");
     }
 
+    console.log(`✅ [DriverStatus] Status toggled: ${userId} -> ${newStatus ? 'ONLINE' : 'OFFLINE'}`);
+    console.log(`   isOnline: ${driverStatus.isOnline}, isAvailable: ${driverStatus.isAvailable}`);
+
     return driverStatus;
   }
 
-  /**
-   * Check if driver is online
-   */
   async isDriverOnline(userId: string): Promise<boolean> {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return false;
@@ -425,9 +422,6 @@ class DriverStatusService {
     return !!driverStatus;
   }
 
-  /**
-   * Get driver by socket ID
-   */
   async getDriverBySocketId(
     socketId: string,
   ): Promise<IRideDriverStatus | null> {
@@ -438,14 +432,60 @@ class DriverStatusService {
   }
 
   /**
-   * Clear socket ID when driver disconnects
+   * ✅ FIXED: Clear ONLY socketId
+   * isOnline and isAvailable remain unchanged
+   * 
+   * IMPORTANT: Only clears socketId if it matches the disconnecting socket
+   * This prevents race condition where old socket clears new socket's ID
    */
-  async clearSocketId(userId: string): Promise<void> {
+  async clearSocketId(userId: string, socketId: string): Promise<void> {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return;
     }
 
     const objectId = new mongoose.Types.ObjectId(userId);
+
+    console.log(`🔌 [DriverStatus] Clearing socket ID for ${userId} (socket: ${socketId})`);
+
+    // ✅ ONLY clear socketId if it matches the disconnecting socket
+    // This prevents race condition
+    const result = await RideDriverStatus.findOneAndUpdate(
+      { 
+        userId: objectId,
+        socketId: socketId, // ← IMPORTANT: Match specific socket
+      },
+      {
+        $set: {
+          socketId: null,
+          lastSeen: new Date(),
+        },
+      },
+      {
+        returnDocument: 'after',
+        runValidators: false,
+      },
+    );
+
+    if (result) {
+      console.log(`✅ [DriverStatus] Socket ID cleared for ${userId}`);
+      console.log(`   isOnline: ${result.isOnline}, isAvailable: ${result.isAvailable}`);
+    } else {
+      console.log(`⚠️ [DriverStatus] Socket ${socketId} not found for ${userId}`);
+    }
+  }
+
+  /**
+   * ✅ NEW: Clear socketId without userId check (for safety)
+   * Use this only when you're sure about the userId
+   */
+  async clearSocketIdByUserId(userId: string): Promise<void> {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return;
+    }
+
+    const objectId = new mongoose.Types.ObjectId(userId);
+
+    console.log(`🔌 [DriverStatus] Force clearing socket ID for ${userId}`);
 
     await RideDriverStatus.findOneAndUpdate(
       { userId: objectId },

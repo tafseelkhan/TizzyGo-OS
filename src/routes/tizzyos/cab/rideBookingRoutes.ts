@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getRideOptions } from "../../../controller/tizzyos/cab/rideQuoteController";
+import { getAirportRideOptions } from "../../../controller/tizzyos/cab/airportQuoteController";
 import {
   createBooking,
   getBooking,
@@ -41,6 +42,7 @@ const router = Router();
 // NO
 // =====================================================
 router.post("/ride/options", authMiddleware, getRideOptions);
+router.post("/ride/airport/options", authMiddleware, getAirportRideOptions);
 
 // =====================================================
 // RIDE BOOKING APIS

@@ -12,8 +12,6 @@ export const socketHandlers = (io: Server): void => {
 
   const locationService = new RideLocationService();
 
-  console.log("🔌 [BACKEND] Socket handlers initialized");
-
   io.on("connection", (socket: Socket) => {
     console.log(`🔌 [BACKEND] ========================================`);
     console.log(`🔌 [BACKEND] Socket connected: ${socket.id}`);
@@ -344,7 +342,7 @@ export const socketHandlers = (io: Server): void => {
     );
 
     // =====================================================
-    // ✅ TEST EVENT
+    // ✅ TEST EVENT - UPDATED WITH COMPLETE PAYLOAD
     // =====================================================
     socket.on("test-ride-request", async (data: any) => {
       console.log(`🧪 [BACKEND] ========================================`);
@@ -352,26 +350,40 @@ export const socketHandlers = (io: Server): void => {
       console.log(`🧪 [BACKEND] Socket ID: ${socket.id}`);
       console.log(`🧪 [BACKEND] Data:`, JSON.stringify(data, null, 2));
 
+      // ✅ COMPLETE PAYLOAD with customer and booking details
       io.emit("new-ride-request", {
         requestId: "test_req_" + Date.now(),
-        bookingId: "TEST-BOOKING-001",
-        fare: 100,
+        customer: {
+          customerId: "CUS_TEST_001",
+          name: "John Doe",
+          profilePicture: "https://example.com/profile.jpg",
+        },
+        booking: {
+          bookingId: "TEST-BOOKING-001",
+          rideCode: "RIDE-TEST-001",
+          serviceType: "AIRPORT",
+          quoteId: "QUOTE-TEST-001",
+          fwsAirportRideId: "FWS-AIRPORT-TEST-001",
+        },
+        fare: 250,
+        distance: 10.5,
         pickup: {
-          address: "Test Pickup Location",
-          latitude: 28.61,
-          longitude: 77.2,
+          address: "City Palace, Udaipur, Rajasthan",
+          latitude: 24.5854,
+          longitude: 73.7125,
         },
         destination: {
-          address: "Test Drop Location",
-          latitude: 28.7,
-          longitude: 77.1,
+          address: "Maharana Pratap Airport, Dabok, Udaipur",
+          latitude: 24.6177,
+          longitude: 73.8961,
         },
-        distance: 10.5,
-        isRetry: false,
-        batchNumber: 1,
         expiresAt: new Date(Date.now() + 20000).toISOString(),
+        isRetry: false,
+        batchNumber: "1",
       });
-      console.log(`🧪 [BACKEND] ✅ Test ride request broadcasted!`);
+      console.log(
+        `🧪 [BACKEND] ✅ Test ride request broadcasted with complete payload!`,
+      );
       console.log(`🧪 [BACKEND] ========================================`);
     });
 
@@ -389,7 +401,7 @@ export const socketHandlers = (io: Server): void => {
           const userId = driver.userId.toString();
           console.log(`🔌 [BACKEND] Driver ${userId} disconnected`);
 
-          await driverStatusService.clearSocketId(userId);
+          await driverStatusService.clearSocketId(userId, socket.id);
 
           const RideDriverStatus =
             require("../../../models/tizzyos/cab/rideDriverStatus").default;

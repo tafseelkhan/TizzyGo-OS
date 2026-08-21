@@ -8,7 +8,7 @@ export interface IOrder extends Document {
   trackingId: string;
   buyerId?: string;
   buyerName: string;
-  zeptPayAccountId?: string; // NEW: Store vendor account ID
+  zeptPayAccountId?: string;
   items: {
     quantity: number;
     selectedVariant?: Record<string, any>;
@@ -32,6 +32,7 @@ export interface IOrder extends Document {
   packagingFee: number;
   finalAmount: number;
   status:
+    | "pending"
     | "created"
     | "processing"
     | "authorized"
@@ -40,6 +41,16 @@ export interface IOrder extends Document {
     | "cancelled"
     | "refunded"
     | "cod_confirmed";
+  paymentStatus?:
+    | "pending"
+    | "processing"
+    | "authorized"
+    | "captured"
+    | "failed"
+    | "refunded"
+    | "cancelled";
+  paidAt?: Date;
+  refundedAt?: Date;
   fulfillmentType: "SELLER" | "FWS";
   metadata?: Record<string, any>;
   shippingLabel?: {
@@ -81,6 +92,9 @@ export interface IOrder extends Document {
     rawResponse: any;
     createdAt: Date;
   }>;
+  checkoutSessionId?: string;
+  productTitle?: string;
+  transactionId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -89,12 +103,12 @@ const OrderSchema: Schema<IOrder> = new Schema(
   {
     orderId: { type: String, unique: true, required: true },
     productId: { type: String, required: true },
-    sellerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    sellerId: { type: Schema.Types.ObjectId, ref: "User" },
     sellerName: { type: String, required: false },
-    trackingId: { type: String, ref: "Tracking", index: true },
-    buyerId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    trackingId: { type: String, ref: "Tracking" },
+    buyerId: { type: Schema.Types.ObjectId, ref: "User" },
     buyerName: { type: String, required: true },
-    zeptPayAccountId: { type: String, sparse: true }, // NEW
+    zeptPayAccountId: { type: String, sparse: true },
     items: [
       {
         quantity: { type: Number, required: true },
@@ -120,6 +134,7 @@ const OrderSchema: Schema<IOrder> = new Schema(
     status: {
       type: String,
       enum: [
+        "pending",
         "created",
         "processing",
         "authorized",
@@ -129,8 +144,23 @@ const OrderSchema: Schema<IOrder> = new Schema(
         "refunded",
         "cod_confirmed",
       ],
-      default: "processing",
+      default: "pending",
     },
+    paymentStatus: {
+      type: String,
+      enum: [
+        "pending",
+        "processing",
+        "authorized",
+        "captured",
+        "failed",
+        "refunded",
+        "cancelled",
+      ],
+      default: "pending",
+    },
+    paidAt: Date,
+    refundedAt: Date,
     fulfillmentType: {
       type: String,
       enum: ["SELLER", "FWS"],
@@ -181,12 +211,26 @@ const OrderSchema: Schema<IOrder> = new Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    checkoutSessionId: {
+      type: String,
+      sparse: true,
+    },
+    productTitle: {
+      type: String,
+    },
+    transactionId: {
+      type: Schema.Types.ObjectId,
+      ref: "Transaction",
+      sparse: true,
+    },
   },
   { timestamps: true },
 );
 
-// Index for payment intent lookups
-OrderSchema.index({ paymentIntentId: 1 }, { sparse: true });
+// ✅ Indexes
+OrderSchema.index({ paymentIntentId: 1 });
+OrderSchema.index({ buyerId: 1, status: 1 });
+OrderSchema.index({ sellerId: 1, status: 1 });
 
 export default mongoose.models.Order ||
   mongoose.model<IOrder>("Order", OrderSchema);

@@ -1,18 +1,16 @@
-// services/tizzygo/transactionService.ts - RAZORPAY VERSION
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
+import crypto from "crypto";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import Order from "../../models/tizzygo/checkout/order";
 import User from "../../models/tizzygo/auths/User";
+import Transaction from "../../models/tizzygo/checkout/Transaction";
 import {
-  normalizePaymentIntentId,
-  getPaymentStatus,
-  createPaymentAttempt,
-  extractPaymentAmount,
-  PaymentStatus,
-} from "../../utils/tizzygo/transactionHelpers";
+  generateOrderId,
+  generateToken,
+  generateQrCodeDataUrl,
+} from "../../utils/tizzygo/paymentHelpers";
 
-// ✅ Initialize Razorpay
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
@@ -28,8 +26,26 @@ interface ProcessPaymentParams {
   startDate?: Date;
   endDate?: Date | null;
   session: mongoose.ClientSession;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
 }
 
+/**
+ * ✅ processPayment - ONLY verifies Razorpay signature
+ *
+ * CRITICAL: This function does NOT update Orders, Transactions, CheckoutSession, or Cart.
+ * Webhook is the ONLY source of truth for updates.
+ *
+ * This function:
+ * 1. Validates the request
+ * 2. Verifies Razorpay signature
+ * 3. Returns success/failure
+ *
+ * DO NOT add update logic here.
+ * DO NOT clear cart here.
+ * DO NOT update order status here.
+ */
 export const processPayment = async ({
   checkoutSessionId,
   paymentType,
@@ -40,236 +56,149 @@ export const processPayment = async ({
   startDate,
   endDate,
   session,
+  razorpayOrderId,
+  razorpayPaymentId,
+  razorpaySignature,
 }: ProcessPaymentParams) => {
-  // Find checkout session
-  const checkoutSession: any = await CheckoutSession.findOne({
+  console.log("========================================");
+  console.log("💳 [transactionService] processPayment STARTED");
+  console.log("========================================");
+  console.log(`📋 CheckoutSession ID: ${checkoutSessionId}`);
+  console.log(`👤 User ID: ${userId}`);
+  console.log(`💳 Payment Type: ${paymentType}`);
+  console.log(`🔑 Razorpay Order ID: ${razorpayOrderId || "Not provided"}`);
+  console.log(`🔑 Razorpay Payment ID: ${razorpayPaymentId || "Not provided"}`);
+  console.log(
+    `🔑 Signature: ${razorpaySignature ? "PROVIDED" : "NOT PROVIDED"}`,
+  );
+
+  // ✅ Find checkout session (read-only)
+  const checkoutSession = await CheckoutSession.findOne({
     checkoutSessionId,
     userId,
   }).session(session);
 
   if (!checkoutSession) {
-    throw new Error("Checkout session not found");
+    throw new Error(`Checkout session not found: ${checkoutSessionId}`);
   }
 
-  // Find order
-  const order: any = await Order.findById(checkoutSession.orderId).session(
-    session,
-  );
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  // Prevent duplicate payment
-  if (["captured", "authorized"].includes(order.paymentStatus)) {
-    throw new Error("Order already paid");
-  }
-
-  // Check if session expired
   if (
     checkoutSession.expiresAt &&
     new Date() > new Date(checkoutSession.expiresAt)
   ) {
-    checkoutSession.status = "expired";
-    order.status = "cancelled";
-    order.paymentStatus = "failed";
-
-    await checkoutSession.save({ session });
-    await order.save({ session });
-
     throw new Error("Checkout session expired");
   }
 
-  // Extract data for payment
+  // ✅ Extract data from CheckoutSession snapshot
   const cartSnapshot = checkoutSession.cartSnapshot || {};
-  const firstItem = cartSnapshot?.items?.[0] || {};
-  const productData = firstItem?.productData || {};
-  const calculatedData =
-    firstItem?.calculated || cartSnapshot?.calculatedData || {};
+  const items = cartSnapshot?.items || [];
+  const calculatedData = cartSnapshot?.calculatedData || {};
 
-  const amount = extractPaymentAmount(calculatedData);
-  const appName = productData?.appName || "TizzyGo";
+  if (items.length === 0) {
+    throw new Error("No items in checkout session");
+  }
+
+  const amount = calculatedData.finalAmount || 0;
 
   if (!amount || amount <= 0) {
-    throw new Error("Invalid payment amount");
+    throw new Error(`Invalid payment amount: ${amount}`);
   }
 
-  const userAccount = await User.findById(userId).select("name email");
+  // ✅ Check for existing Razorpay order
+  let razorpayOrderIdToUse = checkoutSession.paymentIntentId || razorpayOrderId;
 
-  if (!userAccount) {
-    throw new Error("User not found");
-  }
-
-  const payer = {
-    userId: user.userId,
-    name: userAccount.name || "Customer",
-    email: userAccount.email || "",
-  };
-
-  // Update statuses
-  order.status = "processing";
-  order.paymentStatus = "processing";
-  checkoutSession.status = "processing";
-  checkoutSession.paymentGateway = "razorpay"; // ✅ Razorpay
-
-  await order.save({ session });
-  await checkoutSession.save({ session });
-
-  // ✅ Call Razorpay SDK
-  let razorpayResponse: any = {};
-
-  try {
-    console.log("========================================");
-    console.log("🚀 BEFORE RAZORPAY SDK CALL");
-    console.log("========================================");
-    console.log("Payment Type:", paymentType);
-    console.log("Amount:", amount);
-    console.log("Currency:", "INR");
-    console.log("App Name:", appName);
-    console.log("Payer:", JSON.stringify(payer, null, 2));
-    console.log(
-      "Meta:",
-      JSON.stringify(
-        {
-          checkoutSessionId,
-          orderId: order.orderId,
-          buyerId: userId,
-          transactionId,
-        },
-        null,
-        2,
-      ),
-    );
-
-    const sdkStart = Date.now();
-
-    // ✅ Razorpay Order Create (if not already created)
-    if (paymentType === "normal") {
-      console.log("💳 Calling Razorpay orders.create()...");
-
-      // Check if order already has razorpay order ID
-      let razorpayOrderId = order.paymentIntentId;
-
-      if (!razorpayOrderId) {
-        // Create new Razorpay order
-        const razorpayOrder = await razorpay.orders.create({
-          amount: Math.round(amount * 100), // paise mein
-          currency: "INR",
-          receipt: `receipt_${Date.now()}`,
-          notes: {
-            checkoutSessionId: checkoutSessionId,
-            orderId: order.orderId,
-            buyerId: userId,
-            transactionId: transactionId || "",
-          },
-        });
-        razorpayOrderId = razorpayOrder.id;
-        order.paymentIntentId = razorpayOrderId;
-        checkoutSession.paymentIntentId = razorpayOrderId;
-        await order.save({ session });
-        await checkoutSession.save({ session });
-        console.log(`✅ Razorpay Order Created: ${razorpayOrderId}`);
-      }
-
-      razorpayResponse = {
-        paymentIntentId: razorpayOrderId,
-        status: "created",
-        orderId: order.orderId,
-        amount: amount,
+  // ✅ If no Razorpay order ID exists, create one
+  if (!razorpayOrderIdToUse && paymentType === "normal") {
+    console.log("💳 Creating Razorpay Order...");
+    try {
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(amount * 100),
         currency: "INR",
-      };
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          checkoutSessionId: checkoutSessionId,
+          buyerId: userId,
+          transactionId: transactionId || "",
+          itemCount: items.length,
+          isBuyNow: checkoutSession.metadata?.isBuyNow ? "true" : "false",
+        },
+      });
+      razorpayOrderIdToUse = razorpayOrder.id;
 
-      console.log(`✅ Razorpay order prepared (${Date.now() - sdkStart}ms)`);
-    } else if (paymentType === "qr") {
-      console.log("📱 QR payment not supported in Razorpay currently");
-      throw new Error("QR payment type not supported in Razorpay");
-    } else if (paymentType === "autopay") {
-      console.log("🔄 Autopay not supported in Razorpay currently");
-      throw new Error("Autopay not supported in Razorpay");
+      // ✅ ONLY update paymentIntentId in CheckoutSession
+      // This is the ONLY write operation in this function
+      checkoutSession.paymentIntentId = razorpayOrderIdToUse;
+      await checkoutSession.save({ session });
+      console.log(`✅ Razorpay Order Created: ${razorpayOrderIdToUse}`);
+    } catch (sdkError: any) {
+      console.error("❌ RAZORPAY SDK ERROR:", sdkError.message);
+      throw new Error(
+        `Payment gateway failed: ${sdkError?.message || "Unknown SDK error"}`,
+      );
     }
-
-    console.log("========================================");
-    console.log("📦 RAZORPAY RESPONSE");
-    console.log("========================================");
-    console.log(JSON.stringify(razorpayResponse, null, 2));
-  } catch (sdkError: any) {
-    console.log("========================================");
-    console.log("❌ RAZORPAY SDK ERROR");
-    console.log("========================================");
-    console.log("Message:", sdkError?.message);
-    console.log("Code:", sdkError?.code);
-    console.log("Stack:", sdkError?.stack);
-
-    order.status = "failed";
-    order.paymentStatus = "failed";
-    checkoutSession.status = "failed";
-
-    await order.save({ session });
-    await checkoutSession.save({ session });
-
-    throw new Error(
-      `Payment gateway failed: ${sdkError?.message || "Unknown SDK error"}`,
-    );
   }
 
-  // Process response
-  const paymentIntentId = normalizePaymentIntentId(razorpayResponse);
-  const paymentStatus = getPaymentStatus(razorpayResponse);
+  // ✅ ✅ ✅ VERIFY RAZORPAY SIGNATURE ✅ ✅ ✅
+  let isSignatureValid = false;
+  let signatureError = null;
 
-  const paymentAttempt = createPaymentAttempt(
-    paymentIntentId,
-    paymentType,
-    paymentStatus,
-    { ...razorpayResponse, transactionId },
+  if (razorpayPaymentId && razorpaySignature && razorpayOrderIdToUse) {
+    console.log("🔐 Verifying Razorpay signature...");
+    console.log(`  - order_id: ${razorpayOrderIdToUse}`);
+    console.log(`  - payment_id: ${razorpayPaymentId}`);
+    console.log(`  - signature: ${razorpaySignature}`);
+
+    try {
+      const secret = process.env.RAZORPAY_KEY_SECRET || "";
+      const generatedSignature = crypto
+        .createHmac("sha256", secret)
+        .update(`${razorpayOrderIdToUse}|${razorpayPaymentId}`)
+        .digest("hex");
+
+      isSignatureValid = generatedSignature === razorpaySignature;
+
+      if (isSignatureValid) {
+        console.log("✅ Signature verification PASSED");
+      } else {
+        console.error("❌ Signature verification FAILED");
+        console.error(`  Generated: ${generatedSignature}`);
+        console.error(`  Received: ${razorpaySignature}`);
+        signatureError = "Invalid payment signature";
+      }
+    } catch (error: any) {
+      console.error("❌ Signature verification error:", error.message);
+      signatureError = error.message;
+    }
+  } else {
+    console.log("⚠️ No signature provided for verification");
+    if (paymentType !== "cod" && process.env.NODE_ENV === "production") {
+      signatureError = "Payment signature required for verification";
+    }
+  }
+
+  // ✅ ✅ ✅ DO NOT UPDATE ORDERS, TRANSACTIONS, OR CART HERE ✅ ✅ ✅
+  // Webhook is the ONLY source of truth for these updates
+  // This prevents WriteConflict (code 112) errors
+
+  console.log(
+    `✅ Signature verification result: ${isSignatureValid ? "VALID" : "INVALID"}`,
   );
-
-  if (!order.paymentAttempts) order.paymentAttempts = [];
-  order.paymentAttempts.push(paymentAttempt);
-
-  if (paymentIntentId) {
-    order.paymentIntentId = paymentIntentId;
-    checkoutSession.paymentIntentId = paymentIntentId;
-  }
-
-  // Update status based on payment result
-  switch (paymentStatus) {
-    case "captured":
-      order.status = "captured";
-      order.paymentStatus = "captured";
-      checkoutSession.status = "completed";
-      break;
-    case "authorized":
-      order.status = "authorized";
-      order.paymentStatus = "authorized";
-      checkoutSession.status = "authorized";
-      break;
-    case "failed":
-      order.status = "failed";
-      order.paymentStatus = "failed";
-      checkoutSession.status = "failed";
-      break;
-    case "cancelled":
-      order.status = "cancelled";
-      order.paymentStatus = "failed";
-      checkoutSession.status = "cancelled";
-      break;
-    default:
-      order.status = "processing";
-      order.paymentStatus = "processing";
-      checkoutSession.status = "processing";
-  }
-
-  await order.save({ session });
-  await checkoutSession.save({ session });
+  console.log(`ℹ️ Webhook will handle all status updates`);
 
   return {
-    order,
     checkoutSession,
-    razorpayResponse,
-    paymentIntentId,
-    paymentStatus,
+    razorpayResponse: {
+      orderId: razorpayOrderIdToUse,
+      paymentId: razorpayPaymentId,
+      status: isSignatureValid ? "verified" : "failed",
+    },
+    paymentIntentId: razorpayOrderIdToUse || checkoutSession.paymentIntentId,
+    paymentStatus: isSignatureValid ? "verified" : "failed",
     amount,
-    appName,
-    payer,
+    isSignatureValid,
+    message: isSignatureValid
+      ? "Signature verified. Waiting for webhook confirmation."
+      : "Signature verification failed.",
   };
 };
 

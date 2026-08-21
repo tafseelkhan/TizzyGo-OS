@@ -1,159 +1,30 @@
+// ============================================================
+// services/tizzygo/orderService.ts
+// ============================================================
+
 import mongoose from "mongoose";
 import Order from "../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
+import Transaction from "../../models/tizzygo/checkout/Transaction";
 import Cart from "../../models/tizzygo/cart/Cart";
-import {
-  generateOrderId,
-  extractBuyerAddress,
-  extractSellerAddress,
-  formatAddress,
-  generateTempGooglePlaceId,
-  serializeCouponData,
-} from "../../utils/tizzygo/orderHelpers";
 
-interface CreateOrderParams {
-  checkoutSession: any;
-  user: any;
+interface ConfirmCODParams {
+  checkoutSessionId: string;
+  userId: string;
   session: mongoose.ClientSession;
 }
 
-export const createCODOrder = async ({
-  checkoutSession,
-  user,
-  session,
-}: CreateOrderParams) => {
-  const cartSnapshot = checkoutSession.cartSnapshot;
-  const firstItem = cartSnapshot.items[0];
-  const calculatedData = cartSnapshot.calculatedData;
-
-  // Extract addresses
-  const buyerAddressRaw = extractBuyerAddress(checkoutSession, cartSnapshot);
-  const sellerAddressRaw = extractSellerAddress(cartSnapshot, firstItem);
-
-  // Format addresses
-  let buyerAddress = formatAddress(buyerAddressRaw);
-  let sellerAddress = formatAddress(sellerAddressRaw);
-
-  // Generate temp Google Place IDs if missing
-  if (
-    buyerAddress.address !== "Address not specified" &&
-    !buyerAddress.googlePlaceId
-  ) {
-    buyerAddress.googlePlaceId = generateTempGooglePlaceId(
-      buyerAddress.address,
-    );
-  }
-
-  if (
-    sellerAddress.address !== "Default Seller Address" &&
-    !sellerAddress.googlePlaceId
-  ) {
-    sellerAddress.googlePlaceId = generateTempGooglePlaceId(
-      sellerAddress.address,
-    );
-  }
-
-  // Extract seller ID
-  const sellerId =
-    firstItem.productData.sellerId ||
-    firstItem.productData.seller?._id ||
-    firstItem.sellerId ||
-    cartSnapshot.sellerId;
-
-  // Serialize coupon data
-  const couponDataValue = serializeCouponData(calculatedData.couponData);
-
-  // Prepare order data
-  const orderId = generateOrderId();
-
-  const orderData: any = {
-    orderId,
-    productId: firstItem.productId,
-    buyerId: user.userId,
-    sellerId: sellerId,
-    buyerName: user.name || user.email?.split("@")[0] || "Customer",
-
-    items: cartSnapshot.items.map((item: any) => {
-      const itemSellerId =
-        item.productData.sellerId ||
-        item.productData.seller?._id ||
-        item.sellerId ||
-        sellerId;
-
-      return {
-        quantity: item.quantity,
-        selectedVariant: item.selectedVariant,
-        productData: {
-          ...item.productData,
-          buyerId: user.userId,
-          buyerName: user.name || user.email?.split("@")[0] || "Customer",
-          sellerLocation: sellerAddressRaw,
-          buyerLocation: buyerAddressRaw,
-        },
-        sellerId: itemSellerId,
-      };
-    }),
-
-    productPrice:
-      firstItem.productData.price || firstItem.productData.finalPrice || 0,
-    productMrp:
-      firstItem.productData.mrp ||
-      firstItem.productData.originalPrice ||
-      firstItem.productData.price ||
-      0,
-    productSavedAmount: firstItem.productData.savedAmount || 0,
-    productDiscount: firstItem.productData.discount || 0,
-    productOfferText:
-      firstItem.productData.offerText || firstItem.productData.offer || "",
-    productFinalPrice:
-      calculatedData.finalAmount ||
-      firstItem.productData.finalPrice ||
-      firstItem.productData.price ||
-      0,
-
-    productGst: calculatedData.productGst || 0,
-    productGstRate: calculatedData.productGstRate || 0,
-    deliveryCharge: calculatedData.deliveryCharge || 0,
-    distanceKm: calculatedData.distanceKm || 0,
-    totalBeforeCoupon:
-      calculatedData.totalBeforeCoupon || calculatedData.finalAmount || 0,
-    discountApplied: calculatedData.discountApplied || 0,
-    platformFee: calculatedData.platformFee || 0,
-    finalAmount: calculatedData.finalAmount || 0,
-
-    status: "cod_confirmed",
-    paymentMethod: "cod",
-    token: Math.random().toString(36).substr(2, 12),
-
-    buyerAddress: buyerAddress,
-    sellerAddress: sellerAddress,
-    buyerLocation: buyerAddressRaw,
-    sellerLocation: sellerAddressRaw,
-
-    couponUsed: calculatedData.couponUsed,
-    couponData: couponDataValue || undefined,
-    coFundApplied: calculatedData.coFundApplied || false,
-    fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
-  };
-
-  // Create and save order
-  const order = new Order(orderData);
-  await order.save({ session });
-
-  // Mark checkout session as completed
-  checkoutSession.status = "completed";
-  await checkoutSession.save({ session });
-
-  // Clear user's cart
-  await Cart.deleteMany({ userId: user.userId }).session(session);
-
-  return { order, checkoutSession };
-};
-
+/**
+ * ✅ Validate COD Checkout Session
+ *
+ * Checks if the checkout session exists, is pending, and is valid for COD.
+ */
 export const validateCheckoutSession = async (
   checkoutSessionId: string,
   userId: string,
 ): Promise<any> => {
+  console.log(`🔍 Validating COD checkout session: ${checkoutSessionId}`);
+
   const checkoutSession = await CheckoutSession.findOne({
     checkoutSessionId,
     userId: userId,
@@ -171,5 +42,183 @@ export const validateCheckoutSession = async (
     throw new Error("Invalid payment method for COD confirmation");
   }
 
+  console.log(
+    `✅ Checkout session validated: ${checkoutSession.checkoutSessionId}`,
+  );
   return checkoutSession;
+};
+
+/**
+ * ✅ Confirm COD Order - UPDATES EXISTING ORDER(S)
+ *
+ * ⚠️ CRITICAL: This function does NOT create new Orders.
+ * It ONLY updates existing Orders, Transaction, and CheckoutSession.
+ *
+ * Flow:
+ * 1. Validate session
+ * 2. Find existing Order(s) via checkoutSession
+ * 3. Update Order status to "cod_confirmed"
+ * 4. Update Transaction status to "pending"
+ * 5. Update CheckoutSession status to "completed"
+ * 6. Clear user's cart
+ */
+export const confirmCODOrder = async ({
+  checkoutSessionId,
+  userId,
+  session,
+}: ConfirmCODParams) => {
+  console.log("📦 Starting COD order confirmation...");
+  console.log(`📋 CheckoutSession ID: ${checkoutSessionId}`);
+  console.log(`👤 User ID: ${userId}`);
+
+  // ✅ Step 1: Validate checkout session
+  const checkoutSession = await validateCheckoutSession(
+    checkoutSessionId,
+    userId,
+  );
+
+  // ✅ Step 2: Get existing orders
+  let orderIds: mongoose.Types.ObjectId[] = [];
+  let orders: any[] = [];
+
+  // ✅ Determine if Buy Now or Cart
+  const isBuyNow = checkoutSession.metadata?.isBuyNow || false;
+  const isCartCheckout =
+    checkoutSession.orderIds && checkoutSession.orderIds.length > 1;
+
+  console.log(
+    `📦 Order type: ${isBuyNow ? "Buy Now" : isCartCheckout ? "Multi-Order Cart" : "Single Order Cart"}`,
+  );
+
+  if (isBuyNow && checkoutSession.orderId) {
+    // ✅ Buy Now: Single order via orderId
+    console.log(
+      `📦 Buy Now - Finding order by orderId: ${checkoutSession.orderId}`,
+    );
+    const order = await Order.findById(checkoutSession.orderId).session(
+      session,
+    );
+    if (order) {
+      orders.push(order);
+      orderIds.push(order._id);
+    }
+  } else if (checkoutSession.orderIds && checkoutSession.orderIds.length > 0) {
+    // ✅ Cart Checkout: Multiple orders
+    console.log(
+      `📦 Cart Checkout - Finding ${checkoutSession.orderIds.length} orders`,
+    );
+    for (const orderId of checkoutSession.orderIds) {
+      const order = await Order.findById(orderId).session(session);
+      if (order) {
+        orders.push(order);
+        orderIds.push(order._id);
+      }
+    }
+  } else if (checkoutSession.orderId) {
+    // ✅ Single order (fallback)
+    console.log(
+      `📦 Single order - Finding by orderId: ${checkoutSession.orderId}`,
+    );
+    const order = await Order.findById(checkoutSession.orderId).session(
+      session,
+    );
+    if (order) {
+      orders.push(order);
+      orderIds.push(order._id);
+    }
+  }
+
+  // ✅ Validate orders exist
+  if (orders.length === 0) {
+    throw new Error(
+      `No orders found for checkout session: ${checkoutSessionId}. ` +
+        `OrderIds: ${JSON.stringify(checkoutSession.orderIds || [])}`,
+    );
+  }
+
+  console.log(`✅ Found ${orders.length} order(s) to confirm`);
+
+  // ✅ Step 3: Update ALL orders
+  const updatedOrders = [];
+  for (const order of orders) {
+    // ✅ CRITICAL: Update existing order - DO NOT CREATE NEW ORDER
+    order.status = "cod_confirmed";
+    order.paymentStatus = "pending";
+    order.paymentMethod = "cod";
+    order.updatedAt = new Date();
+
+    // ✅ Preserve all existing fields - only update status
+    await order.save({ session });
+    updatedOrders.push(order);
+
+    console.log(`✅ Order ${order.orderId} updated to: ${order.status}`);
+  }
+
+  // ✅ Step 4: Update Transaction
+  let updatedTransaction = null;
+  if (checkoutSession.transactionId) {
+    console.log(`💳 Finding transaction: ${checkoutSession.transactionId}`);
+    const transaction = await Transaction.findById(
+      checkoutSession.transactionId,
+    ).session(session);
+
+    if (transaction) {
+      // ✅ Update transaction status
+      transaction.status = "pending";
+
+      // ✅ Ensure metadata exists
+      if (!transaction.metadata) {
+        transaction.metadata = {};
+      }
+      transaction.metadata.paymentType = "cod";
+      transaction.metadata.confirmedAt = new Date();
+      transaction.metadata.checkoutSessionId = checkoutSessionId;
+
+      await transaction.save({ session });
+      updatedTransaction = transaction;
+
+      console.log(
+        `✅ Transaction ${transaction.transactionId} updated to: pending`,
+      );
+    } else {
+      console.warn(
+        `⚠️ Transaction not found: ${checkoutSession.transactionId}`,
+      );
+    }
+  }
+
+  // ✅ Step 5: Update CheckoutSession
+  checkoutSession.status = "completed";
+  checkoutSession.paymentMethod = "cod";
+  checkoutSession.completedAt = new Date();
+
+  // ✅ Ensure metadata exists
+  if (!checkoutSession.metadata) {
+    checkoutSession.metadata = {};
+  }
+  checkoutSession.metadata.confirmedAt = new Date();
+  checkoutSession.metadata.confirmationMethod = "cod";
+
+  await checkoutSession.save({ session });
+  console.log(
+    `✅ CheckoutSession ${checkoutSession.checkoutSessionId} updated to: completed`,
+  );
+
+  // ✅ Step 6: Clear user's cart
+  console.log(`🗑️ Clearing cart for user: ${userId}`);
+  const cartResult = await Cart.deleteMany({ userId: userId }).session(session);
+  console.log(`✅ Deleted ${cartResult.deletedCount || 0} cart items`);
+
+  // ✅ Step 7: Return updated data
+  const firstItem = checkoutSession.cartSnapshot?.items?.[0] || {};
+
+  return {
+    checkoutSession,
+    orders: updatedOrders,
+    transaction: updatedTransaction,
+    orderIds: orderIds,
+    isBuyNow,
+    isCartCheckout: isCartCheckout || orders.length > 1,
+    firstItem,
+  };
 };

@@ -38,7 +38,7 @@ export const createBooking = async (
       return;
     }
 
-    const { quoteId, paymentMethod } = req.body;
+    const { quoteId, serviceType, paymentMethod } = req.body;
 
     // Validate required fields
     if (!quoteId) {
@@ -49,12 +49,30 @@ export const createBooking = async (
       return;
     }
 
+    // Validate serviceType
+    if (!serviceType) {
+      res.status(400).json({
+        success: false,
+        message: "Missing required field: serviceType",
+      });
+      return;
+    }
+
+    if (!["LOCAL_RIDE", "AIRPORT"].includes(serviceType)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid serviceType. Allowed values are LOCAL_RIDE and AIRPORT.",
+      });
+      return;
+    }
+
     const bookingService = new RideBookingService();
     const dispatchService = new RideDispatchService();
 
     const bookingData = {
       customerId: userId,
       quoteId: quoteId,
+      serviceType: serviceType,
       paymentMethod: paymentMethod || "COC",
     };
 
@@ -63,19 +81,31 @@ export const createBooking = async (
     // Start dispatch immediately
     await dispatchService.startDispatch(booking.bookingId);
 
+    const responseData: any = {
+      bookingId: booking.bookingId,
+      rideCode: booking.rideCode,
+      serviceType: booking.serviceType,
+      quoteId: booking.quoteId,
+      status: booking.status,
+      fare: booking.fare?.totalFare,
+      pickup: booking.pickup,
+      destination: booking.destination,
+      vehicle: booking.vehicle,
+      estimatedDuration: booking.duration,
+      polyline: booking.encodedPolyline,
+    };
+
+    // Add service-specific FWS ID
+    if (booking.serviceType === "LOCAL_RIDE") {
+      responseData.fwsLocalRideId = booking.fwsLocalRideId;
+    } else {
+      responseData.fwsAirportRideId = booking.fwsAirportRideId;
+    }
+
     res.status(201).json({
       success: true,
-      data: {
-        bookingId: booking.bookingId,
-        status: booking.status,
-        fare: booking.fare?.totalFare,
-        pickup: booking.pickup,
-        destination: booking.destination,
-        vehicle: booking.vehicle,
-        estimatedDuration: booking.duration,
-        polyline: booking.encodedPolyline,
-      },
-      message: "Booking created successfully. Searching for drivers...",
+      data: responseData,
+      message: `${booking.serviceType} booking created successfully. Searching for drivers...`,
     });
   } catch (error) {
     const errorMessage =
@@ -161,6 +191,15 @@ export const retrySearch = async (
       res.status(403).json({
         success: false,
         message: "Not authorized for this booking",
+      });
+      return;
+    }
+
+    // Check if retry is supported for this service type
+    if (booking.serviceType === "AIRPORT") {
+      res.status(400).json({
+        success: false,
+        message: "Retry search is not supported for Airport rides yet.",
       });
       return;
     }

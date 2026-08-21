@@ -1,5 +1,3 @@
-// services/tizzyos/cab/RideQuoteService.ts - COMPLETE FINAL
-
 import mongoose from "mongoose";
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
 import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
@@ -8,8 +6,13 @@ import RideDriver from "../../../models/tizzyos/cab/rideDriver";
 import RideDriverStatus from "../../../models/tizzyos/cab/rideDriverStatus";
 import RideDriverLocation from "../../../models/tizzyos/cab/rideDriverLocation";
 import RideQuote from "../../../models/tizzyos/cab/rideQuote";
+import { IDistricts } from "../../../models/tizzyos/cab/district";
 import { generateQuoteCode } from "../../../utils/tizzyos/cab/idGenerator";
 import { v4 as uuidv4 } from "uuid";
+import {
+  DistrictService,
+  IDriverLocationInfo,
+} from "./DistrictService";
 
 interface IQuoteRequest {
   pickup: {
@@ -102,18 +105,19 @@ interface IRideTypeGroupResponse {
 export class RideQuoteService {
   private readonly routeService: GoogleRoutesService;
   private readonly fareService: FareCalculationService;
+  private readonly districtService: DistrictService;
   private readonly candidateCache: Map<
     string,
     { driverId: string; expiresAt: Date }
   >;
-
-  private readonly MIN_SEARCH_RADIUS_KM: number = 0;
-  private readonly MAX_SEARCH_RADIUS_KM: number = 80;
+  
+  // ✅ MAX_DRIVERS_TO_FETCH is a safety limit, NOT a radius
   private readonly MAX_DRIVERS_TO_FETCH: number = 30;
 
   constructor() {
     this.routeService = new GoogleRoutesService();
     this.fareService = new FareCalculationService();
+    this.districtService = new DistrictService();
     this.candidateCache = new Map();
   }
 
@@ -138,20 +142,43 @@ export class RideQuoteService {
       address: quoteRequest.drop.address,
     });
 
-    const nearbyDrivers = await this.findNearbyAvailableDrivers(
+    // ✅ STEP 1: VALIDATE LOCALRIDE DISTRICT RULE
+    // Pickup and Drop MUST be in the SAME district
+    const districtValidation = await this.districtService.validateLocalRideDistricts(
       quoteRequest.pickup.latitude,
       quoteRequest.pickup.longitude,
-      this.MIN_SEARCH_RADIUS_KM,
-      this.MAX_SEARCH_RADIUS_KM,
+      quoteRequest.drop.latitude,
+      quoteRequest.drop.longitude
+    );
+
+    if (!districtValidation.valid) {
+      console.log(`❌ ${districtValidation.message}`);
+      throw new Error(districtValidation.message || "LocalRide validation failed.");
+    }
+
+    console.log(`✅ LocalRide validation passed: ${districtValidation.pickupDistrict!.name}`);
+
+    // ✅ STEP 2: Find drivers inside the customer's district
+    // Only search drivers in the pickup district (which is same as drop district)
+    const eligibleDrivers = await this.findDriversInDistrict(
+      districtValidation.pickupDistrict!,
+      quoteRequest.pickup.latitude,
+      quoteRequest.pickup.longitude,
       this.MAX_DRIVERS_TO_FETCH,
     );
 
-    if (nearbyDrivers.length === 0) {
-      throw new Error("No drivers available nearby. Please try again later.");
+    if (eligibleDrivers.length === 0) {
+      throw new Error(
+        `No drivers available in ${districtValidation.pickupDistrict!.name}. Please try again later.`,
+      );
     }
 
-    console.log(`✅ Found ${nearbyDrivers.length} nearby drivers`);
+    console.log(
+      `✅ Found ${eligibleDrivers.length} eligible drivers in ${districtValidation.pickupDistrict!.name}`,
+    );
 
+    // ✅ STEP 3: Get route information (pickup → drop)
+    // Route is still needed for distance/time/fare calculation
     const route = await this.routeService.getRoute({
       origin: {
         latitude: quoteRequest.pickup.latitude,
@@ -176,6 +203,7 @@ export class RideQuoteService {
         : "N/A",
     });
 
+    // ✅ STEP 4: Get all ride types
     const allRideTypes = await RideType.find().lean().exec();
 
     if (!allRideTypes || allRideTypes.length === 0) {
@@ -184,6 +212,7 @@ export class RideQuoteService {
 
     console.log(`✅ Found ${allRideTypes.length} ride types from DB`);
 
+    // ✅ STEP 5: Group drivers by ride type
     const rideTypeGroups = new Map<
       string,
       {
@@ -193,7 +222,7 @@ export class RideQuoteService {
       }
     >();
 
-    for (const driver of nearbyDrivers) {
+    for (const driver of eligibleDrivers) {
       const driverVehicleClass = driver.vehicle.vehicleClass || "Economy";
       const vehicleClassMatchingTypes = allRideTypes.filter(
         (rt) =>
@@ -259,12 +288,12 @@ export class RideQuoteService {
       }
     }
 
+    // ✅ STEP 6: Build response
     const response: IRideTypeGroupResponse[] = [];
 
     for (const [rideTypeCode, group] of rideTypeGroups) {
-      const sortedDrivers = group.drivers
-        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
-        .slice(0, 6);
+      // Drivers are already sorted by distance from DistrictService
+      const sortedDrivers = group.drivers.slice(0, 6);
 
       const driverResponses: IDriverResponse[] = sortedDrivers.map(
         (driver) => ({
@@ -297,6 +326,7 @@ export class RideQuoteService {
 
       const quoteId = generateQuoteCode();
 
+      // ✅ Save quote to database
       try {
         const firstDriver = sortedDrivers[0];
 
@@ -342,7 +372,7 @@ export class RideQuoteService {
               endAddress: quoteRequest.drop.address || "Unknown",
               distanceText: `${route.roadDistanceKm || 0} km`,
               durationText: `${Math.round(route.trafficDurationMinutes || 0)} min`,
-              steps: [], // ✅ Empty array for steps
+              steps: [],
             },
           },
           fareComponents: {
@@ -392,7 +422,7 @@ export class RideQuoteService {
 
     if (response.length === 0) {
       throw new Error(
-        "No ride types available with nearby drivers. Please try again.",
+        "No ride types available with available drivers. Please try again.",
       );
     }
 
@@ -412,98 +442,76 @@ export class RideQuoteService {
     return response;
   }
 
-  private async findNearbyAvailableDrivers(
-    latitude: number,
-    longitude: number,
-    minRadiusKm: number,
-    maxRadiusKm: number,
+  /**
+   * ✅ Find drivers within a specific district
+   * 
+   * CRITICAL BUSINESS RULE:
+   * District boundary is the PRIMARY and ONLY geographic eligibility filter
+   * NO radius limit is applied anywhere
+   * Distance is calculated ONLY for sorting
+   * 
+   * Flow:
+   * 1. Find drivers inside the district using $geoWithin
+   * 2. Filter: isTrackingOn = true
+   * 3. Filter: isOnline = true AND isAvailable = true
+   * 4. Filter: status = "approved"
+   * 5. Calculate distance from pickup (Haversine)
+   * 6. Sort by distance (nearest first)
+   * 7. Return up to 30 drivers (safety limit)
+   */
+  private async findDriversInDistrict(
+    district: IDistricts,
+    pickupLatitude: number,
+    pickupLongitude: number,
     limit: number = 30,
   ): Promise<IDriverInfo[]> {
-    const minRadiusInMeters = minRadiusKm * 1000;
-    const maxRadiusInMeters = maxRadiusKm * 1000;
+    console.log(`🚗 Finding drivers in district: ${district.name}`);
 
-    const locations = await RideDriverLocation.aggregate([
-      {
-        $geoNear: {
-          near: {
-            type: "Point",
-            coordinates: [longitude, latitude],
-          },
-          distanceField: "distance",
-          minDistance: minRadiusInMeters,
-          maxDistance: maxRadiusInMeters,
-          spherical: true,
-          distanceMultiplier: 0.001,
-        },
-      },
-      {
-        $match: {
-          isTrackingOn: true,
-        },
-      },
-      {
-        $project: {
-          userId: 1,
-          driverCode: 1,
-          distance: 1,
-          location: 1,
-          speed: 1,
-          heading: 1,
-          isTrackingOn: 1,
-        },
-      },
-      { $sort: { distance: 1 } },
-      { $limit: limit },
-    ]);
+    // ✅ STEP 1: Find drivers inside the district using $geoWithin
+    const driversInDistrict =
+      await this.districtService.findDriversInsideDistrict(
+        district,
+        pickupLatitude,
+        pickupLongitude,
+        limit,
+      );
 
-    if (locations.length === 0) {
-      return [];
+    if (driversInDistrict.length === 0) {
+      console.log(`❌ No drivers available in district: ${district.name}`);
+      throw new Error(`No drivers available in ${district.name}.`);
     }
 
-    const userIds = locations.map((loc) => loc.userId);
+    console.log(`✅ Found ${driversInDistrict.length} drivers in ${district.name}`);
+
+    // ✅ STEP 2: Fetch full driver details
+    const userIds = driversInDistrict.map((d) => d.userId);
 
     const statuses = await RideDriverStatus.find({
       userId: { $in: userIds },
-      isOnline: true,
-      isAvailable: true,
     }).lean();
 
-    const onlineUserIds = new Set(statuses.map((s) => s.userId.toString()));
+    const statusMap = new Map(statuses.map((s) => [s.userId.toString(), s]));
 
     const drivers = await RideDriver.find({
       userId: { $in: userIds },
-      status: "approved",
     }).lean();
 
-    const approvedUserIds = new Set(drivers.map((d) => d.userId.toString()));
+    const driverMap = new Map(drivers.map((d) => [d.userId.toString(), d]));
 
+    // ✅ STEP 3: Build full driver info with all vehicle details
     const result: IDriverInfo[] = [];
 
-    for (const loc of locations) {
+    for (const loc of driversInDistrict) {
       const userIdStr = loc.userId.toString();
 
-      if (!approvedUserIds.has(userIdStr)) {
+      const driver = driverMap.get(userIdStr);
+      const status = statusMap.get(userIdStr);
+
+      if (!driver || !status) {
         continue;
       }
 
-      if (!onlineUserIds.has(userIdStr)) {
-        continue;
-      }
-
-      const driver = drivers.find((d) => d.userId.toString() === userIdStr);
-      if (!driver) {
-        continue;
-      }
-
-      const status = statuses.find((s) => s.userId.toString() === userIdStr);
-      if (!status) {
-        continue;
-      }
-
-      const driverRideTypeCode = driver.rideTypeCode || "";
       const driverVehicleClass = driver.vehicle.vehicleClass || "Economy";
-
-      const distance = loc.distance || 0;
 
       result.push({
         userId: loc.userId,
@@ -517,8 +525,8 @@ export class RideQuoteService {
           latitude: loc.location.latitude,
           longitude: loc.location.longitude,
         },
-        distance: distance,
-        driverRideTypeCode: driverRideTypeCode,
+        distance: loc.distance || 0,
+        driverRideTypeCode: driver.rideTypeCode || "",
         vehicleClassRideTypes: [],
         vehicle: {
           categoryCode: driver.vehicle.categoryCode,
@@ -539,6 +547,15 @@ export class RideQuoteService {
           manufacturingYear: driver.vehicle.manufacturingYear,
         },
       });
+    }
+
+    // ✅ Already sorted by distance from DistrictService
+    console.log(`📏 Drivers sorted by pickup distance (nearest first)`);
+    if (result.length > 0) {
+      console.log(`   Nearest: ${result[0].distance.toFixed(2)} KM`);
+      console.log(
+        `   Farthest (included): ${result[result.length - 1].distance.toFixed(2)} KM`,
+      );
     }
 
     return result;

@@ -1,5 +1,3 @@
-// handlers/tizzyos/cab/rideHandler.ts
-
 import { Server, Socket } from "socket.io";
 import driverStatusService from "../../../services/tizzyos/cab/rideOnlineDriverService";
 
@@ -17,7 +15,9 @@ export const rideDriverOnlineOffline = (io: Server) => {
           return;
         }
 
-        // Update socket ID in database
+        console.log(`🚗 [Socket] Driver registering: ${userId} (${socket.id})`);
+
+        // ✅ Update socket ID ONLY - preserve isOnline and isAvailable
         await driverStatusService.updateSocketId(userId, socket.id);
 
         // Join driver's personal room
@@ -26,13 +26,15 @@ export const rideDriverOnlineOffline = (io: Server) => {
         // Get current status
         const status = await driverStatusService.getDriverStatus(userId);
 
+        console.log(`✅ [Socket] Driver registered: ${userId}`);
+        console.log(`   isOnline: ${status.isOnline}, isAvailable: ${status.isAvailable}`);
+        console.log(`   socketId: ${socket.id}`);
+
         socket.emit("driver:registered", {
           success: true,
           message: "Driver registered successfully",
           data: status,
         });
-
-        console.log(`🚗 Driver ${userId} registered with socket ${socket.id}`);
       } catch (error) {
         console.error("Error registering driver:", error);
         socket.emit("driver:error", {
@@ -42,15 +44,31 @@ export const rideDriverOnlineOffline = (io: Server) => {
       }
     });
 
-    // ✅ Handle disconnection
+    // ✅ Handle disconnection - ONLY clear socketId
+    // DO NOT change isOnline or isAvailable
     socket.on("disconnect", async () => {
       try {
+        console.log(`🔌 [Socket] Disconnect event: ${socket.id}`);
+
         // Find driver by socket ID
         const driver = await driverStatusService.getDriverBySocketId(socket.id);
 
         if (driver) {
-          // Clear socket ID but keep online status
-          await driverStatusService.clearSocketId(driver.userId.toString());
+          const userId = driver.userId.toString();
+          
+          // ✅ Clear socket ID ONLY if it matches this socket
+          // This prevents race condition where old socket clears new socket
+          await driverStatusService.clearSocketId(userId, socket.id);
+
+          // ✅ DO NOT change isOnline - preserve it!
+          // ✅ DO NOT change isAvailable - preserve it!
+
+          // Get status after clearing socket
+          const status = await driverStatusService.getDriverStatus(userId);
+
+          console.log(`🔌 [Socket] Driver disconnected: ${userId}`);
+          console.log(`   isOnline: ${status.isOnline}, isAvailable: ${status.isAvailable}`);
+          console.log(`   socketId: ${status.socketId || 'null'}`);
 
           // Notify others that driver disconnected
           io.emit("driver:disconnected", {
@@ -58,10 +76,8 @@ export const rideDriverOnlineOffline = (io: Server) => {
             socketId: socket.id,
             timestamp: new Date().toISOString(),
           });
-
-          console.log(
-            `🔌 Driver ${driver.userId} disconnected (socket: ${socket.id})`,
-          );
+        } else {
+          console.log(`🔌 [Socket] No driver found for socket: ${socket.id}`);
         }
       } catch (error) {
         console.error("Error handling disconnect:", error);

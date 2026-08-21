@@ -5,6 +5,7 @@ import fs from "fs";
 import cron from "node-cron";
 
 import { runCleanupJob } from "./jobs/cronMediaCleanup";
+import { startCleanupScheduler } from "./schedulers/cleanupScheduler";
 import { logger } from "./utils/tizzyos/seller/logger";
 
 // 🔥 IMPORT WEBHOOK FIRST
@@ -21,6 +22,7 @@ import profileRoutes from "./routes/tizzygo/profile/profileRoutes";
 import shareRoutes from "./routes/tizzygo/social/shareRoutes";
 import buynowRoutes from "./routes/tizzygo/buynow/buynowRoutes";
 import paymentRoutes from "./routes/tizzygo/buynow/paymentRoutes";
+import cartCheckoutRoutes from "./routes/tizzygo/cart/cartCheckoutRoutes";
 import processPaymentRoutes from "./routes/tizzygo/buynow/process-paymentRoutes";
 import searchRoutes from "./routes/tizzygo/search/searchRoutes";
 import codRoutes from "./routes/tizzygo/buynow/confirm-codRoutes";
@@ -31,6 +33,8 @@ import liveTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackin
 import orderfetchRoutes from "./routes/tizzyos/shipping/orders/orderRoutes";
 import yourorderRoutes from "./routes/tizzygo/orders/yourOrderRoutes";
 import UserLocation from "./routes/tizzygo/locations/locationsRoutes";
+import checkoutRoutes from "./routes/tizzygo/buynow/checkout";
+import orderTrackingRoutes from "./routes/tizzygo/buynow/tracking/orderTrackingRoutes";
 
 // TizzyOS Imports (If any) here
 import userRoutes from "./routes/tizzyos/user/meRoutes";
@@ -65,6 +69,8 @@ import driverOnlineDriverRoutes from "./routes/tizzyos/cab/rideOnlineDriver";
 import rideLocationDriverRoutes from "./routes/tizzyos/cab/rideLocationRoutes";
 import rideBookingRoutes from "./routes/tizzyos/cab/rideBookingRoutes";
 import rideTypesRoutes from "./routes/tizzyos/cab/rideTypeRoutes";
+import rideTrackingRoutes from "./routes/tizzyos/cab/rideTrackingRoutes";
+import rideRequestRoutes from "./routes/tizzyos/cab/rideRequestRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -124,6 +130,7 @@ app.use("/api/v0/rating-review", ratingRoutes);
 app.use("/api/v0/shares", shareRoutes);
 app.use("/api/v0/search", searchRoutes);
 app.use("/api/v0/buyer", buynowRoutes);
+app.use("/api/v0/cart", cartCheckoutRoutes);
 app.use("/api/v0/payment", paymentRoutes);
 app.use("/api/v0/payment", processPaymentRoutes);
 app.use("/api/v0/payment", confirmOrderRouter);
@@ -134,6 +141,8 @@ app.use("/api/v0/orders/tracking", liveTrackingRoutes);
 app.use("/api/v0/orders", orderfetchRoutes);
 app.use("/api/v0/orders/yourorder", yourorderRoutes);
 app.use("/api/v0/user/address", UserLocation);
+app.use("/api/v0/checkout", checkoutRoutes);
+app.use("/api/v0/checkout", orderTrackingRoutes);
 
 // TizzyOS Routes
 app.use("/api/v0/user", userRoutes);
@@ -168,6 +177,8 @@ app.use("/api/v0/available", driverOnlineDriverRoutes);
 app.use("/api/v0/update", rideLocationDriverRoutes);
 app.use("/api/v0", rideBookingRoutes);
 app.use("/api/v0", rideTypesRoutes);
+app.use("/api/v0/ride", rideTrackingRoutes);
+app.use("/api/v0/ride", rideRequestRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)
@@ -194,6 +205,12 @@ cron.schedule(
 
 logger.info(
   "⏰ Media cleanup scheduled: Every day at 12:00 AM Mumbai Time (IST)",
+);
+
+startCleanupScheduler();
+
+logger.info(
+  "⏰ Abandoned payment cleanup scheduled: Every 10 minutes (configurable via PAYMENT_TIMEOUT_MINUTES)",
 );
 
 /* =========================================================

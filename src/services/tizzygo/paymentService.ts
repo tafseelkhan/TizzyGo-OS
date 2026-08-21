@@ -1,9 +1,4 @@
-// services/tizzygo/paymentService.ts - FINAL FIXED VERSION
-
 import mongoose from "mongoose";
-import { PaymentGatewayFactory } from "../../factories/PaymentGatewayFactory";
-import { IPaymentGateway } from "../../interfaces/seller/IPaymentGateway";
-import { PaymentStatus } from "../../enums/PaymentGatewayType";
 import Order from "../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import User from "../../models/tizzygo/auths/User";
@@ -14,12 +9,10 @@ import {
   generateOrderId,
   generateToken,
   getProductId,
-  getFinalAmount,
   generateQrCodeDataUrl,
 } from "../../utils/tizzygo/paymentHelpers";
 import Razorpay from "razorpay";
 
-// ✅ Razorpay initialization
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
@@ -31,625 +24,956 @@ interface CreatePaymentIntentParams {
   paymentMethod: string;
   session: mongoose.ClientSession;
   idempotencyKey?: string;
+  isBuyNow?: boolean;
+  productId?: string;
+  variantId?: string;
+  quantity?: number;
+  sellerId?: string;
+  productDataId?: string;
 }
 
-interface ProcessPaymentParams {
-  checkoutSessionId: string;
-  paymentType: string;
-  userId: string;
-  user: any;
-  transactionId?: string;
-  frequency?: string;
-  startDate?: Date;
-  endDate?: Date | null;
-  session: mongoose.ClientSession;
-}
-
+/**
+ * ✅ createPaymentIntent - Creates CheckoutSession, Orders, Transaction, AND Razorpay Order
+ *
+ * CORRECT FLOW:
+ * 1. Validate request
+ * 2. Create CheckoutSession with snapshot
+ * 3. Create Order(s) from snapshot (PENDING status)
+ * 4. Create ONE Transaction (PENDING status)
+ * 5. Link everything together
+ * 6. Create Razorpay Order
+ * 7. Save Razorpay Order ID in CheckoutSession
+ * 8. Return response to frontend
+ *
+ * CRITICAL: Orders exist BEFORE frontend receives response
+ * CRITICAL: ONE Transaction per payment
+ */
 export const createPaymentIntent = async ({
   userId,
   address,
   paymentMethod,
   session,
   idempotencyKey,
+  isBuyNow = false,
+  productId,
+  variantId,
+  quantity = 1,
+  sellerId,
+  productDataId,
 }: CreatePaymentIntentParams) => {
   console.log("========================================");
   console.log("💰 [PaymentService] createPaymentIntent STARTED");
   console.log("========================================");
-  console.log("👤 User ID:", userId);
-  console.log("💳 Payment Method:", paymentMethod);
-  console.log("🔑 Idempotency Key:", idempotencyKey);
+  console.log(`👤 User ID: ${userId}`);
+  console.log(`💳 Payment Method: ${paymentMethod}`);
+  console.log(`🛒 Is Buy Now: ${isBuyNow}`);
+  console.log(`📦 Product ID: ${productId || "Cart Checkout"}`);
 
-  try {
-    // Check for duplicate order using idempotency key
-    if (idempotencyKey) {
-      const existingOrder = await Order.findOne({
-        "metadata.idempotencyKey": idempotencyKey,
-      }).session(session);
+  // ✅ Check for duplicate request using idempotency key
+  if (idempotencyKey) {
+    console.log(
+      "🔍 Checking for existing checkout session with idempotency key...",
+    );
 
-      if (existingOrder) {
-        console.log("⚠️ Duplicate request detected! Returning existing order");
-        const existingCheckoutSession = await CheckoutSession.findOne({
-          orderId: existingOrder._id,
+    const existingCheckoutSession = await CheckoutSession.findOne({
+      "metadata.idempotencyKey": idempotencyKey,
+    }).session(session);
+
+    if (existingCheckoutSession) {
+      console.log(
+        "⚠️ Duplicate request detected! Returning existing checkout session",
+      );
+
+      let existingOrders: any[] = [];
+      if (
+        existingCheckoutSession.orderIds &&
+        existingCheckoutSession.orderIds.length > 0
+      ) {
+        existingOrders = await Order.find({
+          _id: { $in: existingCheckoutSession.orderIds },
         }).session(session);
+      } else if (existingCheckoutSession.orderId) {
+        const order = await Order.findById(
+          existingCheckoutSession.orderId,
+        ).session(session);
+        if (order) existingOrders = [order];
+      }
 
-        return {
-          order: existingOrder,
-          checkoutSession: existingCheckoutSession,
-          checkoutSessionId: existingCheckoutSession?.checkoutSessionId,
-          orderId: existingOrder.orderId,
-          finalAmount: existingOrder.finalAmount,
-          expiresAt: existingCheckoutSession?.expiresAt,
-          productData: {},
-          userDetails: {},
-          isDuplicate: true,
-          paymentIntentId: existingOrder.paymentIntentId || null,
-        };
+      let existingTransaction = null;
+      if (existingCheckoutSession.transactionId) {
+        existingTransaction = await Transaction.findById(
+          existingCheckoutSession.transactionId,
+        ).session(session);
+      }
+
+      return {
+        checkoutSession: existingCheckoutSession,
+        checkoutSessionId: existingCheckoutSession.checkoutSessionId,
+        paymentIntentId: existingCheckoutSession.paymentIntentId || null,
+        finalAmount:
+          existingCheckoutSession.cartSnapshot?.calculatedData?.finalAmount ||
+          0,
+        expiresAt: existingCheckoutSession.expiresAt,
+        productData: {},
+        userDetails: {},
+        isDuplicate: true,
+        orders: existingOrders,
+        transaction: existingTransaction,
+        isCartCheckout:
+          existingCheckoutSession.orderIds &&
+          existingCheckoutSession.orderIds.length > 1,
+      };
+    }
+  }
+
+  // ✅ CRITICAL: Separate Buy Now from Cart
+  if (isBuyNow) {
+    console.log("🔄 Using BUY NOW checkout flow");
+    if (!productId)
+      throw new Error("Product ID is required for Buy Now checkout");
+    if (!sellerId)
+      throw new Error("Seller ID is required for Buy Now checkout");
+    if (!productDataId)
+      throw new Error("Product Data ID is required for Buy Now checkout");
+
+    return await createBuyNowCheckout({
+      userId,
+      address,
+      paymentMethod,
+      session,
+      idempotencyKey,
+      productId,
+      variantId,
+      quantity,
+      sellerId,
+      productDataId,
+    });
+  }
+
+  // ✅ Cart Checkout flow
+  console.log("🔄 Using CART checkout flow");
+  const cartItems = await Cart.find({ userId }).session(session).lean();
+  console.log(`📦 Found ${cartItems.length} items in cart`);
+
+  if (!cartItems || cartItems.length === 0) {
+    throw new Error("Cart is empty");
+  }
+
+  // ✅ Validate all cart items have calculated data
+  let hasValidAmount = false;
+  let totalGrandTotal = 0;
+
+  for (const item of cartItems) {
+    const calculated = item?.calculated || {};
+    const grandTotal = calculated?.grandTotal || calculated?.finalAmount || 0;
+    console.log(`📦 Item ${item.productId}: grandTotal = ${grandTotal}`);
+
+    if (grandTotal > 0) {
+      hasValidAmount = true;
+      totalGrandTotal += grandTotal;
+    }
+  }
+
+  console.log(`💰 Total grandTotal from all cart items: ${totalGrandTotal}`);
+
+  if (!hasValidAmount || totalGrandTotal <= 0) {
+    console.error("❌ Cart items missing calculated data!");
+    throw new Error(
+      "Cart items missing calculated data. Please run checkout first. " +
+        "Make sure each item has calculated.grandTotal > 0",
+    );
+  }
+
+  return await createCartCheckout({
+    userId,
+    address,
+    paymentMethod,
+    session,
+    idempotencyKey,
+    cartItems,
+  });
+};
+
+/**
+ * ✅ BUY NOW CHECKOUT - Creates Orders BEFORE Payment
+ */
+async function createBuyNowCheckout({
+  userId,
+  address,
+  paymentMethod,
+  session,
+  idempotencyKey,
+  productId,
+  variantId,
+  quantity = 1,
+  sellerId,
+  productDataId,
+}: any) {
+  console.log("💰 [BuyNow] Creating buy now checkout with Orders...");
+
+  const { Product } =
+    await import("../../models/tizzyos/seller/AddProducts/Products");
+  const product = await Product.findOne({
+    productId: productDataId,
+    sellerId,
+  }).lean();
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  let activeVariant = product.variants?.find(
+    (v: any) => v.variantId === variantId,
+  );
+  if (!activeVariant) {
+    activeVariant = product.variants?.[0] || product;
+  }
+
+  const cartItem = await Cart.findOne({
+    userId,
+    productId: productId,
+  })
+    .session(session)
+    .lean();
+
+  if (!cartItem) {
+    throw new Error("Buy Now cart item not found. Please run checkout first.");
+  }
+
+  const productData = cartItem?.productData || {};
+  const calculatedData = cartItem?.calculated || {};
+
+  const finalAmount =
+    calculatedData?.grandTotal || calculatedData?.finalAmount || 0;
+
+  if (!finalAmount || finalAmount <= 0) {
+    throw new Error(
+      `Invalid final amount: ${finalAmount}. Please run checkout again.`,
+    );
+  }
+
+  const customProductId = getProductId(cartItem, productData);
+  if (!customProductId) {
+    throw new Error("Product ID missing");
+  }
+
+  const isCodAvailable = product?.cashOnDelivery === true;
+
+  console.log("Product COD:", product?.cashOnDelivery);
+
+  if (paymentMethod === "cod" && !isCodAvailable) {
+    throw new Error("Cash on Delivery not available");
+  }
+
+  const roundedFinalAmount = Math.round(finalAmount * 100) / 100;
+
+  const userDetails = (await User.findById(userId).lean()) as any;
+  if (!userDetails) {
+    throw new Error("User not found");
+  }
+
+  let zeptPayAccountId = null;
+  if (sellerId) {
+    const sellerDetails = (await User.findById(sellerId).lean()) as any;
+    if (sellerDetails) {
+      zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
+    }
+  }
+
+  const checkoutSessionId = generateCheckoutSessionId();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  // ✅ CREATE ORDER
+  const orderId = generateOrderId();
+  const { qrCodeUrl, token: shippingToken } = await generateQrCodeDataUrl(
+    orderId,
+    userId,
+    sellerId,
+  );
+
+  const order = new Order({
+    orderId,
+    productId: customProductId,
+    buyerId: userId,
+    buyerName: userDetails?.name || "Customer",
+    sellerId: sellerId,
+    zeptPayAccountId: zeptPayAccountId,
+    productTitle: productData.title || product.title || "Product",
+    items: [
+      {
+        quantity: quantity || 1,
+        selectedVariant: cartItem?.selectedVariant || {},
+        productData: {
+          productDataId: productData?.productDataId || customProductId,
+        },
+      },
+    ],
+    productPrice: Number(productData.price) || 0,
+    productMrp: Number(productData.mrp) || 0,
+    productSavedAmount: calculatedData.savedAmount || 0,
+    productDiscount: calculatedData.discountPercent || 0,
+    productOfferText: `${calculatedData.discountPercent || 0}% OFF`,
+    productFinalPrice: Number(productData.finalPrice) || 0,
+    productGst: calculatedData.gstAmount || 0,
+    productGstRate: calculatedData.gstRate || 0,
+    deliveryCharge: calculatedData.deliveryCharge || 0,
+    distanceKm: calculatedData.distanceKm || 0,
+    totalBeforeCoupon: calculatedData.totalBeforeCoupon || 0,
+    discountApplied: calculatedData.discountAppliedAmount || 0,
+    platformFee: calculatedData.platformFee || 0,
+    packagingFee: calculatedData.packagingFee || 0,
+    finalAmount: roundedFinalAmount,
+    status: "pending",
+    paymentStatus: "pending",
+    fulfillmentType: productData.fulfillmentType || "SELLER",
+    token: generateToken(),
+    buyerAddress: {
+      address: address?.address || "",
+      googlePlaceId: address?.googlePlaceId || "",
+      latitude: Number(address?.latitude || 0),
+      longitude: Number(address?.longitude || 0),
+    },
+    sellerAddress: {
+      address: calculatedData?.sellerLocation?.address || "Unknown",
+      googlePlaceId: calculatedData?.sellerLocation?.googlePlaceId || "",
+      latitude: Number(calculatedData?.sellerLocation?.latitude || 0),
+      longitude: Number(calculatedData?.sellerLocation?.longitude || 0),
+    },
+    couponUsed: calculatedData.couponUsed || null,
+    couponData: calculatedData.couponData || null,
+    coFundApplied: calculatedData.coFundApplied || false,
+    fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
+    shippingLabel: {
+      qrCodeUrl: qrCodeUrl,
+      qrData: { token: shippingToken },
+    },
+    checkoutSessionId: checkoutSessionId,
+    metadata: {
+      checkoutSessionId: checkoutSessionId,
+      cartCheckout: false,
+      dataSource: "checkout_session_snapshot",
+      isBuyNow: true,
+      createdAt: new Date(),
+    },
+  });
+
+  await order.save({ session });
+  console.log(
+    `✅ Order created: ${orderId} - ₹${roundedFinalAmount} (PENDING)`,
+  );
+
+  // ✅ ✅ ✅ CREATE ONE TRANSACTION ✅ ✅ ✅
+  const transaction = new Transaction({
+    transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    transactionType: "payment",
+    status: "pending",
+    amount: roundedFinalAmount,
+    currency: "INR",
+    gateway: "razorpay",
+    orderId: order._id,
+    orderIds: [order._id],
+    orderNumber: orderId,
+    checkoutSessionId: checkoutSessionId,
+    userId: userId,
+    payerName: userDetails?.name || "Customer",
+    payerEmail: userDetails?.email || "",
+    receiverName: productData.appName || "TizzyGo",
+    receiverAccountId: zeptPayAccountId,
+    metadata: {
+      paymentType: paymentMethod,
+      isBuyNow: true,
+      orderCount: 1,
+    },
+    createdAt: new Date(),
+  });
+
+  await transaction.save({ session });
+  console.log(`✅ Transaction created: ${transaction.transactionId} (PENDING)`);
+
+  // ✅ Link transaction to order
+  order.transactionId = transaction._id;
+  await order.save({ session });
+
+  // ✅ Create Razorpay Order
+  let razorpayOrderId = null;
+  if (paymentMethod !== "cod") {
+    try {
+      console.log(
+        `💰 Creating Razorpay Order for amount: ${roundedFinalAmount}`,
+      );
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(roundedFinalAmount * 100),
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          checkoutSessionId: checkoutSessionId,
+          userId: userId,
+          productId: customProductId,
+          isBuyNow: "true",
+          orderId: orderId,
+          transactionId: transaction.transactionId,
+          grandTotal: roundedFinalAmount,
+        },
+      });
+      razorpayOrderId = razorpayOrder.id;
+      console.log(`✅ Razorpay Order Created: ${razorpayOrderId}`);
+    } catch (razorpayError: any) {
+      console.error(
+        "❌ Razorpay Order Creation Failed:",
+        razorpayError.message,
+      );
+      await Order.deleteOne({ _id: order._id }).session(session);
+      await Transaction.deleteOne({ _id: transaction._id }).session(session);
+      throw new Error(
+        "Failed to create Razorpay order: " + razorpayError.message,
+      );
+    }
+  }
+
+  // ✅ Create Checkout Session
+  const checkoutSession = new CheckoutSession({
+    checkoutSessionId,
+    userId,
+    cartSnapshot: {
+      items: [
+        {
+          productId: customProductId,
+          quantity: quantity || 1,
+          selectedVariant: cartItem?.selectedVariant || {},
+          productData: {
+            productDataId: productData?.productDataId || customProductId,
+            title: productData?.title || product.title || "Product",
+            price: productData?.price || 0,
+            finalPrice: productData?.finalPrice || 0,
+            mrp: productData?.mrp || 0,
+            discount: productData?.discount || 0,
+            discountPercent: productData?.discountPercent || 0,
+            offerText: productData?.offerText || "",
+            gstRate: productData?.gstRate || 0,
+            gstAmount: productData?.gstAmount || 0,
+            sellerId: sellerId,
+            zeptPayAccountId: zeptPayAccountId,
+            fulfillmentType: productData?.fulfillmentType || "SELLER",
+            cashOnDelivery: productData?.cashOnDelivery || false,
+            appName: productData?.appName || "TizzyGo",
+            productImage: productData?.productImage || "",
+            sellerLocation: {
+              address: calculatedData?.sellerLocation?.address || "Unknown",
+              latitude: calculatedData?.sellerLocation?.latitude || 0,
+              longitude: calculatedData?.sellerLocation?.longitude || 0,
+              googlePlaceId:
+                calculatedData?.sellerLocation?.googlePlaceId || "",
+            },
+          },
+        },
+      ],
+      calculatedData: {
+        totalBeforeCoupon: calculatedData.totalBeforeCoupon || 0,
+        discountApplied: calculatedData.discountAppliedAmount || 0,
+        deliveryCharge: calculatedData.deliveryCharge || 0,
+        gstAmount: calculatedData.gstAmount || 0,
+        gstRate: calculatedData.gstRate || 0,
+        platformFee: calculatedData.platformFee || 0,
+        packagingFee: calculatedData.packagingFee || 0,
+        finalAmount: roundedFinalAmount,
+        distanceKm: calculatedData.distanceKm || 0,
+        couponUsed: calculatedData.couponUsed || null,
+        couponData: calculatedData.couponData || null,
+        coFundApplied: calculatedData.coFundApplied || false,
+        fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
+        mrp: calculatedData.mrp || 0,
+        savedAmount: calculatedData.savedAmount || 0,
+        discountPercent: calculatedData.discountPercent || 0,
+        finalPrice: calculatedData.finalPrice || 0,
+        subtotal: calculatedData.subtotal || 0,
+      },
+    },
+    address: {
+      address: address?.address || address?.fullAddress || String(address),
+      latitude: Number(address?.latitude || 0),
+      longitude: Number(address?.longitude || 0),
+      googlePlaceId: address?.googlePlaceId || "",
+    },
+    paymentMethod,
+    status: "pending",
+    paymentGateway: paymentMethod === "cod" ? null : "razorpay",
+    paymentIntentId: razorpayOrderId,
+    qrCodeId: null,
+    expiresAt,
+    orderId: order._id,
+    orderIds: [order._id],
+    transactionId: transaction._id,
+    metadata: {
+      idempotencyKey: idempotencyKey || null,
+      cartId: cartItem?._id || null,
+      cartCheckout: false,
+      checkoutType: "buy_now",
+      isBuyNow: true,
+      productId: productId,
+      variantId: variantId,
+      quantity: quantity || 1,
+      grandTotal: roundedFinalAmount,
+      productTotal: calculatedData?.finalPrice || 0,
+      deliveryCharge: calculatedData.deliveryCharge || 0,
+      platformFee: calculatedData.platformFee || 0,
+      packagingFee: calculatedData.packagingFee || 0,
+      discount: calculatedData.discountAppliedAmount || 0,
+      couponCode: calculatedData.couponUsed || null,
+      currency: "INR",
+      createdAt: new Date(),
+      razorpayOrderId: razorpayOrderId,
+      orderIds: [order._id],
+      transactionId: transaction._id,
+    },
+  });
+
+  await checkoutSession.save({ session });
+  console.log(
+    `✅ Checkout session saved: ${checkoutSessionId} - ₹${roundedFinalAmount}`,
+  );
+
+  return {
+    checkoutSession,
+    checkoutSessionId: checkoutSession.checkoutSessionId,
+    paymentIntentId: razorpayOrderId,
+    finalAmount: roundedFinalAmount,
+    expiresAt: expiresAt,
+    productData: productData,
+    userDetails: userDetails,
+    zeptPayAccountId: zeptPayAccountId,
+    isDuplicate: false,
+    isCartCheckout: false,
+    order: order,
+    orders: [order],
+    transaction: transaction,
+  };
+}
+
+/**
+ * ✅ CART CHECKOUT - Creates Orders BEFORE Payment
+ */
+async function createCartCheckout({
+  userId,
+  address,
+  paymentMethod,
+  session,
+  idempotencyKey,
+  cartItems,
+}: any) {
+  console.log(
+    "💰 [CartCheckout] Creating multi-product cart checkout with Orders...",
+  );
+
+  const userDetails = (await User.findById(userId).lean()) as any;
+  if (!userDetails) {
+    throw new Error("User not found");
+  }
+
+  if (paymentMethod === "cod") {
+    const { Product } =
+      await import("../../models/tizzyos/seller/AddProducts/Products");
+
+    for (const cartItem of cartItems) {
+      const product = await Product.findOne({
+        productId: cartItem.productData.productDataId,
+        sellerId: cartItem.productData.sellerId,
+      })
+        .select("cashOnDelivery")
+        .lean();
+
+      if (!product?.cashOnDelivery) {
+        throw new Error(
+          "Cash on Delivery not available for one or more products",
+        );
+      }
+    }
+  }
+
+  const checkoutSessionId = generateCheckoutSessionId();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  let totalGrandTotal = 0;
+  let totalProductTotal = 0;
+  let totalDeliveryCharge = 0;
+  let totalPlatformFee = 0;
+  let totalPackagingFee = 0;
+  let totalDiscount = 0;
+  const snapshotItems: any[] = [];
+  const sellerIds: string[] = [];
+
+  for (const cartItem of cartItems) {
+    console.log(`📦 Processing cart item: ${cartItem.productId}`);
+
+    const productData = cartItem?.productData || {};
+    const calculatedData = cartItem?.calculated || {};
+    const customProductId = getProductId(cartItem, productData);
+
+    if (!customProductId) {
+      console.log(`⚠️ Skipping item without productId: ${cartItem._id}`);
+      continue;
+    }
+
+    const sellerId = productData?.sellerId;
+    let zeptPayAccountId = null;
+    if (sellerId) {
+      const sellerDetails = (await User.findById(sellerId).lean()) as any;
+      if (sellerDetails) {
+        zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
+      }
+      if (!sellerIds.includes(sellerId)) {
+        sellerIds.push(sellerId);
       }
     }
 
-    // Fetch cart items
-    const cartItems = await Cart.find({ userId }).lean();
-    if (!cartItems || cartItems.length === 0) {
-      throw new Error("Cart is empty");
-    }
+    const itemGrandTotal =
+      calculatedData?.grandTotal || calculatedData?.finalAmount || 0;
+    const itemProductTotal = calculatedData?.finalPrice || 0;
+    const itemDeliveryCharge = calculatedData?.deliveryCharge || 0;
+    const itemPlatformFee = calculatedData?.platformFee || 0;
+    const itemPackagingFee = calculatedData?.packagingFee || 0;
+    const itemDiscount = calculatedData?.discountAppliedAmount || 0;
 
-    const cartItem = cartItems[0];
-    const productData = cartItem?.productData || {};
-    const calculatedData =
-      cartItem?.calculated || cartItem?.calculatedData || {};
+    console.log(
+      `💰 Item ${cartItem.productId}: grandTotal = ${itemGrandTotal}`,
+    );
 
-    // Get product ID
-    const customProductId = getProductId(cartItem, productData);
-    if (!customProductId) {
-      throw new Error("Product ID missing");
-    }
-
-    // Check if order already exists
-    const existingActiveOrder = await Order.findOne({
-      buyerId: userId,
-      "items.productData.productDataId": customProductId,
-      status: { $in: ["processing", "captured", "cod_confirmed"] },
-    }).session(session);
-
-    if (existingActiveOrder) {
-      console.log("⚠️ Active order already exists for this cart");
+    if (itemGrandTotal <= 0) {
+      console.error(
+        `❌ Item ${cartItem.productId} has invalid grandTotal: ${itemGrandTotal}`,
+      );
       throw new Error(
-        "An active order already exists for this product. Please complete or cancel existing order.",
+        `Item ${cartItem.productId} has invalid amount. Please run checkout again.`,
       );
     }
 
-    // Check COD availability
-    const isCodAvailable = productData?.cashOnDelivery === true;
-    if (paymentMethod === "cod" && !isCodAvailable) {
-      throw new Error("Cash on Delivery not available");
-    }
+    totalGrandTotal += itemGrandTotal;
+    totalProductTotal += itemProductTotal;
+    totalDeliveryCharge += itemDeliveryCharge;
+    totalPlatformFee += itemPlatformFee;
+    totalPackagingFee += itemPackagingFee;
+    totalDiscount += itemDiscount;
 
-    // Calculate final amount
-    let finalAmount = getFinalAmount(calculatedData);
-    if (!finalAmount || finalAmount <= 0) {
-      const selectedVariant = cartItem.selectedVariant;
-      const quantity = cartItem?.quantity || 1;
+    snapshotItems.push({
+      productId: customProductId,
+      quantity: cartItem?.quantity || 1,
+      selectedVariant: cartItem?.selectedVariant || {},
+      productData: {
+        productDataId: productData?.productDataId || customProductId,
+        title: productData?.title || "Product",
+        price: productData?.price || 0,
+        finalPrice: productData?.finalPrice || 0,
+        mrp: productData?.mrp || 0,
+        discount: productData?.discount || 0,
+        discountPercent: productData?.discountPercent || 0,
+        offerText: productData?.offerText || "",
+        gstRate: productData?.gstRate || 0,
+        gstAmount: productData?.gstAmount || 0,
+        sellerId: sellerId,
+        zeptPayAccountId: zeptPayAccountId,
+        fulfillmentType: productData?.fulfillmentType || "SELLER",
+        cashOnDelivery: productData?.cashOnDelivery || false,
+        appName: productData?.appName || "TizzyGo",
+        productImage: productData?.productImage || "",
+        sellerLocation: {
+          address: calculatedData?.sellerLocation?.address || "Unknown",
+          latitude: calculatedData?.sellerLocation?.latitude || 0,
+          longitude: calculatedData?.sellerLocation?.longitude || 0,
+          googlePlaceId: calculatedData?.sellerLocation?.googlePlaceId || "",
+        },
+      },
+      calculatedData: {
+        totalBeforeCoupon: calculatedData.totalBeforeCoupon || 0,
+        discountApplied: calculatedData.discountAppliedAmount || 0,
+        deliveryCharge: calculatedData.deliveryCharge || 0,
+        gstAmount: calculatedData.gstAmount || 0,
+        gstRate: calculatedData.gstRate || 0,
+        platformFee: calculatedData.platformFee || 0,
+        packagingFee: calculatedData.packagingFee || 0,
+        finalAmount: itemGrandTotal,
+        distanceKm: calculatedData.distanceKm || 0,
+        couponUsed: calculatedData.couponUsed || null,
+        couponData: calculatedData.couponData || null,
+        coFundApplied: calculatedData.coFundApplied || false,
+        fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
+        mrp: calculatedData.mrp || 0,
+        savedAmount: calculatedData.savedAmount || 0,
+        discountPercent: calculatedData.discountPercent || 0,
+        finalPrice: calculatedData.finalPrice || 0,
+        subtotal: calculatedData.subtotal || 0,
+      },
+      cartItemId: cartItem._id,
+    });
+  }
 
-      if (selectedVariant?.finalPrice) {
-        finalAmount = selectedVariant.finalPrice * quantity;
-      } else if (selectedVariant?.price) {
-        finalAmount = selectedVariant.price * quantity;
-      } else if (productData?.finalPrice) {
-        finalAmount = productData.finalPrice * quantity;
-      } else if (productData?.price) {
-        finalAmount = productData.price * quantity;
-      } else {
-        finalAmount =
-          (selectedVariant?.mrp || productData?.mrp || 0) * quantity;
-      }
-    }
+  if (snapshotItems.length === 0) {
+    throw new Error("No valid items in cart");
+  }
 
-    if (!finalAmount || finalAmount <= 0) {
-      throw new Error(`Invalid final amount: ${finalAmount}`);
-    }
+  console.log(`💰 Total grandTotal: ${totalGrandTotal}`);
+  if (totalGrandTotal <= 0) {
+    throw new Error(
+      `Invalid total amount: ${totalGrandTotal}. Please run checkout again.`,
+    );
+  }
 
-    finalAmount = Math.round(finalAmount * 100) / 100;
+  // ✅ ✅ ✅ CREATE ORDERS ✅ ✅ ✅
+  const createdOrders: any[] = [];
+  const orderIds: mongoose.Types.ObjectId[] = [];
 
-    // Get user details
-    const userDetails = (await User.findById(userId).lean()) as any;
-    if (!userDetails) {
-      throw new Error("User not found");
-    }
+  for (const item of snapshotItems) {
+    const itemProductData = item?.productData || {};
+    const itemCalculated = item?.calculatedData || {};
+    const sellerId = itemProductData?.sellerId;
 
-    // Get seller/vendor code
-    const sellerId = productData?.sellerId || productData?.seller?._id;
-    let zeptPayAccountId = null;
-    let sellerDetails: any = null;
-
-    if (sellerId) {
-      sellerDetails = (await User.findById(sellerId).lean()) as any;
-      if (sellerDetails) {
-        zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
-        console.log("🔍 Vendor code from seller:", zeptPayAccountId);
-      }
-    }
-
-    // Generate IDs
     const orderId = generateOrderId();
-    const checkoutSessionId = generateCheckoutSessionId();
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-
-    // Generate QR Code URL and token
     const { qrCodeUrl, token: shippingToken } = await generateQrCodeDataUrl(
       orderId,
       userId,
       sellerId,
     );
 
-    // ✅ RAZORPAY ORDER CREATE (Only for online payments)
-    let razorpayOrderId = null;
-    if (paymentMethod !== "cod") {
-      try {
-        console.log("💰 Creating Razorpay Order...");
-        const razorpayOrder = await razorpay.orders.create({
-          amount: Math.round(finalAmount * 100), // paise mein
-          currency: "INR",
-          receipt: `receipt_${Date.now()}`,
-          notes: {
-            checkoutSessionId: checkoutSessionId,
-            orderId: orderId,
-            userId: userId,
-            productId: customProductId,
-          },
-        });
-        razorpayOrderId = razorpayOrder.id; // ✅ 'order_xxx'
-        console.log("✅ Razorpay Order Created:", razorpayOrderId);
-      } catch (razorpayError: any) {
-        console.error(
-          "❌ Razorpay Order Creation Failed:",
-          razorpayError.message,
-        );
-        throw new Error(
-          "Failed to create Razorpay order: " + razorpayError.message,
-        );
-      }
-    }
+    const finalAmount =
+      itemCalculated.finalAmount || itemCalculated.grandTotal || 0;
 
-    // Create order
     const order = new Order({
       orderId,
-      productId: customProductId,
+      productId: item.productId,
       buyerId: userId,
       buyerName: userDetails?.name || "Customer",
       sellerId: sellerId || null,
-      zeptPayAccountId: zeptPayAccountId,
+      zeptPayAccountId: itemProductData.zeptPayAccountId || null,
+      productTitle: itemProductData.title || "Product",
       items: [
         {
-          quantity: cartItem?.quantity || 1,
-          selectedVariant: cartItem?.selectedVariant || {},
+          quantity: item.quantity || 1,
+          selectedVariant: item.selectedVariant || {},
           productData: {
-            productDataId: productData?.productDataId || customProductId,
+            productDataId: itemProductData.productDataId || item.productId,
           },
         },
       ],
-      productPrice:
-        Number(productData?.price) ||
-        Number(productData?.finalPrice) ||
-        finalAmount,
-      productMrp: calculatedData.mrp || 0,
-      productSavedAmount: calculatedData.savedAmount || 0,
-      productDiscount: calculatedData.discountPercent || 0,
-      productOfferText: `${calculatedData.discountPercent || 0}% OFF`,
-      productFinalPrice: calculatedData.finalPrice || 0,
-      productGst: calculatedData.gstAmount || 0,
-      productGstRate: calculatedData.gstRate || 0,
-      deliveryCharge: calculatedData.deliveryCharge || 0,
-      distanceKm: calculatedData.distanceKm || 0,
-      totalBeforeCoupon: calculatedData.totalBeforeCoupon || 0,
-      discountApplied: calculatedData.discountAppliedAmount || 0,
-      platformFee: calculatedData.platformFee || 0,
-      packagingFee: calculatedData.packagingFee || 0,
-      finalAmount,
-      status: paymentMethod === "cod" ? "cod_confirmed" : "processing",
-      fulfillmentType: productData?.fulfillmentType || "SELLER",
+      productPrice: Number(itemProductData.price) || 0,
+      productMrp: Number(itemProductData.mrp) || 0,
+      productSavedAmount: itemCalculated.savedAmount || 0,
+      productDiscount: itemCalculated.discountPercent || 0,
+      productOfferText: `${itemCalculated.discountPercent || 0}% OFF`,
+      productFinalPrice: Number(itemProductData.finalPrice) || 0,
+      productGst: itemCalculated.gstAmount || 0,
+      productGstRate: itemCalculated.gstRate || 0,
+      deliveryCharge: itemCalculated.deliveryCharge || 0,
+      distanceKm: itemCalculated.distanceKm || 0,
+      totalBeforeCoupon: itemCalculated.totalBeforeCoupon || 0,
+      discountApplied: itemCalculated.discountApplied || 0,
+      platformFee: itemCalculated.platformFee || 0,
+      packagingFee: itemCalculated.packagingFee || 0,
+      finalAmount: finalAmount,
+      status: "pending",
+      paymentStatus: "pending",
+      fulfillmentType: itemProductData.fulfillmentType || "SELLER",
       token: generateToken(),
       buyerAddress: {
-        address: address?.address || address?.fullAddress || String(address),
+        address: address?.address || "",
         googlePlaceId: address?.googlePlaceId || "",
         latitude: Number(address?.latitude || 0),
         longitude: Number(address?.longitude || 0),
       },
       sellerAddress: {
-        address: calculatedData?.sellerLocation?.address || "Unknown",
-        googlePlaceId: calculatedData?.sellerLocation?.googlePlaceId || "",
-        latitude: Number(calculatedData?.sellerLocation?.latitude || 0),
-        longitude: Number(calculatedData?.sellerLocation?.longitude || 0),
+        address: itemProductData.sellerLocation?.address || "Unknown",
+        googlePlaceId: itemProductData.sellerLocation?.googlePlaceId || "",
+        latitude: Number(itemProductData.sellerLocation?.latitude || 0),
+        longitude: Number(itemProductData.sellerLocation?.longitude || 0),
       },
-      couponUsed: calculatedData.couponUsed || null,
-      couponData: calculatedData.couponData || null,
-      coFundApplied: calculatedData.coFundApplied || false,
-      fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
-      paymentIntentId: razorpayOrderId, // ✅ Store Razorpay order ID
+      couponUsed: itemCalculated.couponUsed || null,
+      couponData: itemCalculated.couponData || null,
+      coFundApplied: itemCalculated.coFundApplied || false,
+      fundSplit: itemCalculated.fundSplit || { bank: 0, merchant: 0 },
       shippingLabel: {
         qrCodeUrl: qrCodeUrl,
-        qrData: {
-          token: shippingToken,
-        },
+        qrData: { token: shippingToken },
       },
+      checkoutSessionId: checkoutSessionId,
       metadata: {
-        idempotencyKey: idempotencyKey || null,
-        cartId: cartItem._id,
+        checkoutSessionId: checkoutSessionId,
+        cartCheckout: true,
+        dataSource: "checkout_session_snapshot",
+        isBuyNow: false,
         createdAt: new Date(),
       },
     });
 
     await order.save({ session });
-    console.log("✅ Order saved:", order._id, "Order ID:", orderId);
-
-    // Create checkout session
-    const checkoutSession = new CheckoutSession({
-      checkoutSessionId,
-      orderId: order._id,
-      userId,
-      cartSnapshot: {
-        items: [
-          {
-            productId: customProductId,
-            quantity: cartItem?.quantity || 1,
-            selectedVariant: cartItem?.selectedVariant || {},
-            productData: {
-              productDataId: productData?.productDataId || customProductId,
-              zeptPayAccountId: zeptPayAccountId,
-              sellerId: sellerId,
-            },
-          },
-        ],
-        calculatedData: {
-          totalBeforeCoupon: calculatedData.totalBeforeCoupon || 0,
-          discountApplied: calculatedData.discountAppliedAmount || 0,
-          deliveryCharge: calculatedData.deliveryCharge || 0,
-          gstAmount: calculatedData.gstAmount || 0,
-          gstRate: calculatedData.gstRate || 0,
-          platformFee: calculatedData.platformFee || 0,
-          packagingFee: calculatedData.packagingFee || 0,
-          finalAmount,
-          distanceKm: calculatedData.distanceKm || 0,
-          couponUsed: calculatedData.couponUsed || null,
-          couponData: calculatedData.couponData || null,
-          coFundApplied: calculatedData.coFundApplied || false,
-          fundSplit: calculatedData.fundSplit || { bank: 0, merchant: 0 },
-        },
-      },
-      address: {
-        address: address?.address || address?.fullAddress || String(address),
-        latitude: Number(address?.latitude || 0),
-        longitude: Number(address?.longitude || 0),
-        googlePlaceId: address?.googlePlaceId || "",
-      },
-      paymentMethod,
-      status: paymentMethod === "cod" ? "completed" : "pending",
-      paymentGateway: paymentMethod === "cod" ? null : "razorpay",
-      paymentIntentId: razorpayOrderId, // ✅ Store Razorpay order ID
-      qrCodeId: null,
-      expiresAt,
-    });
-
-    await checkoutSession.save({ session });
-    console.log("✅ Checkout session saved");
-
-    // Clear cart
-    await Cart.deleteMany({ userId }, { session });
-    console.log("🗑️ Cart cleared for", paymentMethod, "order");
-
-    // ✅ Return with paymentIntentId
-    return {
-      order,
-      checkoutSession,
-      checkoutSessionId,
-      orderId: order.orderId,
-      finalAmount,
-      expiresAt,
-      productData,
-      userDetails,
-      zeptPayAccountId,
-      isDuplicate: false,
-      paymentIntentId: razorpayOrderId, // ✅ YAHI - Razorpay order ID
-    };
-  } catch (error: any) {
-    console.error("❌ Payment Service Error:", error.message);
-    throw error;
-  }
-};
-
-export const processPayment = async ({
-  checkoutSessionId,
-  paymentType,
-  userId,
-  user,
-  transactionId,
-  frequency,
-  startDate,
-  endDate,
-  session,
-}: ProcessPaymentParams) => {
-  // Find checkout session
-  const checkoutSession: any = await CheckoutSession.findOne({
-    checkoutSessionId,
-    userId,
-  }).session(session);
-
-  if (!checkoutSession) {
-    throw new Error("Checkout session not found");
+    createdOrders.push(order);
+    orderIds.push(order._id);
+    console.log(`✅ Order created: ${orderId} - ₹${finalAmount} (PENDING)`);
   }
 
-  // Find order
-  const order: any = await Order.findById(checkoutSession.orderId).session(
-    session,
-  );
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  // Prevent duplicate payment
-  if (["captured", "authorized"].includes(order.paymentStatus)) {
-    throw new Error("Order already paid");
-  }
-
-  // Check if session expired
-  if (
-    checkoutSession.expiresAt &&
-    new Date() > new Date(checkoutSession.expiresAt)
-  ) {
-    checkoutSession.status = "expired";
-    order.status = "cancelled";
-    order.paymentStatus = "failed";
-
-    await checkoutSession.save({ session });
-    await order.save({ session });
-
-    throw new Error("Checkout session expired");
-  }
-
-  // Extract data for payment
-  const cartSnapshot = checkoutSession.cartSnapshot || {};
-  const firstItem = cartSnapshot?.items?.[0] || {};
-  const productData = firstItem?.productData || {};
-  const calculatedData =
-    firstItem?.calculated || cartSnapshot?.calculatedData || {};
-
-  const amount = extractPaymentAmount(calculatedData);
-  const accountId = productData?.zeptPayAccountId || order.zeptPayAccountId;
-  const appName = productData?.appName || "TizzyGo";
-
-  if (!accountId) {
-    throw new Error("Account ID (zeptPayAccountId) missing");
-  }
-
-  if (!amount || amount <= 0) {
-    throw new Error("Invalid payment amount");
-  }
-
-  const userAccount = await User.findById(userId).select("name email");
-
-  if (!userAccount) {
-    throw new Error("User not found");
-  }
-
-  const payer = {
-    userId: user.userId,
-    name: userAccount.name || "Customer",
-    email: userAccount.email || "",
-  };
-
-  // Update statuses
-  order.status = "processing";
-  order.paymentStatus = "processing";
-  checkoutSession.status = "processing";
-
-  // Store which gateway will be used
-  const activeGatewayType = PaymentGatewayFactory.getActiveGatewayType();
-  checkoutSession.paymentGateway = activeGatewayType;
-
-  await order.save({ session });
-  await checkoutSession.save({ session });
-
-  // Get active gateway
-  const gateway: IPaymentGateway = PaymentGatewayFactory.getGateway();
-
-  // Prepare payment parameters
-  const paymentParams = {
-    amount,
-    currency: "INR",
-    accountId,
-    customerId: userId,
-    customerName: payer.name,
-    customerEmail: payer.email,
-    metadata: {
-      checkoutSessionId,
-      orderId: order.orderId,
-      buyerId: userId,
-      transactionId,
-      appName,
-      paymentType,
-      frequency,
-      startDate,
-      endDate,
-    },
-    idempotencyKey: transactionId || order.orderId,
-  };
-
-  let gatewayResponse: any;
-
-  try {
-    console.log("========================================");
-    console.log("🚀 BEFORE PAYMENT GATEWAY CALL");
-    console.log("========================================");
-    console.log("Gateway:", gateway.gatewayType);
-    console.log("Payment Type:", paymentType);
-    console.log("Account ID:", accountId);
-    console.log("Amount:", amount);
-    console.log("Currency:", "INR");
-    console.log("App Name:", appName);
-    console.log("Payer:", JSON.stringify(payer, null, 2));
-
-    const sdkStart = Date.now();
-
-    if (paymentType === "normal") {
-      console.log("💳 Calling createPaymentIntent()...");
-      gatewayResponse = await gateway.createPaymentIntent(paymentParams);
-      console.log(
-        `✅ createPaymentIntent SUCCESS (${Date.now() - sdkStart}ms)`,
-      );
-    } else if (paymentType === "qr") {
-      console.log("📱 Calling createPaymentIntent with QR...");
-      const qrParams = {
-        ...paymentParams,
-        metadata: {
-          ...paymentParams.metadata,
-          paymentType: "qr",
-        },
-      };
-      gatewayResponse = await gateway.createPaymentIntent(qrParams);
-      console.log(
-        `✅ createPaymentIntent QR SUCCESS (${Date.now() - sdkStart}ms)`,
-      );
-    } else if (paymentType === "autopay") {
-      console.log("🔄 Calling createPaymentIntent for autopay...");
-      const autopayParams = {
-        ...paymentParams,
-        metadata: {
-          ...paymentParams.metadata,
-          paymentType: "autopay",
-          frequency: frequency || "monthly",
-          startDate: startDate || new Date(),
-          endDate: endDate || null,
-        },
-      };
-      gatewayResponse = await gateway.createPaymentIntent(autopayParams);
-      console.log(
-        `✅ createPaymentIntent Autopay SUCCESS (${Date.now() - sdkStart}ms)`,
-      );
-    }
-
-    console.log("========================================");
-    console.log("📦 GATEWAY RESPONSE");
-    console.log("========================================");
-    console.log(JSON.stringify(gatewayResponse, null, 2));
-  } catch (sdkError: any) {
-    console.log("========================================");
-    console.log("❌ GATEWAY SDK ERROR");
-    console.log("========================================");
-    console.log("Message:", sdkError?.message);
-    console.log("Stack:", sdkError?.stack);
-
-    order.status = "failed";
-    order.paymentStatus = "failed";
-    checkoutSession.status = "failed";
-
-    await order.save({ session });
-    await checkoutSession.save({ session });
-
-    throw new Error(
-      `Payment gateway failed: ${sdkError?.message || "Unknown SDK error"}`,
-    );
-  }
-
-  // Process response
-  const paymentIntentId = gatewayResponse.paymentIntentId;
-  const paymentStatus = gatewayResponse.status;
-
-  const paymentAttempt = createPaymentAttempt(
-    paymentIntentId,
-    paymentType,
-    paymentStatus,
-    { ...gatewayResponse, transactionId },
+  // ✅ ✅ ✅ CREATE ONE TRANSACTION FOR ALL ORDERS ✅ ✅ ✅
+  const totalAmount = createdOrders.reduce(
+    (sum, order) => sum + order.finalAmount,
+    0,
   );
 
-  if (!order.paymentAttempts) order.paymentAttempts = [];
-  order.paymentAttempts.push(paymentAttempt);
-
-  if (paymentIntentId) {
-    order.paymentIntentId = paymentIntentId;
-    checkoutSession.paymentIntentId = paymentIntentId;
-  }
-
-  if (gatewayResponse.qrCodeId) {
-    checkoutSession.qrCodeId = gatewayResponse.qrCodeId;
-  }
-
-  // Update status based on payment result
-  switch (paymentStatus) {
-    case PaymentStatus.CAPTURED:
-      order.status = "captured";
-      order.paymentStatus = "captured";
-      checkoutSession.status = "completed";
-      break;
-    case PaymentStatus.AUTHORIZED:
-      order.status = "authorized";
-      order.paymentStatus = "authorized";
-      checkoutSession.status = "authorized";
-      break;
-    case PaymentStatus.FAILED:
-      order.status = "failed";
-      order.paymentStatus = "failed";
-      checkoutSession.status = "failed";
-      break;
-    case PaymentStatus.CANCELLED:
-      order.status = "cancelled";
-      order.paymentStatus = "failed";
-      checkoutSession.status = "cancelled";
-      break;
-    default:
-      order.status = "processing";
-      order.paymentStatus = "processing";
-      checkoutSession.status = "processing";
-  }
-
-  await order.save({ session });
-  await checkoutSession.save({ session });
-
-  // Create transaction record
   const transaction = new Transaction({
     transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     transactionType: "payment",
-    status: paymentStatus,
-    amount,
+    status: "pending",
+    amount: totalAmount,
     currency: "INR",
-    gateway: gateway.gatewayType,
-    gatewayTransactionId: paymentIntentId,
-    gatewayOrderId: gatewayResponse.orderId,
-    gatewayPaymentId: gatewayResponse.paymentIntentId,
-    orderId: order._id,
-    orderNumber: order.orderId,
-    checkoutSessionId: checkoutSession.checkoutSessionId,
-    userId,
-    payerName: payer.name,
-    payerEmail: payer.email,
-    receiverName: appName,
-    receiverAccountId: accountId,
+    gateway: "razorpay",
+    orderId: orderIds[0],
+    orderIds: orderIds,
+    orderNumber: createdOrders.map((o) => o.orderId).join(","),
+    checkoutSessionId: checkoutSessionId,
+    userId: userId,
+    payerName: userDetails?.name || "Customer",
+    payerEmail: userDetails?.email || "",
+    receiverName: "TizzyGo",
+    receiverAccountId: null,
     metadata: {
-      paymentType,
-      frequency,
-      startDate,
-      endDate,
-      ...gatewayResponse.metadata,
+      paymentType: paymentMethod,
+      isBuyNow: false,
+      orderCount: createdOrders.length,
+      orderIds: orderIds.map((id) => id.toString()),
     },
-    rawRequest: paymentParams,
-    rawResponse: gatewayResponse,
-    completedAt:
-      paymentStatus === PaymentStatus.CAPTURED ? new Date() : undefined,
+    createdAt: new Date(),
   });
 
   await transaction.save({ session });
-  console.log("✅ Transaction saved:", transaction.transactionId);
+  console.log(
+    `✅ ONE Transaction created: ${transaction.transactionId} (PENDING)`,
+  );
+  console.log(`   Linked ${createdOrders.length} order(s)`);
+
+  // ✅ Link transaction to all orders
+  for (const order of createdOrders) {
+    order.transactionId = transaction._id;
+    await order.save({ session });
+  }
+
+  // ✅ Create Razorpay Order
+  let razorpayOrderId = null;
+  if (paymentMethod !== "cod") {
+    try {
+      console.log(
+        `💰 Creating Razorpay Order for total grandTotal: ${totalGrandTotal}`,
+      );
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(totalGrandTotal * 100),
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          checkoutSessionId: checkoutSessionId,
+          userId: userId,
+          isCartCheckout: "true",
+          itemCount: snapshotItems.length,
+          productTotal: totalProductTotal,
+          grandTotal: totalGrandTotal,
+          deliveryCharge: totalDeliveryCharge,
+          platformFee: totalPlatformFee,
+          packagingFee: totalPackagingFee,
+          discount: totalDiscount,
+          orderIds: JSON.stringify(orderIds.map((id) => id.toString())),
+          transactionId: transaction.transactionId,
+        },
+      });
+      razorpayOrderId = razorpayOrder.id;
+      console.log(`✅ Razorpay Order Created: ${razorpayOrderId}`);
+    } catch (razorpayError: any) {
+      console.error(
+        "❌ Razorpay Order Creation Failed:",
+        razorpayError.message,
+      );
+      for (const order of createdOrders) {
+        await Order.deleteOne({ _id: order._id }).session(session);
+      }
+      await Transaction.deleteOne({ _id: transaction._id }).session(session);
+      throw new Error(
+        "Failed to create Razorpay order: " + razorpayError.message,
+      );
+    }
+  }
+
+  // ✅ Create checkout session
+  const checkoutSession = new CheckoutSession({
+    checkoutSessionId,
+    userId,
+    cartSnapshot: {
+      items: snapshotItems,
+      calculatedData: {
+        totalBeforeCoupon: totalGrandTotal,
+        discountApplied: totalDiscount,
+        deliveryCharge: totalDeliveryCharge,
+        gstAmount: 0,
+        gstRate: 0,
+        platformFee: totalPlatformFee,
+        packagingFee: totalPackagingFee,
+        finalAmount: totalGrandTotal,
+        distanceKm: 0,
+        couponUsed: null,
+        couponData: null,
+        coFundApplied: false,
+        fundSplit: { bank: 0, merchant: 0 },
+      },
+    },
+    address: {
+      address: address?.address || String(address),
+      latitude: Number(address?.latitude || 0),
+      longitude: Number(address?.longitude || 0),
+      googlePlaceId: address?.googlePlaceId || "",
+    },
+    paymentMethod,
+    status: "pending",
+    paymentGateway: paymentMethod === "cod" ? null : "razorpay",
+    paymentIntentId: razorpayOrderId,
+    qrCodeId: null,
+    expiresAt,
+    orderIds: orderIds,
+    transactionId: transaction._id,
+    metadata: {
+      idempotencyKey: idempotencyKey || null,
+      cartCheckout: true,
+      checkoutType: "cart",
+      itemCount: snapshotItems.length,
+      sellerIds: sellerIds,
+      isBuyNow: false,
+      grandTotal: totalGrandTotal,
+      productTotal: totalProductTotal,
+      deliveryCharge: totalDeliveryCharge,
+      platformFee: totalPlatformFee,
+      packagingFee: totalPackagingFee,
+      discount: totalDiscount,
+      currency: "INR",
+      createdAt: new Date(),
+      razorpayOrderId: razorpayOrderId,
+      orderIds: orderIds,
+      transactionId: transaction._id,
+    },
+  });
+
+  await checkoutSession.save({ session });
+  console.log(
+    `✅ Checkout session saved with ${snapshotItems.length} items - ₹${totalGrandTotal}`,
+  );
+  console.log(`✅ Linked ${orderIds.length} order(s)`);
+  console.log(`✅ Linked ONE transaction: ${transaction.transactionId}`);
 
   return {
-    order,
     checkoutSession,
-    zeptpayResponse: gatewayResponse,
-    paymentIntentId,
-    paymentStatus,
-    amount,
-    appName,
-    payer,
-    transaction,
+    checkoutSessionId: checkoutSession.checkoutSessionId,
+    paymentIntentId: razorpayOrderId,
+    finalAmount: totalGrandTotal,
+    expiresAt: expiresAt,
+    productData: cartItems[0]?.productData || {},
+    userDetails: userDetails,
+    zeptPayAccountId: null,
+    isDuplicate: false,
+    isCartCheckout: true,
+    order: null,
+    orders: createdOrders,
+    transaction: transaction,
+    itemCount: snapshotItems.length,
   };
-};
+}
 
 export const getOrderStatus = async (orderId: string, userId: string) => {
   const order = await Order.findOne({
@@ -663,29 +987,3 @@ export const getOrderStatus = async (orderId: string, userId: string) => {
 
   return order;
 };
-
-// Helper functions
-function extractPaymentAmount(calculatedData: any): number {
-  return Number(
-    calculatedData?.grandTotal ||
-      calculatedData?.totalBeforeCoupon ||
-      calculatedData?.subtotal ||
-      calculatedData?.finalAmount ||
-      0,
-  );
-}
-
-function createPaymentAttempt(
-  paymentIntentId: string | null,
-  method: string,
-  status: PaymentStatus,
-  rawResponse: any,
-) {
-  return {
-    paymentIntentId,
-    method,
-    status,
-    rawResponse,
-    createdAt: new Date(),
-  };
-}

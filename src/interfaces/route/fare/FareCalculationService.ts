@@ -19,14 +19,14 @@ interface IVehicleConfig {
 
 const VEHICLE_CONFIGS: Record<string, IVehicleConfig> = {
   Bike: {
-    perKm: 6,
+    perKm: 1.1,
     perMinute: 0.7,
     platformFee: 4,
     gstPercentage: 5,
     fareMultiplier: 1.2, // Reserved for future use
   },
   Scooter: {
-    perKm: 4.8,
+    perKm: 1.1,
     perMinute: 0.6,
     platformFee: 4,
     gstPercentage: 5,
@@ -40,7 +40,7 @@ const VEHICLE_CONFIGS: Record<string, IVehicleConfig> = {
     fareMultiplier: 1.5, // Reserved for future use
   },
   Hatchback: {
-    perKm: 10,
+    perKm: 20,
     perMinute: 1.0,
     platformFee: 6,
     gstPercentage: 5,

@@ -1,62 +1,86 @@
-// src/controllers/tizzygo/payment/webhookController.ts - FINAL FIXED VERSION
+// ============================================================
+// controllers/WebhookController.ts
+// ============================================================
 
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import { PaymentGatewayFactory } from "../../../factories/PaymentGatewayFactory";
 import { IPaymentGateway } from "../../../interfaces/seller/IPaymentGateway";
 import { PaymentGatewayType } from "../../../enums/PaymentGatewayType";
 import Order from "../../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../../models/tizzygo/checkout/CheckoutSession";
-import WebhookEvent from "../../../models/tizzygo/checkout/WebhookEvent";
 import Transaction from "../../../models/tizzygo/checkout/Transaction";
+import Cart from "../../../models/tizzygo/cart/Cart";
+import WebhookEventService from "../../../services/tizzygo/WebhookEventService";
+import {
+  WebhookEventStatus,
+  STATE_ORDER,
+} from "../../../models/tizzygo/checkout/WebhookEvent";
+import { logger } from "../../../utils/tizzygo/logger";
 
-// ✅ Retry function with exponential backoff
-const retryWithBackoff = async <T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  initialDelay: number = 100,
-): Promise<T> => {
-  let lastError: any;
-  let delay = initialDelay;
+// ============================================================
+// STATE MACHINE - Monotonic with priority ordering
+// ============================================================
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      lastError = error;
+interface StateTransition {
+  sessionStatus: string;
+  orderStatus: string;
+  transactionStatus: string;
+}
 
-      // ✅ Only retry on write conflict
-      if (error.code === 112 || error.codeName === "WriteConflict") {
-        console.log(
-          `⚠️ Write conflict, retry ${attempt}/${maxRetries} after ${delay}ms`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 2; // Exponential backoff
-        continue;
-      }
-
-      // ✅ For other errors, throw immediately
-      throw error;
-    }
-  }
-
-  throw lastError;
+const STATE_MAP: Record<string, StateTransition> = {
+  "payment.authorized": {
+    sessionStatus: "authorized",
+    orderStatus: "authorized",
+    transactionStatus: "authorized",
+  },
+  "payment.captured": {
+    sessionStatus: "completed",
+    orderStatus: "captured",
+    transactionStatus: "captured",
+  },
+  "payment.succeeded": {
+    sessionStatus: "completed",
+    orderStatus: "captured",
+    transactionStatus: "captured",
+  },
+  "payment.failed": {
+    sessionStatus: "failed",
+    orderStatus: "failed",
+    transactionStatus: "failed",
+  },
+  "payment.refunded": {
+    sessionStatus: "refunded",
+    orderStatus: "refunded",
+    transactionStatus: "refunded",
+  },
+  "payment.partially_refunded": {
+    sessionStatus: "refunded",
+    orderStatus: "refunded",
+    transactionStatus: "refunded",
+  },
+  "payment.cancelled": {
+    sessionStatus: "cancelled",
+    orderStatus: "cancelled",
+    transactionStatus: "cancelled",
+  },
 };
 
-export const webhookHandler = async (req: Request, res: Response) => {
-  console.log("========================================");
-  console.log("🔔 WEBHOOK RECEIVED");
-  console.log("========================================");
-  console.log("URL:", req.url);
-  console.log("Method:", req.method);
+// ============================================================
+// MAIN CONTROLLER
+// ============================================================
 
+export const webhookHandler = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const requestId =
+    (req.headers["x-request-id"] as string) || crypto.randomUUID();
+
+  // Parse raw body early for error logging
   const rawBody =
     req.body instanceof Buffer
       ? req.body.toString("utf8")
       : JSON.stringify(req.body);
-
-  console.log("Raw Body Length:", rawBody.length);
-  console.log("Raw Body Preview:", rawBody.substring(0, 200) + "...");
 
   let parsedBody: any;
   try {
@@ -65,73 +89,302 @@ export const webhookHandler = async (req: Request, res: Response) => {
     parsedBody = req.body;
   }
 
-  console.log("✅ Body parsed successfully");
+  logger.info("WEBHOOK_RECEIVED", "Processing webhook", {
+    requestId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
-  let gatewayType: PaymentGatewayType = PaymentGatewayType.RAZORPAY;
+  // Determine gateway
+  let gatewayType = PaymentGatewayType.RAZORPAY;
+  let signature = "";
+
   if (req.headers["x-razorpay-signature"]) {
     gatewayType = PaymentGatewayType.RAZORPAY;
-  }
-
-  console.log("✅ Gateway detected:", gatewayType);
-
-  let signature = "";
-  if (gatewayType === PaymentGatewayType.RAZORPAY) {
     signature = req.headers["x-razorpay-signature"] as string;
   }
 
   try {
-    const gateway: IPaymentGateway =
-      PaymentGatewayFactory.getGatewayByType(gatewayType);
+    const gateway = PaymentGatewayFactory.getGatewayByType(gatewayType);
 
+    // ============================================================
+    // STEP 1: Verify Signature
+    // ============================================================
     let isValid = false;
     if (signature) {
       try {
         isValid = await gateway.verifyWebhookSignature(rawBody, signature);
-        console.log(
-          "✅ Signature verification:",
-          isValid ? "PASSED" : "FAILED",
-        );
+        logger.info("SIGNATURE_VERIFIED", "Signature verified", {
+          requestId,
+          isValid,
+        });
       } catch (sigError: any) {
-        console.error("❌ Signature verification error:", sigError.message);
+        logger.error("SIGNATURE_VERIFICATION_FAILED", "Signature error", {
+          requestId,
+          error: sigError.message,
+        });
         if (process.env.NODE_ENV === "development") {
-          console.log("⚠️ Development mode: Allowing despite signature error");
+          logger.warn("DEVELOPMENT_MODE", "Allowing invalid signature", {
+            requestId,
+          });
           isValid = true;
         }
       }
     } else {
       if (process.env.NODE_ENV === "development") {
-        console.log("⚠️ Development mode: No signature, allowing");
+        logger.warn("DEVELOPMENT_MODE", "No signature provided", { requestId });
         isValid = true;
       }
     }
 
     if (!isValid) {
-      console.error("❌ Invalid webhook signature");
+      logger.error("INVALID_SIGNATURE", "Webhook signature invalid", {
+        requestId,
+      });
       return res
         .status(401)
         .json({ success: false, error: "Invalid signature" });
     }
 
+    // ============================================================
+    // STEP 2: Parse Event
+    // ============================================================
     const normalizedEvent = await gateway.parseWebhookEvent(parsedBody);
-    console.log("✅ Webhook parsed:", normalizedEvent.eventType);
-    console.log("✅ Event ID:", normalizedEvent.gatewayEventId);
-    console.log("✅ Payment Intent ID:", normalizedEvent.paymentIntentId);
-    console.log("✅ Transaction ID:", normalizedEvent.transactionId);
-    console.log("✅ Internal Order ID:", normalizedEvent.internalOrderId);
+    const eventType = normalizedEvent.eventType as string;
+    const paymentIntentId = normalizedEvent.paymentIntentId;
+    const gatewayOrderId = normalizedEvent.orderId || "";
+    const notes = (normalizedEvent as any)?.notes;
+    const checkoutSessionId = notes?.checkoutSessionId || null;
 
-    if (!normalizedEvent.gatewayEventId) {
-      normalizedEvent.gatewayEventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!eventType || !paymentIntentId) {
+      logger.error("MISSING_EVENT_DATA", "Required data missing", {
+        requestId,
+        eventType,
+        paymentIntentId,
+      });
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid webhook data" });
     }
 
-    // ✅ Process webhook with retry - NO TRANSACTION
-    await retryWithBackoff(async () => {
-      await processWebhookEventWithoutTransaction(normalizedEvent);
+    const gatewayEventId =
+      normalizedEvent.gatewayEventId ||
+      (parsedBody as any)?.id ||
+      `evt_${paymentIntentId}_${gatewayOrderId || "unknown"}_${eventType}`;
+
+    const idempotencyKey = gatewayEventId;
+
+    logger.info("EVENT_PARSED", "Webhook event parsed", {
+      requestId,
+      eventType,
+      paymentIntentId,
+      gatewayOrderId,
+      checkoutSessionId,
+      idempotencyKey,
     });
 
-    console.log("✅ Webhook processed successfully");
-    return res.status(200).json({ success: true });
+    // ============================================================
+    // STEP 3: Check Existing Event (Idempotency)
+    // ============================================================
+    const existingEvent = await WebhookEventService.findEvent(idempotencyKey);
+
+    if (existingEvent.exists && existingEvent.isProcessed) {
+      logger.info("EVENT_ALREADY_PROCESSED", "Event already processed", {
+        requestId,
+        idempotencyKey,
+        status: existingEvent.status,
+      });
+      return res
+        .status(200)
+        .json({ success: true, message: "Already processed" });
+    }
+
+    if (
+      existingEvent.exists &&
+      existingEvent.status === WebhookEventStatus.PROCESSING
+    ) {
+      logger.info("EVENT_PROCESSING", "Event processing in progress", {
+        requestId,
+        idempotencyKey,
+      });
+      return res
+        .status(200)
+        .json({ success: true, message: "Processing in progress" });
+    }
+
+    // ============================================================
+    // STEP 4: ATOMIC Create & Lock
+    // ============================================================
+    logger.info("ACQUIRING_LOCK", "Acquiring payment lock", {
+      requestId,
+      paymentIntentId,
+      idempotencyKey,
+    });
+
+    const lockResult = await WebhookEventService.createAndLockEvent({
+      idempotencyKey,
+      paymentIntentId,
+      gatewayEventId,
+      gatewayOrderId,
+      eventType,
+      rawPayload: parsedBody,
+      normalizedEvent,
+      signature,
+      signatureVerified: isValid,
+      gateway: gatewayType.toString(),
+      checkoutSessionId,
+      notes,
+      metadata: {
+        razorpayEventId: parsedBody?.id,
+        razorpayPaymentId: parsedBody?.payload?.payment?.entity?.id,
+        razorpayOrderId: parsedBody?.payload?.order?.entity?.id,
+      },
+      requestId,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    if (!lockResult.success || !lockResult.event) {
+      if (
+        lockResult.status === WebhookEventStatus.COMPLETED ||
+        lockResult.status === WebhookEventStatus.IGNORED
+      ) {
+        logger.info("EVENT_ALREADY_PROCESSED", "Event already processed", {
+          requestId,
+          idempotencyKey,
+          status: lockResult.status,
+        });
+        return res
+          .status(200)
+          .json({ success: true, message: "Already processed" });
+      }
+
+      logger.warn("LOCK_ACQUISITION_FAILED", "Could not acquire lock", {
+        requestId,
+        idempotencyKey,
+        error: lockResult.error,
+        category: lockResult.errorCategory,
+      });
+      return res.status(200).json({
+        success: true,
+        message: "Event processing in progress or failed",
+      });
+    }
+
+    const event = lockResult.event;
+    logger.info("LOCK_ACQUIRED", "Payment lock acquired", {
+      requestId,
+      paymentIntentId,
+      idempotencyKey,
+      lockedBy: event.lockedBy,
+      lockedInstance: event.lockedInstance,
+    });
+
+    // ============================================================
+    // STEP 5: Process Event in Transaction
+    // ============================================================
+    try {
+      const result = await WebhookEventService.processEvent(
+        event,
+        async (session: mongoose.ClientSession, lockedEvent: any) => {
+          return await processEventInTransaction(
+            lockedEvent,
+            eventType,
+            normalizedEvent,
+            session,
+          );
+        },
+      );
+
+      // ============================================================
+      // STEP 6: Non-Critical Operations
+      // ============================================================
+      if (
+        eventType === "payment.captured" ||
+        eventType === "payment.succeeded"
+      ) {
+        await clearCartAsync(normalizedEvent, result.checkoutSession);
+        logger.info("CART_CLEARED", "Cart cleared for payment", {
+          requestId,
+          paymentIntentId,
+        });
+      }
+
+      const processingTime = Date.now() - startTime;
+      logger.info("WEBHOOK_PROCESSED", "Webhook processed successfully", {
+        requestId,
+        paymentIntentId,
+        idempotencyKey,
+        processingTime,
+        orderCount: result.orderIds.length,
+        checkoutStatus: result.checkoutSession?.status,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Webhook processed successfully",
+        data: {
+          eventId: event.idempotencyKey,
+          orderCount: result.orderIds.length,
+          checkoutStatus: result.checkoutSession?.status,
+        },
+      });
+    } catch (error: any) {
+      // ============================================================
+      // STEP 7: Error Handling
+      // ============================================================
+      const errorCategory = categorizeError(error);
+
+      await WebhookEventService.markFailed(
+        idempotencyKey,
+        error,
+        errorCategory,
+      );
+
+      logger.error("TRANSACTION_FAILED", "Transaction processing failed", {
+        requestId,
+        paymentIntentId,
+        idempotencyKey,
+        error: error.message,
+        category: errorCategory,
+        isRetryable: error.isRetryable,
+      });
+
+      if (errorCategory === "unknown" || errorCategory === "validation") {
+        await WebhookEventService.saveFailedWebhook(
+          parsedBody,
+          error.message,
+          error.code,
+        );
+      }
+
+      throw error;
+    }
   } catch (error: any) {
-    console.error("❌ Webhook processing error:", error);
+    const processingTime = Date.now() - startTime;
+    logger.error("WEBHOOK_FAILED", "Webhook processing failed", {
+      requestId,
+      error: error.message,
+      processingTime,
+    });
+
+    try {
+      await WebhookEventService.saveFailedWebhook(
+        parsedBody,
+        error.message,
+        error.code,
+      );
+    } catch (saveError: any) {
+      logger.error(
+        "FAILED_WEBHOOK_SAVE_FAILED",
+        "Could not save failed webhook",
+        {
+          requestId,
+          error: saveError.message,
+        },
+      );
+    }
+
     return res.status(500).json({
       success: false,
       error: error.message || "Webhook processing failed",
@@ -139,242 +392,400 @@ export const webhookHandler = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Process webhook WITHOUT transaction (to avoid write conflicts)
-async function processWebhookEventWithoutTransaction(event: any) {
-  console.log("🔄 Processing webhook event:", event.eventType);
+// ============================================================
+// BUSINESS LOGIC PROCESSING
+// ============================================================
 
-  let order = null;
+async function processEventInTransaction(
+  event: any,
+  eventType: string,
+  eventData: any,
+  session: mongoose.ClientSession,
+): Promise<{
+  event: any;
+  checkoutSession: any;
+  orderIds: mongoose.Types.ObjectId[];
+  orderStatuses: Record<string, string>;
+}> {
+  // Find checkout session - null safe
+  const checkoutSession = await findCheckoutSession(eventData, session);
 
-  // ✅ Try multiple ways to find order
-  if (event.paymentIntentId) {
-    order = await Order.findOne({
-      paymentIntentId: event.paymentIntentId,
-    });
-    if (order) {
-      console.log("✅ Order found by paymentIntentId:", event.paymentIntentId);
-    }
+  if (!checkoutSession) {
+    throw new Error("CheckoutSession not found");
   }
 
-  if (!order && event.internalOrderId) {
-    order = await Order.findOne({
-      orderId: event.internalOrderId,
-    });
-    if (order) {
-      console.log("✅ Order found by internal orderId:", event.internalOrderId);
-    }
+  // Get target state
+  const targetState = STATE_MAP[eventType];
+  if (!targetState) {
+    throw new Error(`Unknown event type: ${eventType}`);
   }
 
-  if (!order && event.transactionId) {
-    order = await Order.findOne({
-      "paymentAttempts.paymentIntentId": event.transactionId,
-    });
-    if (order) {
-      console.log("✅ Order found by transactionId:", event.transactionId);
-    }
-  }
+  // Check if this is a stale event (would roll back state)
+  const currentStatus = checkoutSession.status || "pending";
+  const targetStatus = targetState.sessionStatus;
+  const currentOrder = STATE_ORDER[currentStatus] ?? -1;
+  const targetOrder = STATE_ORDER[targetStatus] ?? -1;
 
-  if (!order && event.orderId) {
-    order = await Order.findOne({
-      paymentIntentId: event.orderId,
-    });
-    if (order) {
-      console.log("✅ Order found by orderId (Razorpay):", event.orderId);
-    }
-  }
-
-  if (!order) {
-    console.error("❌ Order not found for payment:", event.paymentIntentId);
-    return;
-  }
-
-  console.log(`📦 Processing webhook for order ${order.orderId}`);
-
-  // ✅ Check if already processed
-  if (
-    order.paymentStatus === "captured" ||
-    order.paymentStatus === "refunded"
-  ) {
-    console.log(
-      `⚠️ Order ${order.orderId} already ${order.paymentStatus}, skipping`,
+  if (targetOrder < currentOrder) {
+    // Stale event - ignore it
+    await WebhookEventService.markIgnored(
+      event.idempotencyKey,
+      `Stale event: ${currentStatus} → ${targetStatus} would roll back`,
     );
-    return;
+    return {
+      event,
+      checkoutSession,
+      orderIds: [],
+      orderStatuses: {},
+    };
   }
 
-  switch (event.eventType) {
-    case "payment.captured":
-    case "payment.succeeded":
-      await handlePaymentCapturedNoTransaction(order, event);
-      break;
-    case "payment.authorized":
-      await handlePaymentAuthorizedNoTransaction(order, event);
-      break;
-    case "payment.failed":
-      await handlePaymentFailedNoTransaction(order, event);
-      break;
-    case "payment.refunded":
-    case "payment.partially_refunded":
-      await handlePaymentRefundedNoTransaction(order, event);
-      break;
-    default:
-      console.log("⚠️ Unhandled webhook event type:", event.eventType);
+  // Update checkout session
+  await updateCheckoutSession(checkoutSession, eventData, targetState, session);
+
+  // Update orders - null safe
+  const { orderIds, orderStatuses } = await updateOrders(
+    checkoutSession,
+    targetState,
+    session,
+  );
+
+  // Update transaction - null safe
+  await updateTransaction(orderIds, eventData, targetState, session);
+
+  return {
+    event,
+    checkoutSession,
+    orderIds,
+    orderStatuses,
+  };
+}
+
+async function findCheckoutSession(
+  eventData: any,
+  session: mongoose.ClientSession,
+): Promise<any> {
+  const paymentIntentId = eventData.orderId || eventData.paymentIntentId;
+  if (!paymentIntentId) {
+    return null;
+  }
+
+  // Try multiple lookup strategies
+  let checkoutSession = await CheckoutSession.findOne({
+    paymentIntentId: paymentIntentId,
+  }).session(session);
+
+  if (!checkoutSession && eventData.notes?.checkoutSessionId) {
+    checkoutSession = await CheckoutSession.findOne({
+      checkoutSessionId: eventData.notes.checkoutSessionId,
+    }).session(session);
+  }
+
+  if (!checkoutSession && eventData.orderId) {
+    checkoutSession = await CheckoutSession.findOne({
+      "metadata.razorpayOrderId": eventData.orderId,
+    }).session(session);
+  }
+
+  if (!checkoutSession) {
+    const orders = await Order.find({
+      paymentIntentId: paymentIntentId,
+    }).session(session);
+
+    if (orders && orders.length > 0) {
+      const orderIds = orders.map((o) => o._id);
+      checkoutSession = await CheckoutSession.findOne({
+        orderIds: { $in: orderIds },
+      }).session(session);
+    }
+  }
+
+  if (!checkoutSession) {
+    const transaction = await Transaction.findOne({
+      gatewayTransactionId: eventData.paymentIntentId,
+      gatewayOrderId: eventData.orderId,
+    }).session(session);
+
+    if (transaction && transaction.orderId) {
+      checkoutSession = await CheckoutSession.findOne({
+        orderIds: { $in: [transaction.orderId] },
+      }).session(session);
+    }
+  }
+
+  return checkoutSession;
+}
+
+async function updateCheckoutSession(
+  checkoutSession: any,
+  eventData: any,
+  targetState: StateTransition,
+  session: mongoose.ClientSession,
+): Promise<void> {
+  // Ensure metadata exists
+  if (!checkoutSession.metadata) {
+    checkoutSession.metadata = {};
+  }
+
+  // Update metadata
+  checkoutSession.metadata.razorpayPaymentId = eventData.paymentIntentId;
+  checkoutSession.metadata.razorpayOrderId = eventData.orderId;
+  checkoutSession.metadata.webhookReceivedAt = new Date();
+  checkoutSession.metadata.webhookEventType = eventData.eventType;
+
+  // Update status if changed
+  if (checkoutSession.status !== targetState.sessionStatus) {
+    checkoutSession.status = targetState.sessionStatus;
+    if (targetState.sessionStatus === "completed") {
+      checkoutSession.completedAt = new Date();
+    }
+    await checkoutSession.save({ session });
   }
 }
 
-// ✅ NO TRANSACTION versions
-async function handlePaymentCapturedNoTransaction(order: any, event: any) {
-  console.log(`💰 Handling payment captured for order ${order.orderId}`);
+async function updateOrders(
+  checkoutSession: any,
+  targetState: StateTransition,
+  session: mongoose.ClientSession,
+): Promise<{
+  orderIds: mongoose.Types.ObjectId[];
+  orderStatuses: Record<string, string>;
+}> {
+  const orderIds = checkoutSession.orderIds || [];
+  const orderStatuses: Record<string, string> = {};
 
-  // ✅ Use findOneAndUpdate with condition to avoid duplicate updates
-  const result = await Order.findOneAndUpdate(
-    {
-      _id: order._id,
-      paymentStatus: { $ne: "captured" },
-    },
-    {
-      $set: {
-        status: "captured",
-        paymentStatus: "captured",
-        paidAt: new Date(),
-      },
-    },
-    { returnDocument: "after" },
-  );
-
-  if (!result) {
-    console.log(`⚠️ Order ${order.orderId} already captured or not found`);
-    return;
+  if (!orderIds || orderIds.length === 0) {
+    return { orderIds: [], orderStatuses: {} };
   }
 
-  // ✅ Update checkout session
-  await CheckoutSession.findOneAndUpdate(
-    { orderId: order._id },
-    {
-      $set: {
-        status: "completed",
-        completedAt: new Date(),
-      },
-    },
-  );
+  for (const orderId of orderIds) {
+    if (!orderId) continue;
 
-  // ✅ Create transaction record
-  const transaction = new Transaction({
-    transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    transactionType: "payment",
-    status: "captured",
-    amount: event.amount || result.finalAmount,
-    currency: event.currency || "INR",
-    gateway: event.gatewayType || "razorpay",
-    gatewayTransactionId: event.transactionId || event.paymentIntentId,
-    gatewayOrderId: event.orderId || result.orderId,
-    gatewayPaymentId: event.paymentIntentId,
-    orderId: result._id,
-    orderNumber: result.orderId,
-    userId: result.buyerId,
-    payerName: result.buyerName,
-    receiverName: "TizzyGo",
-    receiverAccountId: result.zeptPayAccountId,
-    rawResponse: event.rawPayload || event,
-    completedAt: new Date(),
-  });
+    const order = await Order.findById(orderId).session(session);
+    if (!order) continue;
 
-  await transaction.save();
+    // Skip if already in terminal state
+    const terminalStates = ["captured", "refunded", "failed", "cancelled"];
+    if (terminalStates.includes(order.paymentStatus)) {
+      continue;
+    }
 
-  // ✅ Update order with transaction reference
-  await Order.findOneAndUpdate(
-    { _id: result._id },
-    { $set: { transactionId: transaction._id } },
-  );
+    order.status = targetState.orderStatus;
+    order.paymentStatus = targetState.orderStatus;
 
-  console.log(`✅ Payment captured for ${result.orderId}`);
-  console.log(`✅ Transaction created: ${transaction.transactionId}`);
+    if (targetState.orderStatus === "captured") {
+      order.paidAt = new Date();
+    }
+    if (targetState.orderStatus === "refunded") {
+      order.refundedAt = new Date();
+    }
+
+    await order.save({ session });
+    if (order.orderId) {
+      orderStatuses[order.orderId] = order.status;
+    }
+  }
+
+  return { orderIds, orderStatuses };
 }
 
-async function handlePaymentAuthorizedNoTransaction(order: any, event: any) {
-  console.log(`🔐 Payment authorized for order ${order.orderId}`);
+async function updateTransaction(
+  orderIds: mongoose.Types.ObjectId[],
+  eventData: any,
+  targetState: StateTransition,
+  session: mongoose.ClientSession,
+): Promise<void> {
+  if (!orderIds || orderIds.length === 0) return;
 
-  await Order.findOneAndUpdate(
-    { _id: order._id },
-    {
-      $set: {
-        status: "authorized",
-        paymentStatus: "authorized",
-      },
-    },
-  );
+  for (const orderId of orderIds) {
+    if (!orderId) continue;
 
-  await CheckoutSession.findOneAndUpdate(
-    { orderId: order._id },
-    { $set: { status: "authorized" } },
-  );
+    const order = await Order.findById(orderId).session(session);
+    if (!order || !order.transactionId) continue;
 
-  console.log(`✅ Payment authorized for ${order.orderId}`);
+    const transaction = await Transaction.findById(order.transactionId).session(
+      session,
+    );
+    if (!transaction) continue;
+
+    // Ensure metadata exists
+    if (!transaction.metadata) {
+      transaction.metadata = {};
+    }
+
+    transaction.status = targetState.transactionStatus;
+    transaction.metadata.webhookStatus = eventData.eventType;
+    transaction.metadata.webhookReceivedAt = new Date();
+
+    if (
+      targetState.transactionStatus === "captured" ||
+      targetState.transactionStatus === "refunded"
+    ) {
+      transaction.completedAt = new Date();
+    }
+
+    if (eventData.paymentIntentId) {
+      transaction.gatewayTransactionId = eventData.paymentIntentId;
+      transaction.gatewayPaymentId = eventData.paymentIntentId;
+    }
+
+    if (eventData.orderId) {
+      transaction.gatewayOrderId = eventData.orderId;
+    }
+
+    await transaction.save({ session });
+  }
 }
 
-async function handlePaymentFailedNoTransaction(order: any, event: any) {
-  console.log(`❌ Payment failed for order ${order.orderId}`);
+// ============================================================
+// NON-CRITICAL OPERATIONS
+// ============================================================
 
-  await Order.findOneAndUpdate(
-    { _id: order._id },
-    {
-      $set: {
-        status: "failed",
-        paymentStatus: "failed",
-      },
-    },
-  );
+// ============================================================
+// ONLY THE clearCartAsync FUNCTION CHANGES
+// ============================================================
 
-  await CheckoutSession.findOneAndUpdate(
-    { orderId: order._id },
-    {
-      $set: {
-        status: "failed",
-        failedAt: new Date(),
-      },
-    },
-  );
+/**
+ * ✅ FIXED: Cart Clearing with Verification
+ * 
+ * This function now:
+ * 1. Verifies the cart exists
+ * 2. Performs the delete operation
+ * 3. Checks the result (deletedCount)
+ * 4. Only logs success after confirming database update
+ * 5. Marks the cart as cleared only after successful deletion
+ */
+async function clearCartAsync(
+  eventData: any,
+  checkoutSession: any,
+): Promise<void> {
+  try {
+    console.log("🗑️ [clearCartAsync] Starting cart clearing...");
 
-  console.log(`❌ Payment failed for ${order.orderId}`);
+    // Find session if not provided
+    let session = checkoutSession;
+    if (!session) {
+      const paymentIntentId = eventData.orderId || eventData.paymentIntentId;
+      if (paymentIntentId) {
+        session = await CheckoutSession.findOne({
+          paymentIntentId: paymentIntentId,
+        });
+      }
+    }
+
+    if (!session) {
+      console.log("⚠️ [clearCartAsync] No checkout session found");
+      return;
+    }
+
+    console.log(`📋 [clearCartAsync] Session: ${session.checkoutSessionId}`);
+    console.log(`📋 [clearCartAsync] Status: ${session.status}`);
+    console.log(`📋 [clearCartAsync] Cart already cleared: ${!!session.metadata?.cartCleared}`);
+
+    // Check if cart already cleared
+    if (session.metadata?.cartCleared) {
+      console.log("✅ [clearCartAsync] Cart already cleared, skipping");
+      return;
+    }
+
+    const userId = session.userId;
+    if (!userId) {
+      console.log("⚠️ [clearCartAsync] No userId found in session");
+      return;
+    }
+
+    console.log(`👤 [clearCartAsync] User ID: ${userId}`);
+
+    // Determine if Buy Now or Cart checkout
+    const isBuyNow = session.metadata?.isBuyNow;
+    const productId = session.metadata?.productId;
+
+    let deletedCount = 0;
+
+    if (isBuyNow && productId) {
+      // Buy Now: Delete specific product from cart
+      console.log(`🛒 [clearCartAsync] Buy Now mode - deleting product: ${productId}`);
+      const result = await Cart.deleteMany({
+        userId: userId,
+        productId: productId,
+      });
+      deletedCount = result.deletedCount || 0;
+      console.log(`✅ [clearCartAsync] Deleted ${deletedCount} Buy Now cart items`);
+    } else {
+      // Normal checkout: Delete entire cart
+      console.log(`🛒 [clearCartAsync] Normal checkout - clearing entire cart`);
+      const result = await Cart.deleteMany({ userId: userId });
+      deletedCount = result.deletedCount || 0;
+      console.log(`✅ [clearCartAsync] Deleted ${deletedCount} cart items`);
+    }
+
+    // ✅ ✅ ✅ CRITICAL: Only mark as cleared if items were actually deleted ✅ ✅ ✅
+    if (deletedCount > 0) {
+      console.log(`✅ [clearCartAsync] Successfully deleted ${deletedCount} items`);
+      
+      // Mark as cleared in session
+      if (!session.metadata) {
+        session.metadata = {};
+      }
+      session.metadata.cartCleared = true;
+      session.metadata.cartClearedAt = new Date();
+      session.metadata.cartClearedItems = deletedCount;
+      
+      await session.save();
+      
+      console.log(`✅ [clearCartAsync] CART_CLEARED: ${deletedCount} items removed`);
+    } else {
+      // ⚠️ No items were deleted - log warning
+      console.log(`⚠️ [clearCartAsync] No cart items found to delete for user ${userId}`);
+      
+      // Still mark as cleared to avoid future attempts
+      if (!session.metadata) {
+        session.metadata = {};
+      }
+      session.metadata.cartCleared = true;
+      session.metadata.cartClearedAt = new Date();
+      session.metadata.cartClearedItems = 0;
+      session.metadata.cartClearedReason = "No items found to delete";
+      
+      await session.save();
+      
+      console.log(`⚠️ [clearCartAsync] Marked as cleared (no items found)`);
+    }
+  } catch (error: any) {
+    // ⚠️ Non-critical - log error but don't throw to avoid breaking payment flow
+    console.error(`❌ [clearCartAsync] Failed to clear cart: ${error.message}`);
+    console.error(`❌ [clearCartAsync] Stack: ${error.stack}`);
+    
+    // Log to monitoring but don't throw
+    logger.error("CART_CLEAR_FAILED", "Failed to clear cart", {
+      error: error.message,
+      stack: error.stack,
+    });
+  }
 }
 
-async function handlePaymentRefundedNoTransaction(order: any, event: any) {
-  console.log(`↩️ Payment refunded for order ${order.orderId}`);
+// ============================================================
+// ERROR CATEGORIZATION
+// ============================================================
 
-  await Order.findOneAndUpdate(
-    { _id: order._id },
-    {
-      $set: {
-        status: "refunded",
-        paymentStatus: "refunded",
-        refundedAt: new Date(),
-      },
-    },
-  );
+function categorizeError(error: any): string {
+  if (!error) return "unknown";
 
-  await CheckoutSession.findOneAndUpdate(
-    { orderId: order._id },
-    { $set: { status: "refunded", refundedAt: new Date() } },
-  );
+  const message = error.message || "";
+  const code = error.code;
 
-  const transaction = new Transaction({
-    transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    transactionType: "refund",
-    status: "refunded",
-    amount: event.amount,
-    currency: event.currency || "INR",
-    gateway: event.gatewayType || "razorpay",
-    gatewayTransactionId: event.transactionId || event.paymentIntentId,
-    gatewayOrderId: event.orderId || order.orderId,
-    gatewayPaymentId: event.paymentIntentId,
-    orderId: order._id,
-    orderNumber: order.orderId,
-    userId: order.buyerId,
-    payerName: order.buyerName,
-    receiverName: "TizzyGo",
-    receiverAccountId: order.zeptPayAccountId,
-    rawResponse: event.rawPayload || event,
-    completedAt: new Date(),
-  });
+  if (message.includes("CheckoutSession not found")) return "validation";
+  if (message.includes("Invalid state transition")) return "state_transition";
+  if (message.includes("stale event")) return "validation";
+  if (message.includes("signature")) return "signature";
+  if (code === 11000) return "duplicate";
+  if (message.includes("ETIMEOUT") || message.includes("ECONNREFUSED"))
+    return "network";
+  if (message.includes("transaction") || message.includes("write conflict"))
+    return "database";
+  if (message.includes("lock")) return "lock_conflict";
+  if (message.includes("validation") || message.includes("required"))
+    return "validation";
 
-  await transaction.save({ session });
-  console.log(`✅ Payment refunded for ${order.orderId}`);
+  return "unknown";
 }

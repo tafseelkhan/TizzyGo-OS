@@ -19,7 +19,7 @@ if (!share) {
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad/i.test(ua);
 
-  const appLink = `tizzygo://aircloud/s/${share.productId}`;
+  const appLink = `tizzygo://quton/s/${share.productId}`;
   const storeLink = isIOS
     ? "https://apps.apple.com/app/idYOUR_APP_ID"
     : "https://play.google.com/store/apps/details?id=com.tizzygo.app";

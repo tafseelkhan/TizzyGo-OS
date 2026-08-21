@@ -31,7 +31,6 @@ export interface IRouteSummary {
   }>;
 }
 
-// ✅ RETRY HISTORY INTERFACE
 export interface IRetryHistory {
   attemptNumber: number;
   oldFare: number;
@@ -45,10 +44,16 @@ export interface IRetryHistory {
   completedAt?: Date;
 }
 
+export type RideServiceType = "LOCAL_RIDE" | "AIRPORT";
+
 export interface IRideBooking extends Document {
   bookingId: string;
-  trackingId?: string;
   rideCode: string;
+  serviceType: RideServiceType;
+  quoteId: string;
+  fwsLocalRideId?: string;
+  fwsAirportRideId?: string;
+  trackingId?: string;
   customerId: mongoose.Types.ObjectId;
   driverId?: mongoose.Types.ObjectId;
   vehicle: {
@@ -92,7 +97,6 @@ export interface IRideBooking extends Document {
   retryFare?: number;
   lastFareIncrementPercentage?: number;
   retryAttempts?: number;
-  // ✅ NEW: Retry History Array
   retryHistory: IRetryHistory[];
   driversFound?: number;
   searchStartedAt?: Date;
@@ -146,16 +150,41 @@ const RideBookingSchema = new Schema<IRideBooking>(
       required: true,
       unique: true,
     },
+    rideCode: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    serviceType: {
+      type: String,
+      enum: ["LOCAL_RIDE", "AIRPORT"],
+      required: true,
+      index: true,
+    },
+    quoteId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    fwsLocalRideId: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    fwsAirportRideId: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     trackingId: {
       type: String,
       required: false,
       unique: true,
       sparse: true,
-    },
-    rideCode: {
-      type: String,
-      required: true,
-      unique: true,
     },
     customerId: {
       type: Schema.Types.ObjectId,
@@ -238,7 +267,6 @@ const RideBookingSchema = new Schema<IRideBooking>(
     retryFare: { type: Number, required: false },
     lastFareIncrementPercentage: { type: Number, required: false },
     retryAttempts: { type: Number, default: 0 },
-    // ✅ NEW: Retry History Schema
     retryHistory: {
       type: [
         {
@@ -326,6 +354,7 @@ const RideBookingSchema = new Schema<IRideBooking>(
   },
 );
 
+// Indexes
 RideBookingSchema.index({ customerId: 1 });
 RideBookingSchema.index({ driverId: 1 });
 RideBookingSchema.index({ status: 1 });
@@ -334,5 +363,6 @@ RideBookingSchema.index({ currentBatch: 1 });
 RideBookingSchema.index({ searchCompleted: 1 });
 RideBookingSchema.index({ pickupVerified: 1, dropVerified: 1 });
 RideBookingSchema.index({ "fare.totalFare": 1 });
+RideBookingSchema.index({ createdAt: -1 });
 
 export default mongoose.model<IRideBooking>("RideBooking", RideBookingSchema);

@@ -1,11 +1,9 @@
-// controller/tizzyos/cab/rideOnlineDriverController.ts
-
 import { Request, Response } from "express";
 import driverStatusService from "../../../services/tizzyos/cab/rideOnlineDriverService";
 
 /**
- * Update Driver Online/Offline Status
- * PUT /api/driver/online-status
+ * ✅ FIXED: Update ONLY isOnline
+ * isAvailable remains unchanged
  */
 export const updateDriverOnlineStatus = async (
   req: Request,
@@ -30,6 +28,8 @@ export const updateDriverOnlineStatus = async (
       });
       return;
     }
+
+    console.log(`📡 [API] Updating driver online status: ${userId} -> ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
 
     const driverStatus = await driverStatusService.updateOnlineStatus(
       userId,
@@ -58,7 +58,6 @@ export const updateDriverOnlineStatus = async (
 
 /**
  * Get Driver Current Status
- * GET /api/driver/status
  */
 export const getDriverStatus = async (
   req: Request,
@@ -100,7 +99,7 @@ export const getDriverStatus = async (
 
 /**
  * Bulk Update - Multiple Drivers Online Status
- * PUT /api/drivers/bulk-status
+ * ✅ FIXED: ONLY updates isOnline
  */
 export const bulkUpdateDriverStatus = async (
   req: Request,
@@ -125,6 +124,8 @@ export const bulkUpdateDriverStatus = async (
       return;
     }
 
+    console.log(`📡 [API] Bulk updating ${driverIds.length} drivers -> ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+
     const result = await driverStatusService.bulkUpdateStatus(
       driverIds,
       isOnline,
@@ -146,7 +147,6 @@ export const bulkUpdateDriverStatus = async (
 
 /**
  * Get All Online Drivers
- * GET /api/drivers/online
  */
 export const getAllOnlineDrivers = async (
   req: Request,
@@ -173,8 +173,7 @@ export const getAllOnlineDrivers = async (
 };
 
 /**
- * Toggle Driver Status (Online/Offline) - ✅ SOCKET ADDED
- * PUT /api/driver/toggle-status
+ * ✅ FIXED: Toggle ONLY isOnline, NOT isAvailable
  */
 export const toggleDriverStatus = async (
   req: Request,
@@ -182,7 +181,7 @@ export const toggleDriverStatus = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const { socketId } = req.body; // ✅ Socket ID receive karo
+    const { socketId } = req.body;
 
     if (!userId) {
       res.status(401).json({
@@ -192,7 +191,8 @@ export const toggleDriverStatus = async (
       return;
     }
 
-    // ✅ Socket ID ke saath toggle karo
+    console.log(`📡 [API] Toggling driver status: ${userId}`);
+
     const driverStatus = await driverStatusService.toggleDriverStatus(
       userId,
       socketId,
@@ -220,7 +220,6 @@ export const toggleDriverStatus = async (
 
 /**
  * Get Online Drivers Count
- * GET /api/drivers/online/count
  */
 export const getOnlineDriversCount = async (
   req: Request,
@@ -245,8 +244,7 @@ export const getOnlineDriversCount = async (
 };
 
 /**
- * Update Driver Socket ID
- * PUT /api/driver/socket
+ * ✅ FIXED: Update ONLY socketId
  */
 export const updateDriverSocketId = async (
   req: Request,
@@ -272,6 +270,8 @@ export const updateDriverSocketId = async (
       return;
     }
 
+    console.log(`📡 [API] Updating socket ID: ${userId} -> ${socketId}`);
+
     const driverStatus = await driverStatusService.updateSocketId(
       userId,
       socketId,
@@ -284,6 +284,7 @@ export const updateDriverSocketId = async (
         userId: driverStatus.userId,
         socketId: driverStatus.socketId,
         isOnline: driverStatus.isOnline,
+        isAvailable: driverStatus.isAvailable,
       },
     });
   } catch (error) {
@@ -297,7 +298,6 @@ export const updateDriverSocketId = async (
 
 /**
  * Cleanup Stale Statuses
- * DELETE /api/drivers/cleanup
  */
 export const cleanupStaleStatuses = async (
   req: Request,
@@ -318,6 +318,61 @@ export const cleanupStaleStatuses = async (
     });
   } catch (error) {
     console.error("Error cleaning up stale statuses:", error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+};
+
+/**
+ * ✅ NEW: Update ONLY isAvailable
+ * Separate endpoint for availability
+ */
+export const updateDriverAvailability = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { isAvailable } = req.body;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: "Unauthorized - User not authenticated",
+      });
+      return;
+    }
+
+    if (typeof isAvailable !== "boolean") {
+      res.status(400).json({
+        success: false,
+        message: "isAvailable must be a boolean value (true/false)",
+      });
+      return;
+    }
+
+    console.log(`📡 [API] Updating driver availability: ${userId} -> ${isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+
+    const driverStatus = await driverStatusService.updateAvailability(
+      userId,
+      isAvailable,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Driver is now ${isAvailable ? "AVAILABLE" : "UNAVAILABLE"}`,
+      data: {
+        userId: driverStatus.userId,
+        isOnline: driverStatus.isOnline,
+        isAvailable: driverStatus.isAvailable,
+        lastSeen: driverStatus.lastSeen,
+        updatedAt: driverStatus.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating driver availability:", error);
     res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Internal server error",

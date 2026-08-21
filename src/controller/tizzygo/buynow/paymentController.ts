@@ -1,5 +1,3 @@
-// controllers/tizzygo/paymentController.ts - FINAL FIXED VERSION
-
 import { Response } from "express";
 import mongoose from "mongoose";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
@@ -9,6 +7,54 @@ import CheckoutSession, {
 } from "../../../models/tizzygo/checkout/CheckoutSession";
 import Order from "../../../models/tizzygo/checkout/order";
 
+interface CreatePaymentIntentRequestBody {
+  address: string;
+  paymentMethod?: string;
+  idempotencyKey?: string;
+  isBuyNow?: boolean;
+  productId?: string;
+  variantId?: string;
+  quantity?: number;
+  sellerId?: string;
+  productDataId?: string;
+}
+
+interface UserDetails {
+  name?: string;
+  email?: string;
+}
+
+interface OrderRecord {
+  _id: mongoose.Types.ObjectId | string;
+  orderId: string;
+  status: string;
+  paymentStatus: string;
+  finalAmount: number;
+  productTitle?: string;
+}
+
+interface CreatePaymentIntentResult {
+  checkoutSessionId: string;
+  paymentIntentId: string | null;
+  finalAmount: number;
+  expiresAt: Date | string;
+  isDuplicate?: boolean;
+  userDetails?: UserDetails | UserDetails[];
+  isCartCheckout?: boolean;
+}
+
+/**
+ * ✅ CREATE PAYMENT INTENT HANDLER
+ *
+ * This is the ENTRY POINT for all payment intents.
+ * It handles BOTH Buy Now AND Cart Checkout.
+ *
+ * CRITICAL RULES:
+ * 1. If isBuyNow = true → MUST have productId, sellerId, productDataId
+ * 2. If isBuyNow = true → NEVER query Cart
+ * 3. If isBuyNow = false → Normal Cart checkout
+ * 4. NEVER fallback to Cart for Buy Now
+ */
 export const createPaymentIntentHandler = async (
   req: AuthRequest,
   res: Response,
@@ -22,19 +68,32 @@ export const createPaymentIntentHandler = async (
 
   try {
     const user = req.user;
-    const { address, paymentMethod = "online", idempotencyKey } = req.body;
+    const {
+      address,
+      paymentMethod = "online",
+      idempotencyKey,
+      isBuyNow = false,
+      productId,
+      variantId,
+      quantity = 1,
+      sellerId,
+      productDataId,
+    } = req.body as CreatePaymentIntentRequestBody;
 
-    console.log("📥 Request received:");
-    console.log("  - User ID:", user?.userId);
-    console.log("  - Payment Method:", paymentMethod);
-    console.log("  - Idempotency Key:", idempotencyKey);
-    console.log("  - Has Address:", !!address);
+    console.log(`👤 User ID: ${user?.userId}`);
+    console.log(`💳 Payment Method: ${paymentMethod}`);
+    console.log(`🛒 Is Buy Now: ${isBuyNow}`);
+    console.log(`📦 Product ID: ${productId || "NOT PROVIDED"}`);
+    console.log(`🏷️ Seller ID: ${sellerId || "NOT PROVIDED"}`);
+    console.log(`📋 Product Data ID: ${productDataId || "NOT PROVIDED"}`);
 
+    // ✅ Validate user
     if (!user?.userId) {
       await mongoSession.abortTransaction();
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
+    // ✅ Validate address
     if (!address) {
       await mongoSession.abortTransaction();
       return res
@@ -42,62 +101,125 @@ export const createPaymentIntentHandler = async (
         .json({ success: false, error: "Address is required" });
     }
 
-    // Check for duplicate order using idempotency key
-    if (idempotencyKey) {
-      console.log("🔍 Checking for existing order with idempotency key...");
+    // ✅ ✅ ✅ STRICT BUY NOW VALIDATION ✅ ✅ ✅
+    if (isBuyNow) {
+      // ✅ productId is MANDATORY for Buy Now
+      if (!productId) {
+        await mongoSession.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          error: "Product ID is required for Buy Now checkout",
+          code: "BUY_NOW_PRODUCT_ID_REQUIRED",
+        });
+      }
 
-      const existingOrder = await Order.findOne({
+      // ✅ sellerId is MANDATORY for Buy Now
+      if (!sellerId) {
+        await mongoSession.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          error: "Seller ID is required for Buy Now checkout",
+          code: "BUY_NOW_SELLER_ID_REQUIRED",
+        });
+      }
+
+      // ✅ productDataId is MANDATORY for Buy Now
+      if (!productDataId) {
+        await mongoSession.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          error: "Product Data ID is required for Buy Now checkout",
+          code: "BUY_NOW_PRODUCT_DATA_ID_REQUIRED",
+        });
+      }
+
+      console.log("✅ Buy Now validation passed");
+    }
+
+    // ✅ Check for duplicate checkout session using idempotency key
+    if (idempotencyKey) {
+      console.log(
+        "🔍 Checking for existing checkout session with idempotency key...",
+      );
+
+      const existingCheckoutSession = await CheckoutSession.findOne({
         "metadata.idempotencyKey": idempotencyKey,
       }).session(mongoSession);
 
-      if (existingOrder) {
+      if (existingCheckoutSession) {
         console.log(
-          "⚠️ Duplicate request detected! Returning existing order:",
-          existingOrder.orderId,
+          `⚠️ Duplicate request detected! Returning existing checkout session: ${existingCheckoutSession.checkoutSessionId}`,
         );
-
-        const existingCheckoutSession = await CheckoutSession.findOne({
-          orderId: existingOrder._id,
-        }).session(mongoSession);
 
         await mongoSession.commitTransaction();
         mongoSession.endSession();
 
+        let orderDetails: any = null;
+        let existingOrders: any[] = [];
+
+        if (
+          existingCheckoutSession.orderIds &&
+          existingCheckoutSession.orderIds.length > 0
+        ) {
+          existingOrders = await Order.find({
+            _id: { $in: existingCheckoutSession.orderIds },
+          }).lean();
+        } else if (existingCheckoutSession.orderId) {
+          const order = await Order.findById(
+            existingCheckoutSession.orderId,
+          ).lean();
+          if (order) existingOrders = [order];
+        }
+
+        if (existingOrders.length > 0) {
+          orderDetails = existingOrders.map((o: any) => ({
+            _id: o._id,
+            orderId: o.orderId,
+            status: o.status,
+            paymentStatus: o.paymentStatus,
+            finalAmount: o.finalAmount,
+          }));
+        }
+
         return res.status(200).json({
           success: true,
-          message: "Order already exists",
-          checkoutSessionId: existingCheckoutSession?.checkoutSessionId,
-          orderId: existingOrder.orderId,
-          paymentIntentId: existingOrder.paymentIntentId || null, // ✅ Razorpay order ID
-          paymentMethod:
-            existingCheckoutSession?.paymentMethod || paymentMethod,
-          finalAmount: existingOrder.finalAmount,
+          message: "Checkout session already exists",
+          checkoutSessionId: existingCheckoutSession.checkoutSessionId,
+          paymentIntentId: existingCheckoutSession.paymentIntentId || null,
+          paymentMethod: existingCheckoutSession.paymentMethod || paymentMethod,
+          finalAmount:
+            existingCheckoutSession.cartSnapshot?.calculatedData?.finalAmount ||
+            0,
           currency: "INR",
-          expiresAt: existingCheckoutSession?.expiresAt,
-          zeptPayAccountId: existingOrder.zeptPayAccountId || null,
+          expiresAt: existingCheckoutSession.expiresAt,
           appName: "TizzyGo",
           payer: {
             userId: user.userId,
-            name: existingOrder.buyerName || "Customer",
-            email: "",
+            name: user.name || "Customer",
+            email: user.email || "",
           },
           isDuplicate: true,
-          order: {
-            _id: existingOrder._id,
-            orderId: existingOrder.orderId,
-            status: existingOrder.status,
-          },
+          ...(existingOrders.length > 0 && {
+            orders: orderDetails,
+            isCompleted: true,
+          }),
         });
       }
     }
 
-    // Create payment intent with idempotency key
+    // ✅ Create payment intent
     const result = await createPaymentIntent({
       userId: user.userId,
       address,
       paymentMethod,
       session: mongoSession,
       idempotencyKey,
+      isBuyNow,
+      productId,
+      variantId,
+      quantity,
+      sellerId,
+      productDataId,
     });
 
     await mongoSession.commitTransaction();
@@ -107,35 +229,44 @@ export const createPaymentIntentHandler = async (
       ? result.userDetails[0]
       : result.userDetails;
 
-    // ✅ Return response with paymentIntentId (Razorpay order ID)
+    // ✅ Return response with CheckoutSession + Orders
+    const orders = result.orders || [];
+    const orderResponse =
+      orders.length > 0
+        ? orders.map((o: any) => ({
+            _id: o._id,
+            orderId: o.orderId,
+            status: o.status,
+            paymentStatus: o.paymentStatus,
+            finalAmount: o.finalAmount,
+            productTitle: o.productTitle || null,
+          }))
+        : [];
+
     return res.status(200).json({
       success: true,
       message: result.isDuplicate
-        ? "Order already exists"
+        ? "Checkout session already exists"
         : paymentMethod === "cod"
-          ? "✅ COD order created successfully"
-          : "✅ Order created successfully",
+          ? "✅ COD checkout session created"
+          : "✅ Checkout session created successfully",
       checkoutSessionId: result.checkoutSessionId,
-      orderId: result.orderId,
-      paymentIntentId: result.paymentIntentId, // ✅ YAHI - Razorpay order ID (starts with 'order_')
+      paymentIntentId: result.paymentIntentId,
       paymentMethod,
       finalAmount: result.finalAmount,
       currency: "INR",
       expiresAt: result.expiresAt,
-      zeptPayAccountId:
-        result.zeptPayAccountId || result.productData?.zeptPayAccountId || null,
-      appName: result.productData?.appName || "TizzyGo",
+      appName: "TizzyGo",
       payer: {
         userId: user.userId,
         name: userDetails?.name || "Customer",
         email: userDetails?.email || "",
       },
       isDuplicate: result.isDuplicate || false,
-      order: {
-        _id: result.order._id,
-        orderId: result.order.orderId,
-        status: result.order.status,
-      },
+      isCartCheckout: result.isCartCheckout || false,
+      // ✅ ✅ ✅ Orders now exist before frontend receives response ✅ ✅ ✅
+      orders: orderResponse,
+      orderCount: orders.length,
     });
   } catch (err: any) {
     console.error("💥 CREATE PAYMENT INTENT ERROR:", err.message);
@@ -152,9 +283,9 @@ export const createPaymentIntentHandler = async (
     else if (errorMessage.includes("Cash on Delivery not available"))
       statusCode = 400;
     else if (errorMessage.includes("Invalid final amount")) statusCode = 400;
-    else if (errorMessage.includes("active order already exists"))
-      statusCode = 409;
     else if (errorMessage.includes("User not found")) statusCode = 404;
+    else if (errorMessage.includes("Buy Now")) statusCode = 400;
+    else if (errorMessage.includes("required")) statusCode = 400;
 
     return res.status(statusCode).json({
       success: false,
@@ -176,44 +307,46 @@ export const getSessionStatusHandler = async (
     const user = req.user;
     const { checkoutSessionId } = req.params;
 
-    console.log("📥 Request received:");
-    console.log("  - User ID:", user?.userId);
-    console.log("  - Checkout Session ID:", checkoutSessionId);
+    console.log(`📥 User ID: ${user?.userId}`);
+    console.log(`📥 Checkout Session ID: ${checkoutSessionId}`);
 
     if (!user?.userId) {
-      console.log("❌ Unauthorized - No user ID");
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     if (!checkoutSessionId) {
-      console.log("❌ Checkout Session ID is required");
       return res
         .status(400)
         .json({ success: false, error: "Checkout session ID is required" });
     }
 
-    console.log("🔍 Searching for session...");
     const session = await CheckoutSession.findOne({
       checkoutSessionId,
       userId: user.userId,
     }).lean<ICheckoutSession | null>();
 
     if (!session) {
-      console.log("❌ Session not found for ID:", checkoutSessionId);
+      console.log(`❌ Session not found: ${checkoutSessionId}`);
       return res.status(404).json({
         success: false,
         error: "Session not found",
       });
     }
 
-    const order = await Order.findById(session.orderId).lean();
-    const orderDoc = Array.isArray(order) ? order[0] : order;
+    console.log(`✅ Session found: ${session.checkoutSessionId}`);
+    console.log(`  - Status: ${session.status}`);
+    console.log(`  - Payment Method: ${session.paymentMethod}`);
+    console.log(`  - Grand Total: ${session.metadata?.grandTotal || 0}`);
 
-    console.log("✅ Session found:");
-    console.log("  - Status:", session.status);
-    console.log("  - Payment Method:", session.paymentMethod);
-    console.log("  - Order Status:", orderDoc?.status);
-    console.log("  - Expires At:", session.expiresAt);
+    let orders: OrderRecord[] = [];
+    if (session.orderIds && session.orderIds.length > 0) {
+      orders = await Order.find({
+        _id: { $in: session.orderIds },
+      }).lean<OrderRecord[]>();
+    } else if (session.orderId) {
+      const order = await Order.findById(session.orderId).lean<OrderRecord>();
+      if (order) orders = [order];
+    }
 
     return res.status(200).json({
       success: true,
@@ -221,22 +354,26 @@ export const getSessionStatusHandler = async (
         checkoutSessionId: session.checkoutSessionId,
         status: session.status,
         paymentMethod: session.paymentMethod,
-        paymentIntentId: session.paymentIntentId, // ✅ Razorpay order ID
+        paymentIntentId: session.paymentIntentId,
         expiresAt: session.expiresAt,
+        isCartCheckout:
+          (session.orderIds && session.orderIds.length > 1) || false,
+        grandTotal:
+          session.metadata?.grandTotal ||
+          session.cartSnapshot?.calculatedData?.finalAmount ||
+          0,
       },
-      order: orderDoc
-        ? {
-            _id: (orderDoc as any)._id,
-            orderId: (orderDoc as any).orderId,
-            status: (orderDoc as any).status,
-            finalAmount: (orderDoc as any).finalAmount,
-          }
-        : null,
+      orders: orders.map((o: any) => ({
+        _id: o._id,
+        orderId: o.orderId,
+        status: o.status,
+        paymentStatus: o.paymentStatus,
+        finalAmount: o.finalAmount,
+        productTitle: o.productTitle,
+      })),
     });
   } catch (err: any) {
-    console.error("💥 SESSION STATUS ERROR:");
-    console.error("  - Error message:", err.message);
-    console.error("  - Error stack:", err.stack);
+    console.error("💥 SESSION STATUS ERROR:", err);
 
     if (err.message === "Session not found") {
       return res
