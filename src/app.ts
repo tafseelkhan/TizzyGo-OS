@@ -71,7 +71,7 @@ import rideBookingRoutes from "./routes/tizzyos/cab/rideBookingRoutes";
 import rideTypesRoutes from "./routes/tizzyos/cab/rideTypeRoutes";
 import rideTrackingRoutes from "./routes/tizzyos/cab/rideTrackingRoutes";
 import rideRequestRoutes from "./routes/tizzyos/cab/rideRequestRoutes";
-
+import rideLiveTrackingRoutes from "./routes/tizzyos/cab/rideLiveTrackingRoutes";
 /* =========================================================
    EXPRESS APP
    ========================================================= */
@@ -179,6 +179,7 @@ app.use("/api/v0", rideBookingRoutes);
 app.use("/api/v0", rideTypesRoutes);
 app.use("/api/v0/ride", rideTrackingRoutes);
 app.use("/api/v0/ride", rideRequestRoutes);
+app.use("/api/v0/ride/live/tracking", rideLiveTrackingRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)

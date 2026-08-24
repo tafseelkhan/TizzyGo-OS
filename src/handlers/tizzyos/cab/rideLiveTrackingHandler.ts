@@ -1,11 +1,26 @@
 // handlers/tizzyos/cab/rideLiveTrackingHandler.ts
 
 import { Server, Socket } from "socket.io";
+import { getRideLiveTracking } from "../../../services/tizzyos/cab/rideLiveTrackingService";
 
 // Store active ride tracking data
-const rideTrackingRooms = new Map<string, Set<string>>(); // rideId -> Set of customer socket IDs
-const driverRideMap = new Map<string, string>(); // driverId -> rideId
+const rideTrackingRooms = new Map<string, Set<string>>(); // bookingId -> Set of customer socket IDs
+const driverRideMap = new Map<string, string>(); // driverId -> bookingId
 const driverLocationCache = new Map<string, any>(); // driverId -> last known location
+
+// ============================================================
+// ERROR MESSAGES FOR SOCKET
+// ============================================================
+
+const SOCKET_ERROR_MESSAGES: Record<string, string> = {
+  BOOKING_ID_REQUIRED: "Booking ID is required",
+  TRACKING_ID_REQUIRED: "Tracking ID is required",
+  BOOKING_NOT_FOUND: "Booking not found",
+  UNAUTHORIZED: "You are not authorized to track this ride",
+  NO_DRIVER_ASSIGNED: "No driver assigned to this ride",
+  RIDE_NOT_TRACKABLE: "Ride is not in a trackable state",
+  RIDE_ALREADY_COMPLETED: "This ride has already been completed or cancelled",
+};
 
 export const rideLiveTrackingHandler = (io: Server) => {
   io.on("connection", (socket: Socket) => {
@@ -31,6 +46,15 @@ export const rideLiveTrackingHandler = (io: Server) => {
           if (!driverId || !rideId) {
             socket.emit("driver:live:error", {
               message: "driverId and rideId are required",
+            });
+            return;
+          }
+
+          // ✅ SECURITY: Verify driver is authenticated
+          const authenticatedUserId = (socket as any).data?.userId;
+          if (authenticatedUserId && authenticatedUserId !== driverId) {
+            socket.emit("driver:live:error", {
+              message: "Unauthorized: Driver ID mismatch",
             });
             return;
           }
@@ -99,6 +123,12 @@ export const rideLiveTrackingHandler = (io: Server) => {
         heading?: number;
         speed?: number;
         accuracy?: number;
+        bearing?: number;
+        altitude?: number;
+        batteryLevel?: number;
+        networkType?: string;
+        isMockLocation?: boolean;
+        provider?: string;
       }) => {
         try {
           const {
@@ -109,6 +139,12 @@ export const rideLiveTrackingHandler = (io: Server) => {
             heading,
             speed,
             accuracy,
+            bearing,
+            altitude,
+            batteryLevel,
+            networkType,
+            isMockLocation,
+            provider,
           } = data;
 
           if (!driverId) {
@@ -126,18 +162,29 @@ export const rideLiveTrackingHandler = (io: Server) => {
             return;
           }
 
-          // Update cache
-          driverLocationCache.set(driverId, {
+          // Update cache with all available fields
+          const cacheData: any = {
             latitude,
             longitude,
             heading: heading || 0,
             speed: speed || 0,
             accuracy: accuracy || 0,
             timestamp: new Date().toISOString(),
-          });
+          };
 
-          // Broadcast to all customers in this ride room
-          io.to(`ride_${activeRideId}`).emit("driver:live:location", {
+          // Optional fields
+          if (bearing !== undefined) cacheData.bearing = bearing;
+          if (altitude !== undefined) cacheData.altitude = altitude;
+          if (batteryLevel !== undefined) cacheData.batteryLevel = batteryLevel;
+          if (networkType) cacheData.networkType = networkType;
+          if (isMockLocation !== undefined)
+            cacheData.isMockLocation = isMockLocation;
+          if (provider) cacheData.provider = provider;
+
+          driverLocationCache.set(driverId, cacheData);
+
+          // Build broadcast payload
+          const broadcastPayload: any = {
             driverId,
             rideId: activeRideId,
             latitude,
@@ -145,7 +192,18 @@ export const rideLiveTrackingHandler = (io: Server) => {
             heading: heading || 0,
             speed: speed || 0,
             timestamp: new Date().toISOString(),
-          });
+          };
+
+          // Add optional fields to broadcast
+          if (accuracy !== undefined) broadcastPayload.accuracy = accuracy;
+          if (bearing !== undefined) broadcastPayload.bearing = bearing;
+          if (altitude !== undefined) broadcastPayload.altitude = altitude;
+
+          // Broadcast to all customers in this ride room
+          io.to(`ride_${activeRideId}`).emit(
+            "driver:live:location",
+            broadcastPayload,
+          );
 
           // Also send to driver for acknowledgment
           socket.emit("driver:live:ack", {
@@ -212,62 +270,128 @@ export const rideLiveTrackingHandler = (io: Server) => {
     );
 
     // ============================================================
-    // 4. CUSTOMER: Start tracking a driver
+    // 4. CUSTOMER/DRIVER: Start tracking (only bookingId + trackingId)
     // ============================================================
     socket.on(
       "customer:track:start",
-      async (data: {
-        customerId: string;
-        driverId: string;
-        rideId: string;
-      }) => {
+      async (data: { bookingId: string; trackingId: string }) => {
         try {
-          const { customerId, driverId, rideId } = data;
+          const { bookingId, trackingId } = data;
 
-          if (!customerId || !driverId || !rideId) {
+          // ============================================================
+          // VALIDATE INPUT
+          // ============================================================
+          if (!bookingId || bookingId.trim() === "") {
             socket.emit("customer:track:error", {
-              message: "Missing required fields",
+              message: "Booking ID is required",
+            });
+            return;
+          }
+
+          if (!trackingId || trackingId.trim() === "") {
+            socket.emit("customer:track:error", {
+              message: "Tracking ID is required",
+            });
+            return;
+          }
+
+          // ============================================================
+          // GET AUTHENTICATED USER ID FROM SOCKET
+          // ============================================================
+          const userId = (socket as any).data?.userId;
+
+          if (!userId) {
+            socket.emit("customer:track:error", {
+              message: "Unauthorized: Please login again",
             });
             return;
           }
 
           console.log(
-            `👤 [LiveTracking] Customer ${customerId} started tracking driver ${driverId} for ride ${rideId}`,
+            `👤 [LiveTracking] User ${userId} started tracking booking ${bookingId} with tracking ${trackingId}`,
           );
 
-          // Join ride room
-          socket.join(`ride_${rideId}`);
-          socket.join(`customer_${customerId}`);
+          // ============================================================
+          // CALL SERVICE - validates booking + tracking + authorization
+          // Service will verify if user is Customer OR Driver
+          // ============================================================
+          const trackingData = await getRideLiveTracking({
+            bookingId,
+            trackingId,
+            userId,
+            includeCachedLocation: false,
+          });
+
+          // ============================================================
+          // GET CACHED LOCATION FOR DRIVER
+          // ============================================================
+          const driverId = trackingData.driver.userId;
+          const cachedLoc = driverLocationCache.get(driverId);
+
+          let cachedLocData = null;
+          if (cachedLoc) {
+            cachedLocData = {
+              latitude: cachedLoc.latitude,
+              longitude: cachedLoc.longitude,
+              heading: cachedLoc.heading || 0,
+              speed: cachedLoc.speed || 0,
+              timestamp: cachedLoc.timestamp || new Date().toISOString(),
+            };
+          }
+
+          // If cached location exists, update tracking data with it
+          if (cachedLocData) {
+            trackingData.driver.cachedLocation = cachedLocData;
+          }
+
+          // ============================================================
+          // JOIN ROOMS (Only after successful validation)
+          // ============================================================
+          socket.join(`ride_${bookingId}`);
+          socket.join(`user_${userId}`);
 
           // Store tracking
-          if (!rideTrackingRooms.has(rideId)) {
-            rideTrackingRooms.set(rideId, new Set());
+          if (!rideTrackingRooms.has(bookingId)) {
+            rideTrackingRooms.set(bookingId, new Set());
           }
-          rideTrackingRooms.get(rideId)?.add(socket.id);
+          rideTrackingRooms.get(bookingId)?.add(socket.id);
 
-          // Send current cached location if available
-          const cachedLocation = driverLocationCache.get(driverId);
-          if (cachedLocation) {
-            socket.emit("driver:live:location", {
-              driverId,
-              rideId,
-              ...cachedLocation,
-            });
-          } else {
-            // If no cached location, try to get from database (optional)
-            // You can fetch from RideDriverLocation here
-          }
-
+          // ============================================================
+          // SEND SUCCESS RESPONSE
+          // ============================================================
           socket.emit("customer:track:success", {
             success: true,
             message: "Now tracking driver",
-            data: { driverId, rideId },
+            data: trackingData,
           });
+
+          // ============================================================
+          // SEND CACHED LOCATION IF AVAILABLE
+          // ============================================================
+          if (cachedLoc) {
+            socket.emit("driver:live:location", {
+              driverId,
+              rideId: bookingId,
+              latitude: cachedLoc.latitude,
+              longitude: cachedLoc.longitude,
+              heading: cachedLoc.heading || 0,
+              speed: cachedLoc.speed || 0,
+              timestamp: cachedLoc.timestamp || new Date().toISOString(),
+              fromCache: true,
+            });
+          }
         } catch (error) {
           console.error("❌ [LiveTracking] Error tracking driver:", error);
+
+          // Handle known error types
+          let errorMessage = "Failed to track driver";
+          if (error instanceof Error) {
+            const errorKey = error.message;
+            errorMessage = SOCKET_ERROR_MESSAGES[errorKey] || error.message;
+          }
+
           socket.emit("customer:track:error", {
-            message:
-              error instanceof Error ? error.message : "Failed to track driver",
+            message: errorMessage,
           });
         }
       },
@@ -278,30 +402,39 @@ export const rideLiveTrackingHandler = (io: Server) => {
     // ============================================================
     socket.on(
       "customer:track:stop",
-      async (data: { customerId: string; rideId: string }) => {
+      async (data: { bookingId: string; trackingId?: string }) => {
         try {
-          const { customerId, rideId } = data;
+          const { bookingId, trackingId } = data;
 
-          if (!customerId || !rideId) {
+          if (!bookingId || bookingId.trim() === "") {
             socket.emit("customer:track:error", {
-              message: "Missing required fields",
+              message: "Booking ID is required",
+            });
+            return;
+          }
+
+          const userId = (socket as any).data?.userId;
+
+          if (!userId) {
+            socket.emit("customer:track:error", {
+              message: "Unauthorized",
             });
             return;
           }
 
           console.log(
-            `👤 [LiveTracking] Customer ${customerId} stopped tracking ride ${rideId}`,
+            `👤 [LiveTracking] User ${userId} stopped tracking booking ${bookingId}`,
           );
 
           // Leave rooms
-          socket.leave(`ride_${rideId}`);
-          socket.leave(`customer_${customerId}`);
+          socket.leave(`ride_${bookingId}`);
+          socket.leave(`user_${userId}`);
 
           // Remove from tracking
-          if (rideTrackingRooms.has(rideId)) {
-            rideTrackingRooms.get(rideId)?.delete(socket.id);
-            if (rideTrackingRooms.get(rideId)?.size === 0) {
-              rideTrackingRooms.delete(rideId);
+          if (rideTrackingRooms.has(bookingId)) {
+            rideTrackingRooms.get(bookingId)?.delete(socket.id);
+            if (rideTrackingRooms.get(bookingId)?.size === 0) {
+              rideTrackingRooms.delete(bookingId);
             }
           }
 
@@ -323,26 +456,23 @@ export const rideLiveTrackingHandler = (io: Server) => {
         console.log(`🔌 [LiveTracking] Client disconnected: ${socket.id}`);
 
         // Find and clean up any active tracking for this socket
-        for (const [rideId, sockets] of rideTrackingRooms) {
+        for (const [bookingId, sockets] of rideTrackingRooms) {
           if (sockets.has(socket.id)) {
             sockets.delete(socket.id);
             if (sockets.size === 0) {
-              rideTrackingRooms.delete(rideId);
+              rideTrackingRooms.delete(bookingId);
             }
             break;
           }
         }
 
-        // Find if this was a driver
-        for (const [driverId, rideId] of driverRideMap) {
-          // Check if this driver's socket is the one disconnecting
-          // We can't directly map socket to driver here, but we can check
-          // by seeing if the driver is in any room
+        // Find if this was a driver and clean up safely
+        for (const [driverId, bookingId] of driverRideMap) {
           const driverRoom = `driver_${driverId}`;
           const room = io.sockets.adapter.rooms.get(driverRoom);
           if (!room || !room.has(socket.id)) {
             // Driver might have disconnected
-            // We'll keep the mapping for now, cleanup on timeout
+            // Keep mapping for now, cleanup on timeout or reconnect
           }
         }
       } catch (error) {
@@ -353,22 +483,16 @@ export const rideLiveTrackingHandler = (io: Server) => {
 };
 
 // ============================================================
-// EXPORT: Get cached driver location (for API use)
+// EXPORT: Utilities
 // ============================================================
 export const getCachedDriverLocation = (driverId: string) => {
   return driverLocationCache.get(driverId) || null;
 };
 
-// ============================================================
-// EXPORT: Check if driver is live tracking
-// ============================================================
 export const isDriverLiveTracking = (driverId: string) => {
   return driverRideMap.has(driverId);
 };
 
-// ============================================================
-// EXPORT: Cleanup on server shutdown
-// ============================================================
 export const cleanupLiveTracking = () => {
   rideTrackingRooms.clear();
   driverRideMap.clear();
