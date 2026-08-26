@@ -6,6 +6,19 @@ import { RideLocationService } from "../../../services/tizzyos/cab/rideLocationS
 import { RideDispatchService } from "../../../services/tizzyos/cab/rideDispatchService";
 import driverStatusService from "../../../services/tizzyos/cab/rideOnlineDriverService";
 
+// =====================================================
+// ✅ SINGLETON DISPATCH SERVICE & DEDUPLICATION
+// =====================================================
+const processingResponses = new Set<string>();
+let dispatchServiceInstance: RideDispatchService | null = null;
+
+const getDispatchService = (): RideDispatchService => {
+  if (!dispatchServiceInstance) {
+    dispatchServiceInstance = new RideDispatchService();
+  }
+  return dispatchServiceInstance;
+};
+
 export const socketHandlers = (io: Server): void => {
   const socketService = RideSocketService.getInstance();
   socketService.initialize(io);
@@ -258,7 +271,7 @@ export const socketHandlers = (io: Server): void => {
     });
 
     // =====================================================
-    // ✅ DRIVER RESPONSE (ACCEPT/REJECT)
+    // ✅ DRIVER RESPONSE (ACCEPT/REJECT) - FIXED WITH DEDUPLICATION
     // =====================================================
     socket.on(
       "driver-response",
@@ -268,6 +281,19 @@ export const socketHandlers = (io: Server): void => {
         console.log(`🎯 [BACKEND] Socket ID: ${socket.id}`);
         console.log(`🎯 [BACKEND] Action: ${data.action}`);
         console.log(`🎯 [BACKEND] Request ID: ${data.requestId}`);
+
+        // ✅ CRITICAL FIX - DEDUPLICATION
+        const key = `${data.requestId}-${data.action}`;
+
+        if (processingResponses.has(key)) {
+          console.log(`🎯 [BACKEND] ⏭️ Duplicate response ignored: ${key}`);
+          socket.emit("error", { message: "Request already being processed" });
+          console.log(`🎯 [BACKEND] ========================================`);
+          return;
+        }
+
+        processingResponses.add(key);
+        console.log(`🎯 [BACKEND] ✅ Added to processing set: ${key}`);
 
         try {
           const userId = socketService["socketRooms"].get(socket.id);
@@ -308,7 +334,8 @@ export const socketHandlers = (io: Server): void => {
             return;
           }
 
-          const dispatchService = new RideDispatchService();
+          // ✅ Use singleton dispatch service
+          const dispatchService = getDispatchService();
 
           if (data.action === "accept") {
             console.log(`🎯 [BACKEND] 🚗 Driver ACCEPTING ride`);
@@ -336,6 +363,12 @@ export const socketHandlers = (io: Server): void => {
         } catch (error) {
           console.error(`🎯 [BACKEND] ❌ Driver response failed:`, error);
           socket.emit("error", { message: "Failed to process response" });
+        } finally {
+          // ✅ Remove from processing set after delay
+          setTimeout(() => {
+            processingResponses.delete(key);
+            console.log(`🎯 [BACKEND] 🧹 Removed from processing set: ${key}`);
+          }, 5000);
         }
         console.log(`🎯 [BACKEND] ========================================`);
       },
@@ -350,7 +383,6 @@ export const socketHandlers = (io: Server): void => {
       console.log(`🧪 [BACKEND] Socket ID: ${socket.id}`);
       console.log(`🧪 [BACKEND] Data:`, JSON.stringify(data, null, 2));
 
-      // ✅ COMPLETE PAYLOAD with customer and booking details
       io.emit("new-ride-request", {
         requestId: "test_req_" + Date.now(),
         customer: {
@@ -381,9 +413,7 @@ export const socketHandlers = (io: Server): void => {
         isRetry: false,
         batchNumber: "1",
       });
-      console.log(
-        `🧪 [BACKEND] ✅ Test ride request broadcasted with complete payload!`,
-      );
+      console.log(`🧪 [BACKEND] ✅ Test ride request broadcasted!`);
       console.log(`🧪 [BACKEND] ========================================`);
     });
 

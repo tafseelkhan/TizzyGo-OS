@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 export interface QRTokenData {
   bookingId: string;
   trackingId: string;
-  rideId: mongoose.Types.ObjectId;
+  rideId: mongoose.Types.ObjectId; 
   customerId: mongoose.Types.ObjectId;
   driverId: mongoose.Types.ObjectId;
   type: "pickup" | "drop";

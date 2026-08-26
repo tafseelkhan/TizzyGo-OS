@@ -171,9 +171,9 @@ export class RideTrackingService {
         coordinates: [location.longitude, location.latitude],
         latitude: location.latitude,
         longitude: location.longitude,
-        address: location.address || tracking.location?.address || "",
-        googlePlaceId:
-          location.googlePlaceId || tracking.location?.googlePlaceId || "",
+        // address: location.address || tracking.location?.address || "",
+        // googlePlaceId:
+        //   location.googlePlaceId || tracking.location?.googlePlaceId || "",
       };
 
       tracking.heading = location.heading;

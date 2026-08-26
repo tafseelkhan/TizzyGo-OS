@@ -27,8 +27,8 @@ export interface IRideTracking extends Document {
     coordinates: [number, number];
     latitude: number;
     longitude: number;
-    address: string;
-    googlePlaceId: string;
+    // address: string;
+    // googlePlaceId: string;
   };
   heading?: number;
   speed?: number;
@@ -113,14 +113,14 @@ const RideTrackingSchema = new Schema<IRideTracking>(
         type: Number,
         required: true,
       },
-      address: {
-        type: String,
-        required: true,
-      },
-      googlePlaceId: {
-        type: String,
-        required: true,
-      },
+      // address: {
+      //   type: String,
+      //   required: true,
+      // },
+      // googlePlaceId: {
+      //   type: String,
+      //   required: true,
+      // },
     },
     heading: {
       type: Number,

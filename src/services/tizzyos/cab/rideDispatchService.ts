@@ -361,6 +361,7 @@ export class RideDispatchService extends EventEmitter {
           longitude: booking.pickup.longitude,
           radius: radius,
           limit: needed + 5,
+          isTrackingOn: true, // ✅ YEH ADD KARO!
         });
 
         console.log(
@@ -703,6 +704,7 @@ export class RideDispatchService extends EventEmitter {
         longitude: booking.pickup.longitude,
         radius: radius,
         limit: 5,
+        isTrackingOn: true, // ✅ YEH ADD KARO!
       });
 
       const availableDrivers = drivers.filter(
@@ -1120,28 +1122,56 @@ export class RideDispatchService extends EventEmitter {
         // ✅ SOCKET EVENTS - ONLY AFTER COMMIT
         // =============================================
 
-        // 1. Customer: driver-accepted
+        // 1. Customer: driver-accepted (ADD quoteId)
         this.socketService.emitToCustomer(
           customerId.toString(),
           "driver-accepted",
           {
             bookingId: booking.bookingId,
             trackingId: trackingId,
+            quoteId: booking.quoteId, // ✅ ADD THIS
             driverId: driverId.toString(),
             message: "Driver has accepted your ride request",
           },
         );
 
-        // 2. Driver: ride-accepted
+        // 2. Driver: ride-accepted (ADD quoteId)
         this.socketService.emitToDriver(driverId.toString(), "ride-accepted", {
           bookingId: booking.bookingId,
           trackingId: trackingId,
+          quoteId: booking.quoteId, // ✅ ADD THIS
           customerId: customerId.toString(),
           pickup: booking.pickup,
           destination: booking.destination,
           fare: booking.fare?.totalFare || 0,
           message: "You have accepted the ride",
         });
+
+        // 5. Customer: ride-status-change (ADD quoteId)
+        this.socketService.emitToCustomer(
+          customerId.toString(),
+          "ride-status-change",
+          {
+            bookingId: booking.bookingId,
+            trackingId: trackingId,
+            quoteId: booking.quoteId, // ✅ ADD THIS
+            status: "accepted",
+            message: "Driver is on the way",
+          },
+        );
+
+        // 6. Driver: ride-status-change (ADD quoteId)
+        this.socketService.emitToDriver(
+          driverId.toString(),
+          "ride-status-change",
+          {
+            bookingId: booking.bookingId,
+            trackingId: trackingId,
+            quoteId: booking.quoteId, // ✅ ADD THIS
+            status: "accepted",
+            message: "Ride accepted",
+          },
+        );
 
         // 3. Customer: qr-generated
         this.socketService.emitToCustomer(
@@ -1164,30 +1194,6 @@ export class RideDispatchService extends EventEmitter {
           dropQR: dropQR,
           message: "QR codes ready for verification",
         });
-
-        // 5. Customer: ride-status-change
-        this.socketService.emitToCustomer(
-          customerId.toString(),
-          "ride-status-change",
-          {
-            bookingId: booking.bookingId,
-            trackingId: trackingId, // ✅ ADDED
-            status: "accepted",
-            message: "Driver is on the way",
-          },
-        );
-
-        // 6. Driver: ride-status-change
-        this.socketService.emitToDriver(
-          driverId.toString(),
-          "ride-status-change",
-          {
-            bookingId: booking.bookingId,
-            trackingId: trackingId, // ✅ ADDED
-            status: "accepted",
-            message: "Ride accepted",
-          },
-        );
 
         this.emit("driver-accepted", {
           bookingId: booking.bookingId,

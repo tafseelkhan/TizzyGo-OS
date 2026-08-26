@@ -317,15 +317,6 @@ export class RideBookingService {
         driverId: new mongoose.Types.ObjectId(),
         type: "pickup",
       });
-      console.log("✅ QR token generated");
-
-      const qrDataURI = await generateQRCodeDataURI(qrToken);
-      console.log("✅ QR code generated");
-
-      booking.qr = {
-        token: qrToken,
-        qrUrl: qrDataURI,
-      };
 
       await booking.save({ session });
       await session.commitTransaction();

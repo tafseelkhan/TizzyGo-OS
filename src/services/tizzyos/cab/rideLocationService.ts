@@ -1,3 +1,5 @@
+// services/tizzyos/cab/rideLocationService.ts
+
 import mongoose from "mongoose";
 import RideDriverLocation from "../../../models/tizzyos/cab/rideDriverLocation";
 import RideDriverStatus from "../../../models/tizzyos/cab/rideDriverStatus";
@@ -64,6 +66,7 @@ export class RideLocationService {
     this.locationCache = new Map();
   }
 
+  // ✅ FIXED: Add retry logic for write conflicts
   async updateDriverLocation(data: IDriverLocationData): Promise<void> {
     const validatedUserId = this.validateObjectId(data.userId);
 
@@ -77,77 +80,107 @@ export class RideLocationService {
       return;
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // ✅ ADD RETRY LOGIC FOR WRITE CONFLICTS
+    let retries = 3;
+    let lastError: Error | null = null;
 
-    try {
-      const locationPoint: ILocationPoint = {
-        type: "Point",
-        coordinates: [data.longitude, data.latitude],
-        latitude: data.latitude,
-        longitude: data.longitude,
-      };
+    while (retries > 0) {
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      const location = await RideDriverLocation.findOneAndUpdate(
-        { userId: validatedUserId },
-        {
-          $set: {
-            userId: validatedUserId,
-            isTrackingOn: data.isTrackingOn,
-            location: locationPoint,
-            heading: data.heading,
-            speed: data.speed,
-            accuracy: data.accuracy,
-            bearing: data.bearing,
-            altitude: data.altitude,
-            provider: data.provider,
-            batteryLevel: data.batteryLevel,
-            networkType: data.networkType,
-            isMockLocation: data.isMockLocation,
-            locationUpdatedAt: new Date(),
-            lastSocketUpdate: new Date(),
+      try {
+        const locationPoint: ILocationPoint = {
+          type: "Point",
+          coordinates: [data.longitude, data.latitude],
+          latitude: data.latitude,
+          longitude: data.longitude,
+        };
+
+        const location = await RideDriverLocation.findOneAndUpdate(
+          { userId: validatedUserId },
+          {
+            $set: {
+              userId: validatedUserId,
+              isTrackingOn: data.isTrackingOn,
+              location: locationPoint,
+              heading: data.heading,
+              speed: data.speed,
+              accuracy: data.accuracy,
+              bearing: data.bearing,
+              altitude: data.altitude,
+              provider: data.provider,
+              batteryLevel: data.batteryLevel,
+              networkType: data.networkType,
+              isMockLocation: data.isMockLocation,
+              locationUpdatedAt: new Date(),
+              lastSocketUpdate: new Date(),
+            },
+            $setOnInsert: {
+              driverCode: validatedUserId.toString(),
+            },
           },
-          $setOnInsert: {
-            driverCode: validatedUserId.toString(),
+          {
+            upsert: true,
+            returnDocument: "after",
+            session,
+            runValidators: true,
           },
-        },
-        {
-          upsert: true,
-          returnDocument: 'after',
-          session,
-          runValidators: true,
-        },
-      );
+        );
 
-      if (!location) {
-        throw new Error("Failed to update driver location");
-      }
+        if (!location) {
+          throw new Error("Failed to update driver location");
+        }
 
-      // ✅ 2. Check karo ki user online hai ya nahi (SIRF CHECK - UPDATE NAHI)
-      const driverStatus = await RideDriverStatus.findOne({
-        userId: validatedUserId,
-        isOnline: true,
-      }).session(session);
+        // ✅ 2. Check karo ki user online hai ya nahi (SIRF CHECK - UPDATE NAHI)
+        const driverStatus = await RideDriverStatus.findOne({
+          userId: validatedUserId,
+          isOnline: true,
+        }).session(session);
 
-      // ✅ 3. Agar online hai toh broadcast karo, nahi toh skip
-      if (driverStatus) {
+        // ✅ 3. Agar online hai toh broadcast karo, nahi toh skip
+        if (driverStatus) {
+          await this.broadcastDriverLocationToCustomers(validatedUserId, data);
+        }
+
+        await session.commitTransaction();
+
+        this.locationCache.set(validatedUserId.toString(), {
+          data: { ...data },
+          timestamp: Date.now(),
+        });
+
         await this.broadcastDriverLocationToCustomers(validatedUserId, data);
+
+        // ✅ SUCCESS - Exit function
+        return;
+      } catch (error: any) {
+        await session.abortTransaction();
+
+        // ✅ RETRY ON WRITE CONFLICT
+        if (
+          error.code === 112 ||
+          error.codeName === "WriteConflict" ||
+          error.code === 112
+        ) {
+          retries--;
+          lastError = error;
+          if (retries > 0) {
+            const delay = 50 * (4 - retries);
+            console.log(
+              `⚠️ [Location] Write conflict, retrying in ${delay}ms (${retries} left)`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+
+        throw error;
+      } finally {
+        await session.endSession();
       }
-      
-      await session.commitTransaction();
-
-      this.locationCache.set(validatedUserId.toString(), {
-        data: { ...data },
-        timestamp: Date.now(),
-      });
-
-      await this.broadcastDriverLocationToCustomers(validatedUserId, data);
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      await session.endSession();
     }
+
+    throw lastError || new Error("Update failed after retries");
   }
 
   private shouldThrottleUpdate(
@@ -238,7 +271,7 @@ export class RideLocationService {
           },
         },
         {
-          returnDocument: 'after',
+          returnDocument: "after",
           runValidators: true,
         },
       );
@@ -497,7 +530,7 @@ export class RideLocationService {
         },
       },
       {
-        returnDocument: 'after',
+        returnDocument: "after",
         runValidators: true,
       },
     );

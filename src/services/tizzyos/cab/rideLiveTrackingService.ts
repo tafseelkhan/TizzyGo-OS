@@ -1,3 +1,5 @@
+// services/tizzyos/cab/rideLiveTrackingService.ts
+
 import { Types } from "mongoose";
 import RideBooking from "../../../models/tizzyos/cab/rideBooking";
 import RideDriverLocation from "../../../models/tizzyos/cab/rideDriverLocation";
@@ -55,6 +57,7 @@ export interface TrackingCustomer {
 export interface RideLiveTrackingData {
   bookingId: string;
   trackingId?: string;
+  quoteId?: string;
   rideCode: string;
   status: string;
   pickup: {
@@ -76,6 +79,7 @@ export interface RideLiveTrackingData {
 export interface RideLiveTrackingResponse {
   bookingId: string;
   trackingId?: string;
+  quoteId?: string;
   rideCode: string;
   status: string;
   pickup: {
@@ -97,6 +101,7 @@ export interface RideLiveTrackingResponse {
 export interface GetRideTrackingOptions {
   bookingId: string;
   trackingId: string;
+  quoteId: string;
   userId: string;
   includeCachedLocation?: boolean;
   cachedLocation?: {
@@ -118,7 +123,7 @@ const TRACKABLE_STATUSES = [
   "pickupVerified",
   "inTransit",
   "dropVerified",
-  "paymentPending"
+  "paymentPending",
 ];
 
 const COMPLETED_STATUSES = ["completed", "cancelled", "no_driver_found"];
@@ -128,18 +133,19 @@ const COMPLETED_STATUSES = ["completed", "cancelled", "no_driver_found"];
 // ============================================================
 
 export const getRideLiveTracking = async (
-  options: GetRideTrackingOptions
+  options: GetRideTrackingOptions,
 ): Promise<RideLiveTrackingResponse> => {
   const {
     bookingId,
     trackingId,
+    quoteId,
     userId,
     includeCachedLocation = false,
     cachedLocation = null,
   } = options;
 
   // ============================================================
-  // 1. VALIDATE: Booking ID & Tracking ID
+  // 1. VALIDATE: Booking ID & Tracking ID & Quote ID
   // ============================================================
   if (!bookingId || bookingId.trim() === "") {
     throw new Error("BOOKING_ID_REQUIRED");
@@ -149,16 +155,17 @@ export const getRideLiveTracking = async (
     throw new Error("TRACKING_ID_REQUIRED");
   }
 
-  if (!bookingId) {
-    throw new Error("BOOKING_NOT_FOUND");
+  if (!quoteId || quoteId.trim() === "") {
+    throw new Error("QUOTE_ID_REQUIRED");
   }
 
   // ============================================================
-  // 2. FETCH: Find RideBooking with BOTH IDs
+  // 2. FETCH: Find RideBooking with ALL 3 IDs
   // ============================================================
   const booking = await RideBooking.findOne({
     bookingId: bookingId,
     trackingId: trackingId,
+    quoteId: quoteId,
   }).lean();
 
   if (!booking) {
@@ -215,7 +222,6 @@ export const getRideLiveTracking = async (
   let driverLocationUpdatedAt: Date | undefined;
 
   if (driverLocationDoc) {
-    // location.coordinates format: [longitude, latitude]
     const loc = driverLocationDoc.location;
     if (loc && loc.coordinates && loc.coordinates.length === 2) {
       driverLocation = {
@@ -255,7 +261,6 @@ export const getRideLiveTracking = async (
     isTrackingOn: driverIsTrackingOn,
   };
 
-  // Add cached location if requested (for socket)
   if (includeCachedLocation && cachedLocation) {
     driver.cachedLocation = cachedLocation;
   }
@@ -273,7 +278,6 @@ export const getRideLiveTracking = async (
 
   if (customerLocationDoc) {
     const loc = customerLocationDoc.location;
-    // location.coordinates format: [longitude, latitude]
     if (loc && loc.coordinates && loc.coordinates.length === 2) {
       customerLocation = {
         longitude: loc.coordinates[0],
@@ -294,11 +298,12 @@ export const getRideLiveTracking = async (
   };
 
   // ============================================================
-  // 8. BUILD: Final response
+  // 8. BUILD: Final response (including quoteId)
   // ============================================================
   const response: RideLiveTrackingResponse = {
     bookingId: booking.bookingId,
     trackingId: booking.trackingId,
+    quoteId: booking.quoteId,
     rideCode: booking.rideCode,
     status: booking.status,
 

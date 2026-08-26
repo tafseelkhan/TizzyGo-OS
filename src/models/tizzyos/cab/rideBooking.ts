@@ -100,10 +100,33 @@ export interface IRideBooking extends Document {
   retryHistory: IRetryHistory[];
   driversFound?: number;
   searchStartedAt?: Date;
-  qr: {
-    token: string;
-    qrUrl: string;
+
+  // ✅ NEW: QR structure with separate pickup and drop QR
+  qr?: {
+    pickup?: {
+      token?: string;
+      qrUrl?: string;
+      generatedAt?: Date;
+      expiresAt?: Date;
+      scannedAt?: Date;
+      status?: "pending" | "scanned" | "expired";
+    };
+    drop?: {
+      token?: string;
+      qrUrl?: string;
+      generatedAt?: Date;
+      expiresAt?: Date;
+      scannedAt?: Date;
+      status?: "pending" | "scanned" | "expired";
+    };
   };
+
+  // ✅ NEW: Root level verification fields
+  pickupVerified?: boolean;
+  pickupVerifiedAt?: Date;
+  dropVerified?: boolean;
+  dropVerifiedAt?: Date;
+
   status:
     | "searching"
     | "accepted"
@@ -121,10 +144,6 @@ export interface IRideBooking extends Document {
   searchCompleted: boolean;
   acceptedAt?: Date;
   arrivedAt?: Date;
-  pickupVerified: boolean;
-  pickupVerifiedAt?: Date;
-  dropVerified: boolean;
-  dropVerifiedAt?: Date;
   startedAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
@@ -290,10 +309,59 @@ const RideBookingSchema = new Schema<IRideBooking>(
     },
     driversFound: { type: Number, default: 0 },
     searchStartedAt: { type: Date, required: false },
+
+    // ✅ NEW: QR structure with separate pickup and drop QR
     qr: {
-      token: { type: String, required: true },
-      qrUrl: { type: String, required: true },
+      type: {
+        pickup: {
+          token: { type: String, required: false },
+          qrUrl: { type: String, required: false },
+          generatedAt: { type: Date, required: false },
+          expiresAt: { type: Date, required: false },
+          scannedAt: { type: Date, required: false },
+          status: {
+            type: String,
+            enum: ["pending", "scanned", "expired"],
+            required: false,
+          },
+        },
+        drop: {
+          token: { type: String, required: false },
+          qrUrl: { type: String, required: false },
+          generatedAt: { type: Date, required: false },
+          expiresAt: { type: Date, required: false },
+          scannedAt: { type: Date, required: false },
+          status: {
+            type: String,
+            enum: ["pending", "scanned", "expired"],
+            required: false,
+          },
+        },
+      },
+      required: false,
+      default: undefined,
     },
+
+    // ✅ NEW: Root level verification fields
+    pickupVerified: {
+      type: Boolean,
+      default: false,
+      required: false,
+    },
+    pickupVerifiedAt: {
+      type: Date,
+      required: false,
+    },
+    dropVerified: {
+      type: Boolean,
+      default: false,
+      required: false,
+    },
+    dropVerifiedAt: {
+      type: Date,
+      required: false,
+    },
+
     status: {
       type: String,
       enum: [
@@ -317,10 +385,6 @@ const RideBookingSchema = new Schema<IRideBooking>(
     searchCompleted: { type: Boolean, default: false, required: true },
     acceptedAt: { type: Date, required: false },
     arrivedAt: { type: Date, required: false },
-    pickupVerified: { type: Boolean, default: false, required: true },
-    pickupVerifiedAt: { type: Date, required: false },
-    dropVerified: { type: Boolean, default: false, required: true },
-    dropVerifiedAt: { type: Date, required: false },
     startedAt: { type: Date, required: false },
     completedAt: { type: Date, required: false },
     cancelledAt: { type: Date, required: false },
@@ -354,7 +418,7 @@ const RideBookingSchema = new Schema<IRideBooking>(
   },
 );
 
-// Indexes
+// ✅ UPDATED INDEXES
 RideBookingSchema.index({ customerId: 1 });
 RideBookingSchema.index({ driverId: 1 });
 RideBookingSchema.index({ status: 1 });
@@ -364,5 +428,13 @@ RideBookingSchema.index({ searchCompleted: 1 });
 RideBookingSchema.index({ pickupVerified: 1, dropVerified: 1 });
 RideBookingSchema.index({ "fare.totalFare": 1 });
 RideBookingSchema.index({ createdAt: -1 });
+
+// ✅ NEW: QR token indexes
+RideBookingSchema.index({ "qr.pickup.token": 1 });
+RideBookingSchema.index({ "qr.drop.token": 1 });
+
+// ✅ NEW: Individual verification indexes
+RideBookingSchema.index({ pickupVerified: 1 });
+RideBookingSchema.index({ dropVerified: 1 });
 
 export default mongoose.model<IRideBooking>("RideBooking", RideBookingSchema);
