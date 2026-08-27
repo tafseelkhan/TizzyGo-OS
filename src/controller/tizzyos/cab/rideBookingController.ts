@@ -323,11 +323,13 @@ export const getBooking = async (
     }
 
     const bookingService = new RideBookingService();
-    const booking = await bookingService.getBooking(bookingId);
+    
+    // ✅ New method that returns enriched booking
+    const enrichedBooking = await bookingService.getEnrichedBooking(bookingId);
 
     res.status(200).json({
       success: true,
-      data: booking,
+      data: enrichedBooking,
     });
   } catch (error) {
     const errorMessage =

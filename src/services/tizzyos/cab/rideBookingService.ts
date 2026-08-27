@@ -13,6 +13,8 @@ import {
 } from "../../../utils/tizzyos/cab/idGenerator";
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
+import RideDriver from "../../../models/tizzyos/cab/rideDriver";
+import User from "../../../models/tizzygo/auths/User";
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
 import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
 import { RideDispatchService } from "../../../services/tizzyos/cab/rideDispatchService";
@@ -457,10 +459,87 @@ export class RideBookingService {
   // Called By:
   // Various services
   // =====================================================
+  // src/services/RideBookingService.ts
 
+  async getEnrichedBooking(bookingId: string): Promise<any> {
+    console.log("=========================================");
+    console.log("🔍 GET ENRICHED BOOKING");
+    console.log("=========================================");
+    console.log(`   Booking ID: ${bookingId}`);
+
+    if (!bookingId || typeof bookingId !== "string") {
+      console.log("❌ Invalid booking ID");
+      throw new Error("Invalid booking ID");
+    }
+
+    // 1️⃣ Get booking
+    const booking = await RideBooking.findOne({ bookingId }).lean();
+    if (!booking) {
+      console.log("❌ Booking not found:", bookingId);
+      throw new Error(`Booking not found with ID: ${bookingId}`);
+    }
+
+    console.log("✅ Booking found:", {
+      bookingId: booking.bookingId,
+      customerId: booking.customerId,
+      driverId: booking.driverId,
+    });
+
+    // 2️⃣ Get Customer Details from User model
+    let customerDetails = null;
+    if (booking.customerId) {
+      customerDetails = await User.findById(booking.customerId)
+        .select("name email phone image roles")
+        .lean();
+
+      console.log("✅ Customer found:", {
+        name: customerDetails?.name,
+        phone: customerDetails?.phone,
+      });
+    }
+
+    // 3️⃣ Get Driver Details from User + RideDriver models
+    let driverDetails = null;
+    if (booking.driverId) {
+      // First get user details
+      const driverUser = await User.findById(booking.driverId)
+        .select("name email phone image roles")
+        .lean();
+
+      if (driverUser) {
+        // Then get RideDriver profile
+        const rideDriver = await RideDriver.findOne({
+          userId: booking.driverId,
+        }).lean();
+
+        driverDetails = {
+          ...driverUser,
+          driverProfile: rideDriver || null,
+        };
+
+        console.log("✅ Driver found:", {
+          name: driverUser.name,
+          phone: driverUser.phone,
+          hasVehicle: !!rideDriver,
+          vehicleNumber: rideDriver?.vehicle?.vehicleNumber,
+        });
+      }
+    }
+
+    console.log("=========================================");
+
+    // 4️⃣ Return enriched response
+    return {
+      ...booking,
+      customer: customerDetails,
+      driver: driverDetails,
+    };
+  }
+
+  // ✅ Keep old method for backward compatibility
   async getBooking(bookingId: string): Promise<any> {
     console.log("=========================================");
-    console.log("🔍 GET BOOKING");
+    console.log("🔍 GET BOOKING (Legacy)");
     console.log("=========================================");
     console.log(`   Booking ID: ${bookingId}`);
 
