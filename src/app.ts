@@ -11,6 +11,9 @@ import { logger } from "./utils/tizzyos/seller/logger";
 // 🔥 IMPORT WEBHOOK FIRST
 import webhookRoutes from "./routes/tizzygo/buynow/razorpayWebhookRoutes";
 
+// 🔥 IMPORT PAYOUT PORTAL ROUTES
+import PayoutPortalSetupRoutes from "./routes/tizzyos/PayoutPortal/PayoutPortalSetupRoutes";
+
 import authRoutes from "./routes/tizzygo/auths/authRoutes";
 import colorRoutes from "./routes/tizzygo/auths/colorRoutes";
 import cartRoutes from "./routes/tizzygo/cart/addToCartRoutes";
@@ -54,9 +57,7 @@ import shipregisterRoutes from "./routes/tizzyos/shipping/fws/fwsRegisterRoutes"
 import onlineRoutes from "./routes/tizzyos/shipping/fws/fwsRiderOnlineRoutes";
 import riderIdRoutes from "./routes/tizzyos/shipping/fws/fwsSearchRiderIdRoutes";
 import getRiderLocationRoutes from "./routes/tizzyos/shipping/fws/fwsRiderLocationRoutes";
-// import sellerPaymentRoutes from "./routes/tizzyos/seller/PayOut/Portal/wallet";
 import deliveryTrackingRoutes from "./routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
-import walletSetupRoutes from "./routes/tizzyos/seller/PayOut/walletSetupRoutes";
 import sellerLocation from "./routes/tizzyos/seller/locations/locationsRoutes";
 import getTrackingStatusRoutes from "./routes/tizzyos/shipping/orders/trackingStatus";
 import trackOrderRoutes from "./routes/tizzyos/shipping/orders/trackOrderRoutes";
@@ -72,6 +73,7 @@ import rideTypesRoutes from "./routes/tizzyos/cab/rideTypeRoutes";
 import rideTrackingRoutes from "./routes/tizzyos/cab/rideTrackingRoutes";
 import rideRequestRoutes from "./routes/tizzyos/cab/rideRequestRoutes";
 import rideLiveTrackingRoutes from "./routes/tizzyos/cab/rideLiveTrackingRoutes";
+
 /* =========================================================
    EXPRESS APP
    ========================================================= */
@@ -87,6 +89,11 @@ app.use("/api/v0/payment/webhook", webhookRoutes);
    ========================================================= */
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ extended: true, limit: "500mb" }));
+
+/* =========================================================
+    PAYOUT PORTAL ROUTES
+   ========================================================= */
+app.use("/api/v0/payout-portal", PayoutPortalSetupRoutes);
 
 /* =========================================================
    FILES & STATIC
@@ -163,9 +170,7 @@ app.use("/api/v0", onlineRoutes);
 app.use("/api/v0", riderIdRoutes);
 app.use("/api/v0/track", getRiderLocationRoutes);
 app.use("/api/v0/tracking", getTrackingStatusRoutes);
-// app.use("/api/v0/payout-portal/wallet", sellerPaymentRoutes);
 app.use("/api/v0/delivery/tracking", deliveryTrackingRoutes);
-app.use("/api/v0/payout-portal/wallet-setup", walletSetupRoutes);
 app.use("/api/v0/user/address", sellerLocation);
 app.use("/api/v0/find", trackOrderRoutes);
 app.use("/api/v0/fws/warehouse", fwsApplicationRoutes);

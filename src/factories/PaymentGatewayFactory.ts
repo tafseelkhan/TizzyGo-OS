@@ -1,6 +1,6 @@
 import { IPaymentGateway } from "../interfaces/seller/IPaymentGateway";
 import { PaymentGatewayType } from "../enums/PaymentGatewayType";
-import { ZeptPayGateway } from "../gateways/ZeptPayGateway";
+// import { ZeptPayGateway } from "../gateways/ZeptPayGateway";
 import { RazorpayGateway } from "../gateways/RazorpayGateway";
 
 export class PaymentGatewayFactory {
@@ -9,10 +9,10 @@ export class PaymentGatewayFactory {
 
   static initialize(): void {
     // Register all gateways
-    this.gateways.set(
-      PaymentGatewayType.ZEPTPAY,
-      new ZeptPayGateway() as unknown as IPaymentGateway,
-    );
+    // this.gateways.set(
+    //   PaymentGatewayType.ZEPTPAY,
+    //   new ZeptPayGateway() as unknown as IPaymentGateway,
+    // );
     this.gateways.set(PaymentGatewayType.RAZORPAY, new RazorpayGateway());
 
     // Set active gateway from environment
@@ -66,6 +66,3 @@ export class PaymentGatewayFactory {
     return this.gateways.has(type);
   }
 }
-
-// Auto-initialize on import
-PaymentGatewayFactory.initialize();

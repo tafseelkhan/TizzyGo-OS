@@ -24,11 +24,11 @@ const SOCKET_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export const rideLiveTrackingHandler = (io: Server) => {
+
+  io.on("connection", (socket: Socket) => {
   console.log(`🔌 [LiveTracking] ========================================`);
   console.log(`🔌 [LiveTracking] 🚀 Handler initialized!`);
   console.log(`🔌 [LiveTracking] ========================================`);
-
-  io.on("connection", (socket: Socket) => {
     console.log(`🔌 [LiveTracking] ========================================`);
     console.log(`🔌 [LiveTracking] 🆕 NEW CLIENT CONNECTED`);
     console.log(`🔌 [LiveTracking] 📍 Socket ID: ${socket.id}`);
