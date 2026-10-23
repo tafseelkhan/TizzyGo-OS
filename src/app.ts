@@ -10,6 +10,7 @@ import { logger } from "./utils/tizzyos/seller/logger";
 
 // 🔥 IMPORT WEBHOOK FIRST
 import webhookRoutes from "./routes/tizzygo/buynow/razorpayWebhookRoutes";
+import PayoutWebhookRoutes from "./routes/tizzyos/PayoutPortal/PayoutWebhookRoutes";
 
 // 🔥 IMPORT PAYOUT PORTAL ROUTES
 import PayoutPortalSetupRoutes from "./routes/tizzyos/PayoutPortal/PayoutPortalSetupRoutes";
@@ -83,6 +84,7 @@ const app = express();
    🔥🔥🔥 ZeptPay WEBHOOK — MUST BE FIRST 🔥🔥🔥
    ========================================================= */
 app.use("/api/v0/payment/webhook", webhookRoutes);
+app.use("/api/v0/payout-portal", PayoutWebhookRoutes);
 
 /* =========================================================
    ❗ AFTER WEBHOOK — NORMAL BODY PARSERS

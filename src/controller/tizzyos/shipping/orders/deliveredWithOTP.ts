@@ -6,6 +6,7 @@ import Order from "../../../../models/tizzygo/checkout/order";
 import DeliveryTracking from "../../../../models/tizzyos/shipping/order/deliveryTracking";
 import User from "../../../../models/tizzygo/auths/User";
 import { sendOTPEmail } from "../../../../services/tizzyos/shippings/deliveryOTPServices";
+import DeliveryChargeEarningService from "../../../../services/tizzyos/PayOutPortal/DeliveryChargeEarningService";
 
 // ============================================
 // HELPER: Generate Scan ID for routeHistory
@@ -757,6 +758,37 @@ export const deliverWithOTP = async (req: Request, res: Response) => {
     console.log("✅ Order saved");
     console.log(`   Order status remains: ${order.status}`);
     console.log(`   Tracking status is: ${tracking.currentStatus}`);
+
+    // ============================================================
+    // 💰 FINALIZE DELIVERY PARTNER EARNINGS
+    // ============================================================
+
+    console.log("\n💰 === FINALIZING DELIVERY EARNINGS ===");
+
+    const deliveryEarningResult =
+      await DeliveryChargeEarningService.finalizeDeliveryEarnings({
+        order,
+        tracking,
+        session,
+      });
+
+    console.log("💰 Delivery earning result:", deliveryEarningResult);
+
+    console.log(
+      `💰 Delivery partners: ${deliveryEarningResult.partnerCount || 0}`,
+    );
+
+    console.log(
+      `💰 Total delivery partner earning: ₹${
+        deliveryEarningResult.totalPartnerEarning || 0
+      }`,
+    );
+
+    console.log("💰 Delivery earnings finalized successfully");
+
+    // ============================================================
+    // COMMIT EVERYTHING TOGETHER
+    // ============================================================
 
     await session.commitTransaction();
     session.endSession();

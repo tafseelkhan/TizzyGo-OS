@@ -1,19 +1,40 @@
 import express from "express";
-
 import {
   createPayoutAccount,
-  updatePayoutAccount,
-  getPayoutAccountStatus,
+  addBankFundAccount,
+  addVpaFundAccount,
+  addWalletFundAccount,
+  getGatewayAccountByUserId,
+  createPayout,
+  getPayout,
+  getFundAccount,
 } from "../../../controller/tizzyos/PayoutPortal/PayoutPortalSetupController";
-
 import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
 
 const router = express.Router();
 
-router.post("/razorpay/create", authMiddleware, createPayoutAccount);
+// ======================================================
+// ALL BELOW ROUTES REQUIRE AUTH
+// ======================================================
 
-router.patch("/razorpay/update", authMiddleware, updatePayoutAccount);
+// RazorpayX Contact
+router.post("/payout-account", authMiddleware, createPayoutAccount);
 
-router.get("/razorpay/:userId/status", authMiddleware, getPayoutAccountStatus);
+// Fund Accounts
+router.post("/payout-account/bank", authMiddleware, addBankFundAccount);
+router.post("/payout-account/vpa", authMiddleware, addVpaFundAccount);
+router.post("/payout-account/wallet", authMiddleware, addWalletFundAccount);
+
+// Get Account
+router.get("/payout-account/:userId", authMiddleware, getGatewayAccountByUserId);
+
+// Create Payout
+router.post("/seller-payout", authMiddleware, createPayout);
+
+// Get Payout
+router.get("/seller-payout/:payoutId", authMiddleware, getPayout);
+
+// Get Fund Account
+router.get("/fund-account/:fundAccountId", authMiddleware, getFundAccount);
 
 export default router;

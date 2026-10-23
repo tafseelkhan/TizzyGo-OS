@@ -14,7 +14,10 @@ export const getOrderConfirmation = async (req: AuthRequest, res: Response) => {
     console.log(`📋 CheckoutSession ID: ${req.params.checkoutSessionId}`);
     console.log(`👤 User ID: ${req.user?.userId}`);
 
-    const { checkoutSessionId } = req.params;
+    const checkoutSessionIdParam = req.params.checkoutSessionId;
+    const checkoutSessionId = Array.isArray(checkoutSessionIdParam)
+      ? checkoutSessionIdParam[0]
+      : checkoutSessionIdParam;
     const userId = req.user?.userId;
 
     if (!userId) {

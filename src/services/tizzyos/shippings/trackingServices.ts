@@ -116,7 +116,7 @@ export class TrackingService {
     excludeIds: string[] = [],
   ): Promise<{ userId: string; shipping: any; distance: number } | null> {
     const allPartners = await Shipping.find({
-      shippingType,
+      shippingType: shippingType as "RIDER" | "TRUCK",
       status: "approved",
       isOnline: true,
       isAvailable: true,

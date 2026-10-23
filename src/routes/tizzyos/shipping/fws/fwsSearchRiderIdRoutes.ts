@@ -3,6 +3,6 @@ import { getRiderIdFromToken } from '../../../../controller/tizzyos/shipping/fws
 
 const router = express.Router();
 
-router.get('/rider/get-rider-id', getRiderIdFromToken);
+router.get('/get-rider-id', getRiderIdFromToken);
 
 export default router;

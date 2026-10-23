@@ -12,11 +12,18 @@ import { AuthRequest } from "../../../../types/tizzyos/trackingTypes";
 
 export const getQRVisibility = async (req: AuthRequest, res: Response) => {
   try {
-    const { orderId } = req.params;
+    const rawOrderId = req.params.orderId;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
     const userId = req.user?.userId;
     if (!userId)
       return res.status(401).json({ error: "Authentication required" });
-    const result = await TrackingService.getQRVisibility(orderId, userId);
+    const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
+    if (!normalizedOrderId)
+      return res.status(400).json({ error: "Order ID is required" });
+    const result = await TrackingService.getQRVisibility(
+      normalizedOrderId,
+      userId,
+    );
     return res.status(200).json({ success: true, data: result });
   } catch (error: any) {
     return res.status(400).json({ success: false, message: error.message });
@@ -446,11 +453,17 @@ export const acceptAssignment = async (req: AuthRequest, res: Response) => {
 
 export const getOrderQRCode = async (req: AuthRequest, res: Response) => {
   try {
-    const { orderId } = req.params;
+    const rawOrderId = req.params.orderId;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    if (!orderId)
+      return res.status(400).json({ success: false, message: "Order ID is required" });
     const userId = req.user?.userId;
     if (!userId)
       return res.status(401).json({ error: "Authentication required" });
-    const result = await TrackingService.getOrderQRCode(orderId, userId);
+    const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
+    if (!normalizedOrderId)
+      return res.status(400).json({ error: "Order ID is required" });
+    const result = await TrackingService.getOrderQRCode(normalizedOrderId, userId);
     return res.status(200).json({ success: true, data: result });
   } catch (error: any) {
     return res.status(400).json({ success: false, message: error.message });
@@ -463,14 +476,17 @@ export const getOrderQRCode = async (req: AuthRequest, res: Response) => {
 
 export const getTrackingDetails = async (req: AuthRequest, res: Response) => {
   try {
-    const { orderId } = req.params;
+    const orderId = Array.isArray(req.params.orderId)
+      ? req.params.orderId[0]
+      : req.params.orderId;
     const userId = req.user?.userId;
     if (!userId)
       return res.status(401).json({ error: "Authentication required" });
     if (!orderId)
       return res.status(400).json({ error: "Order ID is required" });
+    const normalizedOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
     const tracking = await TrackingService.getTrackingByOrderId(
-      orderId,
+      normalizedOrderId,
       userId,
     );
     res.status(200).json({ success: true, data: tracking });
@@ -524,7 +540,9 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
     console.log("═══════════════════════════════════════");
     console.log("📥 Params:", req.params);
 
-    const order = await TrackingService.getOrderById(orderId);
+    const order = await TrackingService.getOrderById(
+      Array.isArray(orderId) ? orderId[0] : orderId,
+    );
     return res.status(200).json({
       success: true,
       message: "Order fetched successfully",

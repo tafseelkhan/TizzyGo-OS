@@ -65,7 +65,9 @@ export const createProduct = async (req: Request, res: Response) => {
     }
     console.log("userId:", sellerId);
 
-    const seller = await User.findById(sellerId).select("zeptPayAccountId name");
+    const seller = await User.findById(sellerId).select(
+      "zeptPayAccountId name",
+    );
 
     if (!seller?.zeptPayAccountId) {
       return res.status(400).json({
@@ -485,47 +487,127 @@ export const getProductDetailsForBuyNow = async (
   }
 };
 
+/**
+ * GET /user
+ * Returns lightweight list of products OWNED by the logged-in seller
+ * Query params: page, limit, category, search, inStock
+ */
 export const getUserProducts = async (req: Request, res: Response) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
-    console.log("Fetched products:", products);
+    // ---------- Auth check ----------
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
 
-    const response = products.map((p) => {
-      const v = p.variants?.[0];
+    // ---------- Pagination ----------
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+    const skip = (page - 1) * limit;
 
-      let image = null;
+    // ---------- Filters (scoped to this seller) ----------
+    const filter: Record<string, any> = {
+      sellerId: userId, // 🔥 sirf is user ke products
+    };
 
-      // CORRECT THE PATH - image is in v.fields.images[0]
-      if (v?.fields?.images?.[0]) {
-        image = v.fields.images[0];
+    if (req.query.category) filter.category = req.query.category;
+    if (req.query.subcategory) filter.subcategory = req.query.subcategory;
+
+    if (req.query.search) {
+      const search = String(req.query.search).trim();
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // ---------- Fetch (lean + selected fields) ----------
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select(
+          "title brand category subcategory " +
+            "variants.price variants.mrp variants.finalPrice variants.discount " +
+            "variants.offerText variants.images variants.isDefault " +
+            "variants.inStock variants.quantityAvailable " +
+            "verified createdAt",
+        )
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    // ---------- Shape response ----------
+    const response = products.map((p: any) => {
+      const defaultVariant =
+        p.variants?.find((v: any) => v.isDefault) || p.variants?.[0];
+
+      // Image fallback chain
+      let image: string | null = defaultVariant?.images?.[0] || null;
+      if (!image) {
+        for (const v of p.variants || []) {
+          if (v.images?.length) {
+            image = v.images[0];
+            break;
+          }
+        }
       }
-      // Also check v.images as backup
-      else if (v?.images?.[0]) {
-        image = v.images[0];
-      }
+
+      // Stock summary
+      const totalStock = (p.variants || []).reduce(
+        (sum: number, v: any) => sum + (v.quantityAvailable || 0),
+        0,
+      );
 
       return {
         id: p._id,
         title: p.title,
+        brand: p.brand,
         category: p.category,
-        price: p.variants[0]?.price,
-        image: image, // ← AB SAHI IMAGE AAYEGA!
-        variantsCount: p.variants.length,
+        subcategory: p.subcategory,
+
+        price: defaultVariant?.price ?? null,
+        mrp: defaultVariant?.mrp ?? null,
+        finalPrice: defaultVariant?.finalPrice ?? null,
+        discount: defaultVariant?.discount ?? 0,
+        offerText: defaultVariant?.offerText ?? null,
+
+        image,
+
+        variantsCount: p.variants?.length || 0,
+        inStock: totalStock > 0,
+        totalStock,
+
+        verified: p.verified,
         createdAt: p.createdAt,
-        // Also send variants for frontend compatibility
-        variants: p.variants,
       };
     });
 
-    console.log(
-      "API Response images:",
-      response.map((r) => r.image),
-    );
-    res.status(200).json({ products: response });
-  } catch (error) {
-    console.error("Get products error:", error);
-    console.error("Get all products error:", error);
-    res.status(500).json({ error: "Failed to fetch products" });
-    console.error("Get all products error:", error);
+    return res.status(200).json({
+      success: true,
+      products: response,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error: any) {
+    console.error("=== getUserProducts ERROR ===");
+    console.error("Message:", error?.message);
+    console.error("Stack:", error?.stack);
+    console.error("Full:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+      debug: error?.message, // 🔥 temporary — production me hata dena
+    });
   }
 };

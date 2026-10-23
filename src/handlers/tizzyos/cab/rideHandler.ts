@@ -317,7 +317,15 @@ export const socketHandlers = (io: Server): void => {
           console.log(`🎯 [BACKEND] Request status: ${request.status}`);
           console.log(`🎯 [BACKEND] Request driverId: ${request.driverId}`);
           console.log(`🎯 [BACKEND] UserId: ${userId}`);
-
+// 👇 BHAI, YAHAN YE DEBUG LOG ADD KARO
+console.log("🔍 [DRIVER ID DEBUG]", {
+  socketId: socket.id,
+  authenticatedUserId: userId,
+  requestId: request._id.toString(),
+  requestDriverId: request.driverId.toString(),
+  bookingId: request.bookingId?.toString(),
+  idsMatch: request.driverId.toString() === userId,
+});
           if (request.status !== "pending") {
             console.log(
               `🎯 [BACKEND] ❌ Request not pending: ${request.status}`,
@@ -373,49 +381,6 @@ export const socketHandlers = (io: Server): void => {
         console.log(`🎯 [BACKEND] ========================================`);
       },
     );
-
-    // =====================================================
-    // ✅ TEST EVENT - UPDATED WITH COMPLETE PAYLOAD
-    // =====================================================
-    socket.on("test-ride-request", async (data: any) => {
-      console.log(`🧪 [BACKEND] ========================================`);
-      console.log(`🧪 [BACKEND] TEST RIDE REQUEST received`);
-      console.log(`🧪 [BACKEND] Socket ID: ${socket.id}`);
-      console.log(`🧪 [BACKEND] Data:`, JSON.stringify(data, null, 2));
-
-      io.emit("new-ride-request", {
-        requestId: "test_req_" + Date.now(),
-        customer: {
-          customerId: "CUS_TEST_001",
-          name: "John Doe",
-          profilePicture: "https://example.com/profile.jpg",
-        },
-        booking: {
-          bookingId: "TEST-BOOKING-001",
-          rideCode: "RIDE-TEST-001",
-          serviceType: "AIRPORT",
-          quoteId: "QUOTE-TEST-001",
-          fwsAirportRideId: "FWS-AIRPORT-TEST-001",
-        },
-        fare: 250,
-        distance: 10.5,
-        pickup: {
-          address: "City Palace, Udaipur, Rajasthan",
-          latitude: 24.5854,
-          longitude: 73.7125,
-        },
-        destination: {
-          address: "Maharana Pratap Airport, Dabok, Udaipur",
-          latitude: 24.6177,
-          longitude: 73.8961,
-        },
-        expiresAt: new Date(Date.now() + 20000).toISOString(),
-        isRetry: false,
-        batchNumber: "1",
-      });
-      console.log(`🧪 [BACKEND] ✅ Test ride request broadcasted!`);
-      console.log(`🧪 [BACKEND] ========================================`);
-    });
 
     // =====================================================
     // ✅ DISCONNECT

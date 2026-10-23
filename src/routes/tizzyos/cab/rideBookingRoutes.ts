@@ -41,8 +41,8 @@ const router = Router();
 // Starts Driver Dispatch?
 // NO
 // =====================================================
-router.post("/ride/options", authMiddleware, getRideOptions);
-router.post("/ride/airport/options", authMiddleware, getAirportRideOptions);
+router.post("/options", authMiddleware, getRideOptions);
+router.post("/airport/options", authMiddleware, getAirportRideOptions);
 
 // =====================================================
 // RIDE BOOKING APIS
@@ -66,7 +66,7 @@ router.post("/ride/airport/options", authMiddleware, getAirportRideOptions);
 // Starts Driver Dispatch?
 // YES
 // =====================================================
-router.post("/ride/book", authMiddleware, createBooking);
+router.post("/book", authMiddleware, createBooking);
 
 // =====================================================
 // GET /api/ride/search-status/:bookingId
@@ -78,7 +78,7 @@ router.post("/ride/book", authMiddleware, createBooking);
 // Called By:
 // Customer Frontend (polling)
 // =====================================================
-router.get("/ride/search-status/:bookingId", authMiddleware, getSearchStatus);
+router.get("/search-status/:bookingId", authMiddleware, getSearchStatus);
 
 // =====================================================
 // POST /api/ride/retry/:bookingId
@@ -90,7 +90,7 @@ router.get("/ride/search-status/:bookingId", authMiddleware, getSearchStatus);
 // Called By:
 // Customer Frontend
 // =====================================================
-router.post("/ride/retry/:bookingId", authMiddleware, retrySearch);
+router.post("/retry/:bookingId", authMiddleware, retrySearch);
 
 // =====================================================
 // POST /api/ride/cancel/:bookingId
@@ -101,7 +101,7 @@ router.post("/ride/retry/:bookingId", authMiddleware, retrySearch);
 // Called By:
 // Customer Frontend, Driver App
 // =====================================================
-router.post("/ride/cancel/:bookingId", authMiddleware, cancelBooking);
+router.post("/cancel/:bookingId", authMiddleware, cancelBooking);
 
 // =====================================================
 // GET /api/ride/booking/:bookingId
@@ -112,7 +112,7 @@ router.post("/ride/cancel/:bookingId", authMiddleware, cancelBooking);
 // Called By:
 // Customer Frontend, Driver App
 // =====================================================
-router.get("/ride/booking/:bookingId", authMiddleware, getBooking);
+router.get("/booking/:bookingId", authMiddleware, getBooking);
 
 // =====================================================
 // GET /api/ride/bookings/customer
@@ -123,7 +123,7 @@ router.get("/ride/booking/:bookingId", authMiddleware, getBooking);
 // Called By:
 // Customer Frontend
 // =====================================================
-router.get("/ride/bookings/customer", authMiddleware, getCustomerBookings);
+router.get("/bookings/customer", authMiddleware, getCustomerBookings);
 
 // =====================================================
 // GET /api/ride/bookings/driver
@@ -134,7 +134,7 @@ router.get("/ride/bookings/customer", authMiddleware, getCustomerBookings);
 // Called By:
 // Driver App
 // =====================================================
-router.get("/ride/bookings/driver", authMiddleware, getDriverBookings);
+router.get("/bookings/driver", authMiddleware, getDriverBookings);
 
 // =====================================================
 // PUT /api/ride/booking/:bookingId/status
@@ -146,7 +146,7 @@ router.get("/ride/bookings/driver", authMiddleware, getDriverBookings);
 // Internal services
 // =====================================================
 router.put(
-  "/ride/booking/:bookingId/status",
+  "/booking/:bookingId/status",
   authMiddleware,
   updateBookingStatus,
 );

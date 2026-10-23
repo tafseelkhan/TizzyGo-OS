@@ -7,6 +7,6 @@ import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware"; 
 const router = express.Router();
 
 // Rider sets their online/offline status
-router.post("/shipper/online-status", authMiddleware, riderOnlineStatusController);
+router.post("/online-status", authMiddleware, riderOnlineStatusController);
 
 export default router;

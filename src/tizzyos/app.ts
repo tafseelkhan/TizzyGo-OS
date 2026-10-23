@@ -8,8 +8,11 @@ import { runCleanupJob } from "../jobs/cronMediaCleanup";
 import { startCleanupScheduler } from "../schedulers/cleanupScheduler";
 import { logger } from "../utils/tizzyos/seller/logger";
 
+import PayoutWebhookRoutes from "../routes/tizzyos/PayoutPortal/PayoutWebhookRoutes";
+
 // 🔥 IMPORT PAYOUT PORTAL ROUTES
 import PayoutPortalSetupRoutes from "../routes/tizzyos/PayoutPortal/PayoutPortalSetupRoutes";
+import { processSellerEarnings } from "../jobs/sellerEarningSettlementJob";
 
 import liveTrackingRoutes from "../routes/tizzyos/shipping/orders/deliveryTrackingRoutes";
 import orderfetchRoutes from "../routes/tizzyos/shipping/orders/orderRoutes";
@@ -48,11 +51,19 @@ import rideTypesRoutes from "../routes/tizzyos/cab/rideTypeRoutes";
 import rideTrackingRoutes from "../routes/tizzyos/cab/rideTrackingRoutes";
 import rideRequestRoutes from "../routes/tizzyos/cab/rideRequestRoutes";
 import rideLiveTrackingRoutes from "../routes/tizzyos/cab/rideLiveTrackingRoutes";
+import sellerEarningRoutes from "../routes/tizzyos/PayoutPortal/SellerEarningRoutes";
 
 /* =========================================================
    EXPRESS APP
    ========================================================= */
 const app = express();
+
+/* =========================================================
+   RAZORPAYX WEBHOOK
+   MUST BE BEFORE GLOBAL BODY PARSERS
+   ========================================================= */
+
+app.use("/api/v0/payout-portal", PayoutWebhookRoutes);
 
 /* =========================================================
    ❗ AFTER WEBHOOK — NORMAL BODY PARSERS
@@ -107,8 +118,8 @@ app.use("/api/v0/delete", deleteProduct);
 app.use("/api/v0/user", themesRoutes);
 app.use("/api/v0/seller/orders", ordersRoutes);
 app.use("/api/v0/shipping", shipregisterRoutes);
-app.use("/api/v0", onlineRoutes);
-app.use("/api/v0", riderIdRoutes);
+app.use("/api/v0/shipper", onlineRoutes);
+app.use("/api/v0/rider", riderIdRoutes);
 app.use("/api/v0/track", getRiderLocationRoutes);
 app.use("/api/v0/tracking", getTrackingStatusRoutes);
 app.use("/api/v0/delivery/tracking", deliveryTrackingRoutes);
@@ -121,11 +132,12 @@ app.use("/api/v0/driver", rideVehicleCategoryRoutes);
 app.use("/api/v0/cab", rideRegisterRoutes);
 app.use("/api/v0/available", driverOnlineDriverRoutes);
 app.use("/api/v0/update", rideLocationDriverRoutes);
-app.use("/api/v0", rideBookingRoutes);
+app.use("/api/v0/ride", rideBookingRoutes);
 app.use("/api/v0", rideTypesRoutes);
 app.use("/api/v0/ride", rideTrackingRoutes);
 app.use("/api/v0/ride", rideRequestRoutes);
 app.use("/api/v0/ride/live/tracking", rideLiveTrackingRoutes);
+app.use("/api/v0/seller-earnings", sellerEarningRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)
@@ -159,6 +171,10 @@ startCleanupScheduler();
 logger.info(
   "⏰ Abandoned payment cleanup scheduled: Every 10 minutes (configurable via PAYMENT_TIMEOUT_MINUTES)",
 );
+
+cron.schedule("0 */2 * * *", async () => {
+  await processSellerEarnings();
+});
 
 /* =========================================================
    RUN ON STARTUP (Optional - sirf testing ke liye)

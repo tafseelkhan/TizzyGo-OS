@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
 import { processPayment } from "../../../services/tizzygo/transactionService";
 import { validatePaymentRequest } from "../../../utils/tizzygo/transactionHelpers";
-import CheckoutSession from "../../../models/tizzygo/checkout/CheckoutSession";
 
 export const processPaymentHandler = async (
   req: AuthRequest,
@@ -160,7 +159,8 @@ export const getOrderStatusHandler = async (
   res: Response,
 ) => {
   try {
-    const { orderId } = req.params;
+    const { orderId: orderIdParam } = req.params;
+    const orderId = Array.isArray(orderIdParam) ? orderIdParam[0] : orderIdParam;
     const user = req.user;
 
     if (!user?.userId) {
