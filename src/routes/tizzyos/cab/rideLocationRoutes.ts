@@ -4,7 +4,7 @@ import {
   getDriverLocation,
   getNearbyDrivers,
 } from "../../../controller/tizzyos/cab/rideLocationController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

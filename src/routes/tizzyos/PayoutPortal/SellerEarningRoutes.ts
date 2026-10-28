@@ -4,7 +4,7 @@ import {
   createSellerEarning,
   getSellerEarnings,
 } from "../../../controller/tizzyos/PayoutPortal/SellerEarningController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

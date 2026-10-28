@@ -11,7 +11,7 @@ import {
   getAllReports,
   getUniqueUserCommentCounts
 } from '../../../controller/tizzygo/social/commentController';
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 
 const router = express.Router();
 

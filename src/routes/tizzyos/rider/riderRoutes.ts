@@ -1,7 +1,7 @@
 import express from "express";
 import { Router, Request, Response } from "express";
 import { applyRider, getRiderStatus, getRiderById, updateRiderById, deleteRiderById, } from "../../../controller/tizzyos/rider/riderController";
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 import Rider from '../../../models/tizzyos/rider/Rider';
 import multer from "multer";
 

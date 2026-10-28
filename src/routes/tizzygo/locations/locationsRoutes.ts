@@ -4,7 +4,7 @@ import {
   updateGpsTrackingStatus,
   getBuyerLocation,
 } from "../../../controller/tizzygo/locations/locationsController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = express.Router();
 

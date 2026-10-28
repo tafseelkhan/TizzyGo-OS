@@ -3,7 +3,7 @@
 // ============================================================
 
 import express from "express";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 import { getOrderConfirmation } from "../../../controller/tizzygo/buynow/orderConfirmationController";
 
 const router = express.Router();

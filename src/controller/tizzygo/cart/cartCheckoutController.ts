@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import {
   getCartCheckout,
   getBuyerLocation,

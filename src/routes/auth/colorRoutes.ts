@@ -3,8 +3,8 @@ import {
   saveUserColor, // POST - Save color
   getUserColor, // GET - Get color
   updateUserColor, // PUT - Update color (new API)
-} from "../../../controller/tizzygo/auths/colorController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+} from "../../controller/auth/colorController";
+import { authMiddleware } from "../../middleware/authMiddleware";
 
 const router = express.Router();
 

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import app from "./app";
 import { setupSocketIO } from "../socket";
 import { PaymentGatewayFactory } from "../factories/PaymentGatewayFactory";
+import { connectQutonConnectDB } from "../config/tizzygo/qutonConnectDatabase";
 
 const PORT = Number(process.env.TIZZYOS_PORT) || 2000;
 
@@ -21,8 +22,11 @@ app.locals.io = io;
 // ✅ Connect MongoDB
 mongoose
   .connect(process.env.MONGO_URI!)
-  .then(() => {
+  .then(async () => {
     console.log("✅ MongoDB connected successfully!");
+
+    // 2. Connect separately to Quton Connect database.
+    await connectQutonConnectDB();
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running at: http://0.0.0.0:${PORT}`);

@@ -1,6 +1,6 @@
 import express, { RequestHandler } from "express";
 import * as warehouseController from "../../../controller/tizzyos/fws/fwsApplicationController"; // Apne controller ki path daal dena
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 import { ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
 

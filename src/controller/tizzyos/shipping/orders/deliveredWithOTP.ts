@@ -4,7 +4,9 @@ import mongoose from "mongoose";
 import { Request, Response } from "express";
 import Order from "../../../../models/tizzygo/checkout/order";
 import DeliveryTracking from "../../../../models/tizzyos/shipping/order/deliveryTracking";
-import User from "../../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../../config/tizzygo/qutonConnectDatabase";
+
 import { sendOTPEmail } from "../../../../services/tizzyos/shippings/deliveryOTPServices";
 import DeliveryChargeEarningService from "../../../../services/tizzyos/PayOutPortal/DeliveryChargeEarningService";
 
@@ -55,21 +57,62 @@ const generateOTP = (): string => {
 };
 
 // ============================================
+// HELPER: Derive full name from Quton user
+// ============================================
+
+const getFullName = (user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  displayName?: string | null;
+}): string | null => {
+  const derived = [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .trim();
+
+  if (derived) return derived;
+  if (user.displayName) return user.displayName;
+  return null;
+};
+
+// ============================================
 // HELPER: Get Buyer Email from User Model
+// ============================================
+//
+// NOTE: Quton Connect User has NO `email` field.
+// `connectAddress` is the user's identity, not a guaranteed deliverable
+// mailbox. Per migration rules, we do NOT silently map `email` →
+// `connectAddress`.
+//
+// TODO(quton-migration): resolve the correct source for the buyer's
+// transactional email. Options:
+//   (a) a contact-email field on Order / CheckoutSession / a business
+//       record (name the field — e.g. order.buyerEmail)
+//   (b) `user.connectAddress` (accept that @quton.com is deliverable)
+//   (c) skip email OTP delivery until a contact-email field exists
+//
+// While unresolved, `null` is returned — the caller's
+// `if (finalBuyerEmail)` guard silently skips the send, and the
+// response message already says "buyer email not found". SMS is not
+// used in this flow, so email is the only OTP channel — do NOT ship
+// to production until resolved.
 // ============================================
 
 const getBuyerEmail = async (buyerId: string): Promise<string | null> => {
   try {
     if (!buyerId) return null;
 
-    const user = await User.findById(buyerId);
+    const { User } = getQutonConnectModels();
+    const user = await User.findById(buyerId).lean();
     if (!user) {
       console.log(`❌ User not found for ID: ${buyerId}`);
       return null;
     }
 
-    const email = user.email || user.emailId || user.emailAddress || null;
-    console.log(`👤 Found buyer email: ${email}`);
+    // TODO(quton-migration): email source undecided — see comment above.
+    // Do NOT return `user.connectAddress` blindly.
+    const email: string | null = null;
+    console.log(`👤 Buyer email source pending; returning ${email}`);
     return email;
   } catch (error) {
     console.error("❌ Error fetching buyer email:", error);
@@ -85,11 +128,11 @@ const getBuyerName = async (buyerId: string): Promise<string | null> => {
   try {
     if (!buyerId) return null;
 
-    const user = await User.findById(buyerId);
+    const { User } = getQutonConnectModels();
+    const user = await User.findById(buyerId).lean();
     if (!user) return null;
 
-    const name = user.name || user.fullName || user.displayName || null;
-    return name;
+    return getFullName(user);
   } catch (error) {
     console.error("❌ Error fetching buyer name:", error);
     return null;

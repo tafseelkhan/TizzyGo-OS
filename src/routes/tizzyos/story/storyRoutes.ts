@@ -1,7 +1,7 @@
 // src/routes/storyRoutes.ts
 import express from "express";
 import { createStory, getStories } from "../../../controller/tizzyos/story/storyController";
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 
 const router = express.Router();
 

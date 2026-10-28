@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Share from "../../../models/tizzygo/social/Share";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware"; // AuthRequest contains req.user
+import { AuthRequest } from "../../../middleware/authMiddleware"; // AuthRequest contains req.user
 
 // Add a share (FINAL)
 export const addShare = async (req: AuthRequest, res: Response) => {

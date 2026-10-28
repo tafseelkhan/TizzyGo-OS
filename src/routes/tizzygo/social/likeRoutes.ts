@@ -1,6 +1,6 @@
 import express from 'express';
 import { toggleProductLike, getProductLikes } from '../../../controller/tizzygo/social/likeController';
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 
 const router = express.Router();
 

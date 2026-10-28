@@ -1,4 +1,4 @@
-import Otp from '../../models/tizzygo/auths/Otp';
+import Otp from '../../models/auth/Otp';
 
 /**
  * Generates a 6-digit OTP and stores it in the DB with a 5-minute expiry.

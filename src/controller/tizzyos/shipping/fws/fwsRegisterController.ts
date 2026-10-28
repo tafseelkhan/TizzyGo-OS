@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Shipping from "../../../../models/tizzyos/shipping/fws/fwsRegistration";
 import mongoose from "mongoose";
-import { AuthRequest } from "../../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../../middleware/authMiddleware";
 import { bucket } from "../../../../firebase/firebase"; // upar wala file
 
 /* =========================

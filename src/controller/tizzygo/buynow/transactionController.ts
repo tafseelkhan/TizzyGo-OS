@@ -1,6 +1,6 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import { processPayment } from "../../../services/tizzygo/transactionService";
 import { validatePaymentRequest } from "../../../utils/tizzygo/transactionHelpers";
 

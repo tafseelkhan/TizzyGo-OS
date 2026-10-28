@@ -3,7 +3,7 @@ import {
   getCartCheckoutHandler,
   updateCartLocationHandler,
 } from "../../../controller/tizzygo/cart/cartCheckoutController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = express.Router();
 

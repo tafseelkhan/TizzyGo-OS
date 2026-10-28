@@ -22,77 +22,6 @@ const QR_BACKGROUND = "#FFFFFF"; // White background fixed
 const GRADIENT_PAIRS = [
   // Black Only
   { start: "#000000", end: "#000000" }, // Black to Black Only
-
-  // Greens & Teals
-  { start: "#064E3B", end: "#0D9488" }, // Dark Green to Teal
-  { start: "#0F4C3A", end: "#4CAF50" }, // Forest to Green
-  { start: "#004D40", end: "#26A69A" }, // Dark Teal to Light Teal
-  { start: "#1B5E20", end: "#66BB6A" }, // Deep Forest to Light Green
-  { start: "#00695C", end: "#4DB6AC" }, // Dark Teal to Mint
-
-  // Blues & Indigos
-  { start: "#1E3A5F", end: "#4A90D9" }, // Navy to Blue
-  { start: "#1A237E", end: "#42A5F5" }, // Indigo to Light Blue
-  { start: "#1A237E", end: "#64B5F6" }, // Indigo to Light Blue
-  { start: "#0D47A1", end: "#42A5F5" }, // Dark Blue to Bright Blue
-  { start: "#01579B", end: "#4FC3F7" }, // Deep Blue to Sky Blue
-  { start: "#283593", end: "#5C6BC0" }, // Dark Indigo to Light Indigo
-
-  // Purples & Violets
-  { start: "#4A1942", end: "#D4A5C9" }, // Purple to Lavender
-  { start: "#2D1B69", end: "#7C3AED" }, // Deep Purple to Violet
-  { start: "#311B92", end: "#7C4DFF" }, // Dark Purple to Purple
-  { start: "#4A148C", end: "#CE93D8" }, // Deep Purple to Light Purple
-  { start: "#6A1B9A", end: "#AB47BC" }, // Dark Purple to Medium Purple
-  { start: "#4A148C", end: "#E1BEE7" }, // Deep Purple to Very Light Purple
-
-  // Reds & Pinks
-  { start: "#8B1A1A", end: "#E87A7A" }, // Dark Red to Light Red
-  { start: "#880E4F", end: "#F48FB1" }, // Dark Pink to Light Pink
-  { start: "#B71C1C", end: "#EF5350" }, // Dark Red to Bright Red
-  { start: "#C62828", end: "#E57373" }, // Crimson to Light Red
-  { start: "#AD1457", end: "#F06292" }, // Deep Pink to Light Pink
-
-  // Oranges & Warm Colors
-  { start: "#E65100", end: "#FF9800" }, // Dark Orange to Orange
-  { start: "#BF360C", end: "#FF7043" }, // Deep Orange to Light Orange
-  { start: "#F57C00", end: "#FFB74D" }, // Amber to Light Amber
-  { start: "#E65100", end: "#FFCC80" }, // Dark Orange to Light Orange
-
-  // Browns & Golds
-  { start: "#4E342E", end: "#D4A574" }, // Dark Brown to Gold
-  { start: "#5D4037", end: "#A1887F" }, // Dark Brown to Light Brown
-  { start: "#BF360C", end: "#FFAB91" }, // Deep Brown to Peach
-
-  // Grays & Monochromes
-  { start: "#1B1B1B", end: "#757575" }, // Black to Gray
-  { start: "#263238", end: "#78909C" }, // Dark Slate to Blue Gray
-  { start: "#37474F", end: "#B0BEC5" }, // Dark Gray to Light Gray
-  { start: "#212121", end: "#9E9E9E" }, // Almost Black to Medium Gray
-
-  // Cyans & Aquas
-  { start: "#006064", end: "#26C6DA" }, // Dark Cyan to Bright Cyan
-  { start: "#00838F", end: "#4DD0E1" }, // Dark Teal to Light Cyan
-  { start: "#00695C", end: "#80CBC4" }, // Dark Green to Light Teal
-
-  // Yellows & Golds
-  { start: "#F9A825", end: "#FDD835" }, // Dark Yellow to Bright Yellow
-  { start: "#F57F17", end: "#FBC02D" }, // Deep Gold to Light Gold
-  { start: "#E6EE9C", end: "#FFF59D" }, // Light Lime to Light Yellow
-
-  // Unique Combinations (Dark to Bright)
-  { start: "#1A237E", end: "#FF6F00" }, // Indigo to Amber (Contrast)
-  { start: "#4A148C", end: "#00BCD4" }, // Deep Purple to Cyan (Contrast)
-  { start: "#1B5E20", end: "#FF6F00" }, // Dark Green to Amber (Earthy)
-  { start: "#880E4F", end: "#00BCD4" }, // Deep Pink to Cyan (Vibrant)
-  { start: "#0D47A1", end: "#FF5722" }, // Deep Blue to Deep Orange
-
-  // Pastel Combinations
-  { start: "#7E57C2", end: "#B39DDB" }, // Medium Purple to Light Purple
-  { start: "#42A5F5", end: "#90CAF9" }, // Medium Blue to Light Blue
-  { start: "#66BB6A", end: "#A5D6A7" }, // Medium Green to Light Green
-  { start: "#EF5350", end: "#EF9A9A" }, // Medium Red to Light Red
-  { start: "#FFA726", end: "#FFCC80" }, // Medium Orange to Light Orange
 ];
 
 function getRandomGradient(): { start: string; end: string } {
@@ -107,7 +36,7 @@ const APP_CONFIG = {
   ),
   QR_SIZE: 500,
   LOGO_SIZE: 180,
-  ERROR_CORRECTION: "H" as const,
+  ERROR_CORRECTION: "L" as const,
   MARGIN: 1,
   COLORS: {
     light: QR_BACKGROUND,

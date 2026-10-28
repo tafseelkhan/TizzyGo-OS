@@ -7,7 +7,9 @@ import {
   getDistanceAndDuration,
   geocodeAddress,
 } from "../../../../utils/tizzyos/shippings/googleAPI";
-import User from "../../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../../config/tizzygo/qutonConnectDatabase";
+
 import Otp from "../../../../models/tizzygo/checkout/orderOtp";
 import { generateOtp } from "../../../../utils/tizzygo/orderOtp";
 import { sendSms } from "../../../../utils/tizzygo/twilio";
@@ -126,6 +128,19 @@ async function getAuthenticatedRiderId(req: Request): Promise<string> {
 
   // Step 4: Return Register._id as riderId
   return rider._id.toString();
+}
+
+/**
+ * Derive a full name from Quton Connect user fields.
+ * Returns "" if neither is present.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
 }
 
 /**
@@ -1891,18 +1906,51 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
       throw new Error("Order not ready for delivery");
     }
 
+    // ==================================================
+    // BUYER LOOKUP — Quton Connect User.
+    //
+    // Two important facts:
+    // 1. Quton User lives on a DIFFERENT connection than `Shipper`.
+    //    Therefore `.session(session)` is INVALID here and is omitted.
+    //    The buyer read is outside the Shipper transaction — that is an
+    //    inherent limitation of the split-DB architecture, not new
+    //    behavior introduced by this migration.
+    // 2. Quton User has no `name` or `email` or `image` field.
+    //    `name` is derived from `firstName + lastName`; `image` is
+    //    mapped from `profilePhoto`. `email` has NO source on the
+    //    Quton schema — see TODO below.
+    // ==================================================
     console.log("👤 Searching for buyer/user:", order.buyerId);
-    const user = await User.findById(order.buyerId).session(session);
-    if (!user) {
+    const { User } = getQutonConnectModels();
+    const buyerDoc = await User.findById(order.buyerId).lean();
+    if (!buyerDoc) {
       console.error("❌ [USER] User not found with ID:", order.buyerId);
       throw new Error("User not found");
     }
 
+    const buyerFullName = getFullName(buyerDoc);
+
+    // TODO(quton-migration): Quton Connect User has no `email` field.
+    // Decide the source for transactional email (OTP + congratulations):
+    //   (a) a contact-email field on a business record
+    //       (e.g. Order.customerEmail / CheckoutSession.email)
+    //   (b) `buyerDoc.connectAddress` (identity, not a guaranteed inbox)
+    //   (c) disable email notifications until a contact-email field exists
+    // While undecided, `email` is undefined — SMS still works, but
+    // email notifications will NOT fire (guarded by `if (user.email)`
+    // inside `sendComprehensiveNotifications`).
+    const buyerForNotifications = {
+      ...buyerDoc,
+      name: buyerFullName,
+      image: buyerDoc.profilePhoto,
+      email: undefined as string | undefined,
+    };
+
     console.log("👤 User found:", {
-      userId: user._id,
-      name: user.name,
-      phone: user.phone,
-      email: user.email,
+      userId: buyerDoc._id,
+      name: buyerForNotifications.name,
+      phone: buyerForNotifications.phone,
+      email: buyerForNotifications.email,
     });
 
     /* ================= OTP SEND ================= */
@@ -1919,7 +1967,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
         [
           {
             orderId,
-            userId: user._id,
+            userId: buyerDoc._id,
             otp: generatedOtp,
             expiresAt: new Date(Date.now() + 5 * 60 * 1000),
           },
@@ -1932,7 +1980,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
       // Send comprehensive notifications
       console.log("📨 Sending comprehensive notifications...");
       const notifications = await sendComprehensiveNotifications(
-        user,
+        buyerForNotifications,
         generatedOtp,
         orderId,
         "OTP",
@@ -1981,7 +2029,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
 
     const otpDoc = await Otp.findOne({
       orderId,
-      userId: user._id,
+      userId: buyerDoc._id,
       otp,
       expiresAt: { $gt: new Date() },
     }).session(session);
@@ -1989,7 +2037,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
     if (!otpDoc) {
       console.error("❌ [OTP] Invalid or expired OTP:", {
         orderId,
-        userId: user._id,
+        userId: buyerDoc._id,
         providedOtp: otp,
         currentTime: new Date(),
       });
@@ -2035,7 +2083,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
     // Send congratulations notifications
     console.log("🎉 Sending congratulations notifications...");
     const congratsNotifications = await sendComprehensiveNotifications(
-      user,
+      buyerForNotifications,
       otp,
       orderId,
       "CONGRATULATIONS",
@@ -2056,7 +2104,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
     // Generate delivery completion message for logs
     const deliveryCompletionMessage = generateDeliveryCompletionMessage(
       orderId,
-      user.name,
+      buyerForNotifications.name,
       "Rider",
     );
     console.log("📋 Delivery Completion Summary:");
@@ -2064,7 +2112,7 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
 
     console.log("🎉 [DELIVERY] Delivery confirmed successfully!");
     console.log("📦 Order ID:", orderId);
-    console.log("👤 Customer:", user.name);
+    console.log("👤 Customer:", buyerForNotifications.name);
     console.log("🏪 Ecosystem:", {
       Platform: BRANDS.TIZZYOS.name,
       PlatformLogo: BRANDS.TIZZYOS,
@@ -2081,8 +2129,10 @@ export const riderConfirmDelivery = async (req: Request, res: Response) => {
         orderId,
         deliveryTime: new Date().toISOString(),
         user: {
-          name: user.name,
-          image: user.image,
+          // Keep the old key `name` (derived) and `image`
+          // (mapped from profilePhoto) for backward compatibility.
+          name: buyerForNotifications.name,
+          image: buyerForNotifications.image,
         },
         ecosystem: {
           platform: BRANDS.TIZZYOS,

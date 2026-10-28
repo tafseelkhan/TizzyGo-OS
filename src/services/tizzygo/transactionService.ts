@@ -3,7 +3,7 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
 import Order from "../../models/tizzygo/checkout/order";
-import User from "../../models/tizzygo/auths/User";
+import User from "../../models/auth/User";
 import Transaction from "../../models/tizzygo/checkout/Transaction";
 import {
   generateOrderId,

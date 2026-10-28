@@ -5,7 +5,7 @@ import {
   getUsersByIds, 
   deleteProfileImage
 } from "../../../controller/tizzygo/profile/profileController";
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 
 const router = express.Router();
 

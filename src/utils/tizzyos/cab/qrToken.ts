@@ -4,11 +4,14 @@ import mongoose from "mongoose";
 export interface QRTokenData {
   bookingId: string;
   trackingId: string;
-  rideId: mongoose.Types.ObjectId; 
+  rideId: mongoose.Types.ObjectId;
   customerId: mongoose.Types.ObjectId;
   driverId: mongoose.Types.ObjectId;
   type: "pickup" | "drop";
   verificationFlag?: boolean;
+  iat?: number;
+  exp?: number;
+  expiresAt?: string | Date;
 }
 
 export class QRTokenService {
@@ -20,15 +23,35 @@ export class QRTokenService {
       process.env.QR_TOKEN_SECRET ||
       "6f20d8b4689bc25b2f619ff02fb1191eOEdOSJX4pnnxOENjQsiA_n7gLQlZaCHhO_AC45a11dd18fe859cd71f0a9c899d18a82";
     this.expiresIn = parseInt(process.env.QR_TOKEN_EXPIRY || "3600");
+    console.log(
+      "[QRTokenService] 🏗️ Constructor — expiresIn:",
+      this.expiresIn,
+      "sec",
+    );
   }
 
   generateQRToken(data: QRTokenData): string {
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = now + this.expiresIn;
+
     const payload = {
       ...data,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + this.expiresIn,
+      iat: now,
+      exp: expiresAt,
+      expiresAt: new Date(expiresAt * 1000).toISOString(),
       verificationFlag: false,
     };
+
+    console.log(
+      "[QRTokenService] 🔐 generateQRToken — type:",
+      data.type,
+      "| iat:",
+      now,
+      "| exp:",
+      expiresAt,
+      "| expiresAt:",
+      payload.expiresAt,
+    );
 
     return jwt.sign(payload, this.secret);
   }
@@ -36,6 +59,15 @@ export class QRTokenService {
   verifyQRToken(token: string): QRTokenData | null {
     try {
       const decoded = jwt.verify(token, this.secret) as any;
+
+      console.log(
+        "[QRTokenService] 🔍 verifyQRToken — decoded iat:",
+        decoded.iat,
+        "| exp:",
+        decoded.exp,
+        "| expiresAt:",
+        decoded.expiresAt,
+      );
 
       return {
         bookingId: decoded.bookingId,
@@ -45,8 +77,12 @@ export class QRTokenService {
         driverId: decoded.driverId,
         type: decoded.type,
         verificationFlag: decoded.verificationFlag,
+        iat: decoded.iat,
+        exp: decoded.exp,
+        expiresAt: decoded.expiresAt,
       };
     } catch (error) {
+      console.error("[QRTokenService] ❌ verifyQRToken failed:", error);
       return null;
     }
   }
@@ -56,18 +92,33 @@ export class QRTokenService {
       const decoded = jwt.verify(token, this.secret) as any;
 
       if (decoded.verificationFlag) {
+        console.warn(
+          "[QRTokenService] ⚠️ markAsVerified — token already verified",
+        );
         return null;
       }
+
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = now + this.expiresIn;
 
       const newPayload = {
         ...decoded,
         verificationFlag: true,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + this.expiresIn,
+        iat: now,
+        exp: expiresAt,
+        expiresAt: new Date(expiresAt * 1000).toISOString(),
       };
+
+      console.log(
+        "[QRTokenService] 🏷️ markAsVerified — new exp:",
+        expiresAt,
+        "| expiresAt:",
+        newPayload.expiresAt,
+      );
 
       return jwt.sign(newPayload, this.secret);
     } catch (error) {
+      console.error("[QRTokenService] ❌ markAsVerified failed:", error);
       return null;
     }
   }

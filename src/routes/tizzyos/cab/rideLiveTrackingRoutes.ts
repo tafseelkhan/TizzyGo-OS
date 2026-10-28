@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getRideLiveTrackingController } from "../../../controller/tizzyos/cab/rideLiveTrackingController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

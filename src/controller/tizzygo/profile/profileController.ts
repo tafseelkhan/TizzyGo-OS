@@ -2,9 +2,9 @@ import { Request, Response } from "express";
 import path from "path";
 import mongoose from "mongoose";
 import fs from "fs";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import { bucket } from "../../../firebase/firebase";
-import User from "../../../models/tizzygo/auths/User";
+import User from "../../../models/auth/User";
 
 const SERVER_URL = process.env.SERVER_URL || "https://www.tizzygo.com";
 

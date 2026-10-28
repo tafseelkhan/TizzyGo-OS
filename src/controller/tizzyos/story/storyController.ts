@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Story from "../../../models/tizzyos/story/Story";
 import { Product } from "../../../models/tizzyos/seller/AddProducts/Products"; // single model now
-import User from "../../../models/tizzygo/auths/User"; // assume user model hai
+import User from "../../../models/auth/User"; // assume user model hai
 
 export const createStory = async (req: Request, res: Response) => {
 

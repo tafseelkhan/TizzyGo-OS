@@ -1,246 +1,852 @@
-// services/tizzyos/cab/rideQuoteService.ts
-
 import mongoose from "mongoose";
-import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
-import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
-import RideVehicleCategory from "../../../models/tizzyos/cab/rideVehicleCatigory";
-import RideQuote from "../../../models/tizzyos/cab/rideQuote";
-import { v4 as uuidv4 } from "uuid";
+import { QRTokenService, QRTokenData } from "../../../utils/tizzyos/cab/qrToken";
+import RideBooking from "../../../models/tizzyos/cab/rideBooking";
+import RideTracking, {
+  IRideTracking,
+} from "../../../models/tizzyos/cab/rideTracking";
+import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
 
-interface IQuoteRequest {
+// ============================================================
+// LOGGER HELPER
+// ============================================================
+const LOG_PREFIX = "[RideQRCodeService]";
+
+const log = (label: string, ...args: any[]) => {
+  console.log(`${LOG_PREFIX} ${label}`, ...args);
+};
+
+const logError = (label: string, ...args: any[]) => {
+  console.error(`${LOG_PREFIX} ❌ ${label}`, ...args);
+};
+
+const logWarn = (label: string, ...args: any[]) => {
+  console.warn(`${LOG_PREFIX} ⚠️ ${label}`, ...args);
+};
+
+const logSuccess = (label: string, ...args: any[]) => {
+  console.log(`${LOG_PREFIX} ✅ ${label}`, ...args);
+};
+
+// ============================================================
+// INTERFACES
+// ============================================================
+interface IQRTokens {
   pickup: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    googlePlaceId: string;
+    token: string;
+    qrCode: string;
+    type: "pickup";
   };
   drop: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    googlePlaceId: string;
+    token: string;
+    qrCode: string;
+    type: "drop";
   };
 }
 
-interface IVehicleOption {
-  vehicleType: string;
-  categoryCode: string;
-  companyCode: string;
-  modelCode: string;
-  vehicleClass: string;
-  baseFare: number;
-  classFare: number;
-  maxPassengers: number;
-  estimatedFare: number;
-  distance: number;
-  duration: number;
-  polyline: string;
-  eta: number;
-  estimatedDriverArrival: number;
-  quoteId: string; // Now returns quoteId instead of candidateId
+interface IQRNormalized {
+  bookingId: string;
+  trackingId: string;
+  rideId: mongoose.Types.ObjectId;
+  customerId: mongoose.Types.ObjectId;
+  driverId: mongoose.Types.ObjectId;
+  type: "pickup" | "drop";
+  verificationFlag?: boolean;
+  expiresAt: Date;
+  iat: Date;
 }
 
-export class RideQuoteService {
-  private readonly routeService: GoogleRoutesService;
-  private readonly fareService: FareCalculationService;
+interface IVerifyResult {
+  bookingId: string;
+  trackingId: string;
+  type: "pickup" | "drop";
+  verified: boolean;
+  verifiedAt: Date;
+}
+
+interface ITrackingWithQR extends IRideTracking {
+  pickupQRToken?: string;
+  dropQRToken?: string;
+}
+
+// ============================================================
+// SERVICE CLASS
+// ============================================================
+export class RideQRCodeService {
+  private readonly qrTokenService: QRTokenService;
+  private readonly QR_VERIFICATION_TIMEOUT_MS: number = 30000;
+  private readonly verificationCache: Map<
+    string,
+    { verified: boolean; timestamp: number }
+  >;
 
   constructor() {
-    this.routeService = new GoogleRoutesService();
-    this.fareService = new FareCalculationService();
+    log("🏗️ Constructor called — initializing service");
+    try {
+      this.qrTokenService = new QRTokenService();
+      this.verificationCache = new Map();
+      logSuccess("Constructor completed — QRTokenService initialized");
+    } catch (err) {
+      logError("Constructor failed", err);
+      throw err;
+    }
   }
 
-  // =====================================================
-  // getRideOptions
-  //
-  // Purpose:
-  // Returns all available vehicle options for the selected
-  // pickup and drop location. Calls Google Routes API ONCE
-  // and calculates fare for every vehicle type.
-  // Stores quote in database for later booking.
-  //
-  // Called By:
-  // Customer Frontend (POST /api/ride/options)
-  //
-  // Creates Booking?
-  // NO
-  //
-  // Uses Google Routes API?
-  // YES
-  //
-  // Uses Fare Calculation?
-  // YES
-  //
-  // Starts Driver Dispatch?
-  // NO
-  // =====================================================
+  // ============================================================
+  // GENERATE QR CODES
+  // ============================================================
+  async generateQRCodes(bookingId: string): Promise<IQRTokens> {
+    log("📥 generateQRCodes called — bookingId:", bookingId);
 
-  async getRideOptions(quoteRequest: IQuoteRequest): Promise<IVehicleOption[]> {
-    // Validate input
-    this.validateLocation(quoteRequest.pickup);
-    this.validateLocation(quoteRequest.drop);
-
-    // Get route from Google Routes API (ONCE)
-    const route = await this.routeService.getRoute({
-      origin: {
-        latitude: quoteRequest.pickup.latitude,
-        longitude: quoteRequest.pickup.longitude,
-        address: quoteRequest.pickup.address,
-      },
-      destination: {
-        latitude: quoteRequest.drop.latitude,
-        longitude: quoteRequest.drop.longitude,
-        address: quoteRequest.drop.address,
-      },
-      travelMode: "DRIVE",
-      routingPreference: "TRAFFIC_AWARE",
-    });
-
-    // Get all vehicle categories
-    const categories = await RideVehicleCategory.find().lean().exec();
-
-    if (!categories || categories.length === 0) {
-      throw new Error("No vehicle categories found");
+    if (!bookingId || typeof bookingId !== "string") {
+      logError("generateQRCodes — invalid bookingId:", bookingId);
+      throw new Error("Invalid booking ID");
     }
 
-    const options: IVehicleOption[] = [];
+    log("🔍 Finding booking in DB...");
+    const booking = await RideBooking.findOne({ bookingId }).lean().exec();
+    log("📦 Booking found:", booking ? `bookingId=${booking.bookingId}` : "null");
 
-    // Calculate fare for each vehicle type
-    for (const category of categories) {
-      for (const company of category.companies) {
-        for (const model of company.models) {
-          const fareComponents = this.fareService.calculateFare({
-            vehicle: {
-              categoryCode: category.code,
-              companyCode: company.code,
-              modelCode: model.code,
-              vehicleType: model.vehicleType,
-              vehicleClass: model.vehicleClass,
-              baseFare: model.baseFare,
-              classFare: model.classFare,
-              maxPassengers: model.maxPassengers,
-            },
-            roadDistanceKm: route.roadDistanceKm,
-            trafficDurationMinutes: route.trafficDurationMinutes,
-          });
+    if (!booking) {
+      logError("generateQRCodes — booking not found:", bookingId);
+      throw new Error(`Booking not found: ${bookingId}`);
+    }
 
-          // Generate quoteId (UUID)
-          const quoteId = uuidv4();
+    if (!booking.trackingId) {
+      logError("generateQRCodes — tracking not initialized for booking:", bookingId);
+      throw new Error(`Tracking not initialized for booking: ${bookingId}`);
+    }
 
-          // Store quote in database
-          const quote = new RideQuote({
-            quoteId: quoteId,
-            pickup: quoteRequest.pickup,
-            drop: quoteRequest.drop,
-            vehicle: {
-              categoryCode: category.code,
-              companyCode: company.code,
-              modelCode: model.code,
-              vehicleType: model.vehicleType,
-              vehicleClass: model.vehicleClass,
-              baseFare: model.baseFare,
-              classFare: model.classFare,
-              maxPassengers: model.maxPassengers,
-            },
-            routeData: {
-              roadDistanceKm: route.roadDistanceKm,
-              normalDurationMinutes: route.normalDurationMinutes,
-              trafficDurationMinutes: route.trafficDurationMinutes,
-              encodedPolyline: route.encodedPolyline,
-              routeSummary: route.routeSummary,
-            },
-            fareComponents: {
-              baseFare: fareComponents.baseFare,
-              classFare: fareComponents.classFare,
-              distanceFare: fareComponents.distanceFare,
-              timeFare: fareComponents.timeFare,
-              platformFees: fareComponents.platformFees,
-              subTotal: fareComponents.subTotal,
-              gstFare: fareComponents.gstFare,
-              totalFare: Math.round(fareComponents.totalFare),
-              gstPercentage: fareComponents.gstPercentage,
-              perKmRate: fareComponents.perKmRate,
-              perMinuteRate: fareComponents.perMinuteRate,
-            },
-            totalFare: Math.round(fareComponents.totalFare),
-            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-            isUsed: false,
-          });
+    log("🔍 Finding tracking in DB — trackingId:", booking.trackingId);
+    const tracking = await RideTracking.findOne({
+      trackingId: booking.trackingId,
+    })
+      .lean()
+      .exec();
+    log("📦 Tracking found:", tracking ? `trackingId=${(tracking as any).trackingId}` : "null");
 
-          await quote.save();
+    if (!tracking) {
+      logError("generateQRCodes — tracking not found:", booking.trackingId);
+      throw new Error(`Tracking not found: ${booking.trackingId}`);
+    }
 
-          options.push({
-            vehicleType: model.vehicleType,
-            categoryCode: category.code,
-            companyCode: company.code,
-            modelCode: model.code,
-            vehicleClass: model.vehicleClass,
-            baseFare: model.baseFare,
-            classFare: model.classFare,
-            maxPassengers: model.maxPassengers,
-            estimatedFare: Math.round(fareComponents.totalFare),
-            distance: route.roadDistanceKm,
-            duration: route.trafficDurationMinutes,
-            polyline: route.encodedPolyline,
-            eta: route.trafficDurationMinutes,
-            estimatedDriverArrival: 5,
-            quoteId: quoteId, // Return quoteId instead of candidateId
-          });
+    log("🔍 Validating ObjectIds...");
+    const rideId = this.validateObjectId(booking._id);
+    log("✅ rideId:", String(rideId));
+
+    const customerId = this.validateObjectId(booking.customerId);
+    log("✅ customerId:", String(customerId));
+
+    let driverId: mongoose.Types.ObjectId;
+    try {
+      driverId = booking.driverId
+        ? this.validateObjectId(booking.driverId)
+        : new mongoose.Types.ObjectId();
+      log("✅ driverId:", String(driverId), booking.driverId ? "(from booking)" : "(generated new)");
+    } catch (error) {
+      logWarn("driverId validation failed — generating new ObjectId", error);
+      driverId = new mongoose.Types.ObjectId();
+      log("✅ driverId (new):", String(driverId));
+    }
+
+    const baseData: Omit<QRTokenData, "type"> = {
+      bookingId: booking.bookingId,
+      trackingId: booking.trackingId,
+      rideId: rideId,
+      customerId: customerId,
+      driverId: driverId,
+    };
+    log("📋 baseData prepared:", {
+      bookingId: baseData.bookingId,
+      trackingId: baseData.trackingId,
+      rideId: String(baseData.rideId),
+      customerId: String(baseData.customerId),
+      driverId: String(baseData.driverId),
+    });
+
+    log("🔐 Generating pickup + drop QR tokens in parallel...");
+    const [pickupQR, dropQR] = await Promise.all([
+      this.generateQRToken({ ...baseData, type: "pickup" }),
+      this.generateQRToken({ ...baseData, type: "drop" }),
+    ]);
+    logSuccess("Both QR tokens generated", {
+      pickupTokenLength: pickupQR.token.length,
+      dropTokenLength: dropQR.token.length,
+      pickupQrCodeLength: pickupQR.qrCode.length,
+      dropQrCodeLength: dropQR.qrCode.length,
+    });
+
+    return {
+      pickup: {
+        token: pickupQR.token,
+        qrCode: pickupQR.qrCode,
+        type: "pickup",
+      },
+      drop: {
+        token: dropQR.token,
+        qrCode: dropQR.qrCode,
+        type: "drop",
+      },
+    };
+  }
+
+  // ============================================================
+  // GENERATE QR TOKEN (private)
+  // ============================================================
+  private async generateQRToken(data: QRTokenData): Promise<{
+    token: string;
+    qrCode: string;
+    type: "pickup" | "drop";
+  }> {
+    log(`🔐 generateQRToken called — type: ${data.type}`);
+    try {
+      log("  → Signing token via QRTokenService...");
+      const token = this.qrTokenService.generateQRToken(data);
+      log(`  → Token signed (length: ${token.length})`);
+
+      log("  → Generating QR code data URI...");
+      const qrCode = await generateQRCodeDataURI(token);
+      log(`  → QR code generated (length: ${qrCode.length})`);
+
+      logSuccess(`generateQRToken complete — type: ${data.type}`);
+      return {
+        token,
+        qrCode,
+        type: data.type,
+      };
+    } catch (error) {
+      logError(`generateQRToken failed — type: ${data.type}`, error);
+      throw new Error(
+        `Failed to generate QR token: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  // ============================================================
+  // VERIFY QR TOKEN (decode + cache + expiry check)
+  // ============================================================
+  async verifyQRToken(token: string): Promise<IQRNormalized> {
+    log("🔍 verifyQRToken called — token length:", token?.length);
+
+    if (!token || typeof token !== "string") {
+      logError("verifyQRToken — invalid token type:", typeof token);
+      throw new Error("Invalid QR token");
+    }
+
+    const cacheKey = this.getTokenCacheKey(token);
+    log("  → cacheKey:", cacheKey);
+
+    const cached = this.verificationCache.get(cacheKey);
+    log("  → cache lookup:", cached ? `verified=${cached.verified}` : "not cached");
+
+    if (cached && cached.verified) {
+      logError("verifyQRToken — token already used (cache hit)");
+      throw new Error("QR token already used");
+    }
+
+    log("  → Decoding token via QRTokenService...");
+    const decoded = this.qrTokenService.verifyQRToken(token);
+    log("  → Decoded payload:", decoded);
+
+    if (!decoded) {
+      logError("verifyQRToken — decode returned null/undefined");
+      throw new Error("Invalid QR token");
+    }
+
+    const normalized = decoded as any;
+
+    if (normalized.verificationFlag) {
+      logError("verifyQRToken — token already verified (flag set)");
+      throw new Error("QR token already used");
+    }
+
+    const now = new Date();
+
+    // ✅ Robust expiresAt detection (triple fallback)
+    let expiresAt: Date;
+    if (normalized.expiresAt) {
+      expiresAt = new Date(normalized.expiresAt);
+      log("  → expiresAt from token:", expiresAt.toISOString());
+    } else if (normalized.exp) {
+      expiresAt = new Date(normalized.exp * 1000);
+      log("  → expiresAt from JWT exp:", expiresAt.toISOString());
+    } else {
+      const iat = normalized.iat ? new Date(normalized.iat * 1000) : now;
+      expiresAt = new Date(iat.getTime() + 15 * 60 * 1000);
+      logWarn(
+        "  → expiresAt MISSING — fallback (iat + 15min):",
+        expiresAt.toISOString(),
+      );
+    }
+
+    if (isNaN(expiresAt.getTime())) {
+      logError("verifyQRToken — computed expiresAt is invalid:", expiresAt);
+      throw new Error("Invalid token expiry");
+    }
+
+    log(
+      "  → Time check — now:",
+      now.toISOString(),
+      "| expiresAt:",
+      expiresAt.toISOString(),
+    );
+
+    if (expiresAt < now) {
+      logError("verifyQRToken — token expired");
+      throw new Error("QR token expired");
+    }
+
+    log("  → Validating ObjectIds from payload...");
+    const rideId = this.validateObjectId(normalized.rideId);
+    const customerId = this.validateObjectId(normalized.customerId);
+    const driverId = this.validateObjectId(normalized.driverId);
+
+    // ✅ Safe iat handling
+    let iatDate: Date;
+    if (normalized.iat) {
+      iatDate =
+        typeof normalized.iat === "number"
+          ? new Date(normalized.iat * 1000)
+          : new Date(normalized.iat);
+      if (isNaN(iatDate.getTime())) iatDate = now;
+    } else {
+      iatDate = now;
+    }
+
+    logSuccess("verifyQRToken complete", {
+      bookingId: normalized.bookingId,
+      trackingId: normalized.trackingId,
+      type: normalized.type,
+      rideId: String(rideId),
+      customerId: String(customerId),
+      driverId: String(driverId),
+    });
+
+    return {
+      bookingId: normalized.bookingId,
+      trackingId: normalized.trackingId,
+      rideId,
+      customerId,
+      driverId,
+      type: normalized.type,
+      verificationFlag: normalized.verificationFlag || false,
+      expiresAt,
+      iat: iatDate,
+    };
+  }
+
+  // ============================================================
+  // MARK QR AS VERIFIED (regenerate token with flag)
+  // ============================================================
+  async markQRAsVerified(token: string): Promise<string> {
+    log("🏷️ markQRAsVerified called — token length:", token?.length);
+
+    if (!token || typeof token !== "string") {
+      logError("markQRAsVerified — invalid token type");
+      throw new Error("Invalid QR token");
+    }
+
+    log("  → Calling QRTokenService.markAsVerified...");
+    const newToken = this.qrTokenService.markAsVerified(token);
+
+    if (!newToken) {
+      logError("markQRAsVerified — markAsVerified returned null");
+      throw new Error("Failed to mark QR as verified");
+    }
+    log("  → New token generated (length:", newToken.length, ")");
+
+    const cacheKey = this.getTokenCacheKey(token);
+    this.verificationCache.set(cacheKey, {
+      verified: true,
+      timestamp: Date.now(),
+    });
+    logSuccess("markQRAsVerified complete — cacheKey:", cacheKey);
+    return newToken;
+  }
+
+  // ============================================================
+  // VERIFY PICKUP
+  // ============================================================
+  async verifyPickup(token: string): Promise<IVerifyResult> {
+    log("📥 verifyPickup called — token length:", token?.length);
+
+    if (!token || typeof token !== "string") {
+      logError("verifyPickup — invalid token type");
+      throw new Error("Invalid QR token");
+    }
+
+    log("  → Starting mongoose session...");
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    log("  → Transaction started");
+
+    try {
+      log("  → Decoding & validating token...");
+      const decoded = await this.verifyQRToken(token);
+      log("  → Decoded:", {
+        bookingId: decoded.bookingId,
+        trackingId: decoded.trackingId,
+        type: decoded.type,
+      });
+
+      if (decoded.type !== "pickup") {
+        logError(
+          `verifyPickup — wrong token type. Expected pickup, got ${decoded.type}`,
+        );
+        throw new Error(
+          `Invalid QR type for pickup. Expected "pickup", got "${decoded.type}"`,
+        );
+      }
+
+      log("  → Looking up tracking:", decoded.trackingId);
+      const tracking = await RideTracking.findOne({
+        trackingId: decoded.trackingId,
+      }).session(session);
+
+      if (!tracking) {
+        logError("verifyPickup — tracking not found:", decoded.trackingId);
+        throw new Error(`Tracking not found: ${decoded.trackingId}`);
+      }
+      log("  → Tracking found. Already verified?", tracking.pickupVerified);
+
+      if (tracking.pickupVerified) {
+        logError("verifyPickup — pickup already verified");
+        throw new Error("Pickup already verified");
+      }
+
+      const now = new Date();
+      const timeoutDate = new Date(
+        now.getTime() - this.QR_VERIFICATION_TIMEOUT_MS,
+      );
+      log("  → Timeout check — now:", now.toISOString(), "| timeoutDate:", timeoutDate.toISOString());
+
+      if (
+        tracking.pickupVerifiedAt &&
+        tracking.pickupVerifiedAt < timeoutDate
+      ) {
+        logError("verifyPickup — verification timeout expired");
+        throw new Error("Pickup verification timeout expired");
+      }
+
+      log("  → Marking token as verified...");
+      const newToken = await this.markQRAsVerified(token);
+
+      log("  → Updating tracking document...");
+      const trackingDoc = tracking as ITrackingWithQR;
+      trackingDoc.pickupVerified = true;
+      trackingDoc.pickupVerifiedAt = now;
+      trackingDoc.rideStatus = "pickupVerified";
+      trackingDoc.pickupQRToken = newToken;
+      await trackingDoc.save({ session });
+      log("  → Tracking saved");
+
+      log("  → Looking up booking:", decoded.bookingId);
+      const booking = await RideBooking.findOne({
+        bookingId: decoded.bookingId,
+      }).session(session);
+
+      if (booking) {
+        log("  → Booking found. Updating status...");
+        booking.pickupVerified = true;
+        booking.pickupVerifiedAt = now;
+        booking.status = "pickupVerified";
+        await booking.save({ session });
+        log("  → Booking saved");
+      } else {
+        logError("verifyPickup — booking not found:", decoded.bookingId);
+        throw new Error(`Booking not found: ${decoded.bookingId}`);
+      }
+
+      log("  → Committing transaction...");
+      await session.commitTransaction();
+      logSuccess("verifyPickup — transaction committed");
+
+      return {
+        bookingId: decoded.bookingId,
+        trackingId: decoded.trackingId,
+        type: "pickup",
+        verified: true,
+        verifiedAt: now,
+      };
+    } catch (error) {
+      logError("verifyPickup — aborting transaction", error);
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      log("  → Ending session");
+      await session.endSession();
+    }
+  }
+
+  // ============================================================
+  // VERIFY DROP
+  // ============================================================
+  async verifyDrop(token: string): Promise<IVerifyResult> {
+    log("📥 verifyDrop called — token length:", token?.length);
+
+    if (!token || typeof token !== "string") {
+      logError("verifyDrop — invalid token type");
+      throw new Error("Invalid QR token");
+    }
+
+    log("  → Starting mongoose session...");
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    log("  → Transaction started");
+
+    try {
+      log("  → Decoding & validating token...");
+      const decoded = await this.verifyQRToken(token);
+      log("  → Decoded:", {
+        bookingId: decoded.bookingId,
+        trackingId: decoded.trackingId,
+        type: decoded.type,
+      });
+
+      if (decoded.type !== "drop") {
+        logError(
+          `verifyDrop — wrong token type. Expected drop, got ${decoded.type}`,
+        );
+        throw new Error(
+          `Invalid QR type for drop. Expected "drop", got "${decoded.type}"`,
+        );
+      }
+
+      log("  → Looking up tracking:", decoded.trackingId);
+      const tracking = await RideTracking.findOne({
+        trackingId: decoded.trackingId,
+      }).session(session);
+
+      if (!tracking) {
+        logError("verifyDrop — tracking not found:", decoded.trackingId);
+        throw new Error(`Tracking not found: ${decoded.trackingId}`);
+      }
+      log("  → Tracking found. dropVerified?", tracking.dropVerified, "| pickupVerified?", tracking.pickupVerified);
+
+      if (tracking.dropVerified) {
+        logError("verifyDrop — drop already verified");
+        throw new Error("Drop already verified");
+      }
+
+      if (!tracking.pickupVerified) {
+        logError("verifyDrop — pickup not verified yet, cannot verify drop");
+        throw new Error("Pickup must be verified before drop verification");
+      }
+
+      const now = new Date();
+      const timeoutDate = new Date(
+        now.getTime() - this.QR_VERIFICATION_TIMEOUT_MS,
+      );
+      log("  → Timeout check — now:", now.toISOString());
+
+      if (tracking.dropVerifiedAt && tracking.dropVerifiedAt < timeoutDate) {
+        logError("verifyDrop — verification timeout expired");
+        throw new Error("Drop verification timeout expired");
+      }
+
+      log("  → Marking token as verified...");
+      const newToken = await this.markQRAsVerified(token);
+
+      log("  → Updating tracking document...");
+      const trackingDoc = tracking as ITrackingWithQR;
+      trackingDoc.dropVerified = true;
+      trackingDoc.dropVerifiedAt = now;
+      trackingDoc.rideStatus = "dropVerified";
+      trackingDoc.dropQRToken = newToken;
+      await trackingDoc.save({ session });
+      log("  → Tracking saved");
+
+      log("  → Looking up booking:", decoded.bookingId);
+      const booking = await RideBooking.findOne({
+        bookingId: decoded.bookingId,
+      }).session(session);
+
+      if (booking) {
+        log("  → Booking found. Updating status...");
+        booking.dropVerified = true;
+        booking.dropVerifiedAt = now;
+        booking.status = "dropVerified";
+        await booking.save({ session });
+        log("  → Booking saved");
+      } else {
+        logError("verifyDrop — booking not found:", decoded.bookingId);
+        throw new Error(`Booking not found: ${decoded.bookingId}`);
+      }
+
+      log("  → Committing transaction...");
+      await session.commitTransaction();
+      logSuccess("verifyDrop — transaction committed");
+
+      return {
+        bookingId: decoded.bookingId,
+        trackingId: decoded.trackingId,
+        type: "drop",
+        verified: true,
+        verifiedAt: now,
+      };
+    } catch (error) {
+      logError("verifyDrop — aborting transaction", error);
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      log("  → Ending session");
+      await session.endSession();
+    }
+  }
+
+  // ============================================================
+  // GET QR CODE STATUS
+  // ============================================================
+  async getQRCodeStatus(bookingId: string): Promise<{
+    bookingId: string;
+    trackingId: string;
+    pickupVerified: boolean;
+    dropVerified: boolean;
+    pickupQRToken: string | null;
+    dropQRToken: string | null;
+  }> {
+    log("📥 getQRCodeStatus called — bookingId:", bookingId);
+
+    if (!bookingId || typeof bookingId !== "string") {
+      logError("getQRCodeStatus — invalid bookingId");
+      throw new Error("Invalid booking ID");
+    }
+
+    const booking = await RideBooking.findOne({ bookingId }).lean().exec();
+    log("📦 Booking found:", booking ? "yes" : "no");
+
+    if (!booking) {
+      logError("getQRCodeStatus — booking not found:", bookingId);
+      throw new Error(`Booking not found: ${bookingId}`);
+    }
+
+    if (!booking.trackingId) {
+      logError("getQRCodeStatus — tracking not initialized");
+      throw new Error(`Tracking not initialized for booking: ${bookingId}`);
+    }
+
+    const tracking = await RideTracking.findOne({
+      trackingId: booking.trackingId,
+    })
+      .lean()
+      .exec();
+    log("📦 Tracking found:", tracking ? "yes" : "no");
+
+    if (!tracking) {
+      logError("getQRCodeStatus — tracking not found:", booking.trackingId);
+      throw new Error(`Tracking not found: ${booking.trackingId}`);
+    }
+
+    const trackingDoc = tracking as ITrackingWithQR;
+
+    logSuccess("getQRCodeStatus complete", {
+      pickupVerified: trackingDoc.pickupVerified,
+      dropVerified: trackingDoc.dropVerified,
+    });
+
+    return {
+      bookingId: booking.bookingId,
+      trackingId: trackingDoc.trackingId,
+      pickupVerified: trackingDoc.pickupVerified || false,
+      dropVerified: trackingDoc.dropVerified || false,
+      pickupQRToken: trackingDoc.pickupQRToken || null,
+      dropQRToken: trackingDoc.dropQRToken || null,
+    };
+  }
+
+  // ============================================================
+  // REGENERATE QR CODES
+  // ============================================================
+  async regenerateQRCodes(bookingId: string): Promise<IQRTokens> {
+    log("📥 regenerateQRCodes called — bookingId:", bookingId);
+
+    if (!bookingId || typeof bookingId !== "string") {
+      logError("regenerateQRCodes — invalid bookingId");
+      throw new Error("Invalid booking ID");
+    }
+
+    log("  → Starting mongoose session...");
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    log("  → Transaction started");
+
+    try {
+      log("  → Looking up booking:", bookingId);
+      const booking = await RideBooking.findOne({ bookingId }).session(session);
+
+      if (!booking) {
+        logError("regenerateQRCodes — booking not found:", bookingId);
+        throw new Error(`Booking not found: ${bookingId}`);
+      }
+
+      if (!booking.trackingId) {
+        logError("regenerateQRCodes — tracking not initialized");
+        throw new Error(`Tracking not initialized for booking: ${bookingId}`);
+      }
+
+      log("  → Looking up tracking:", booking.trackingId);
+      const tracking = await RideTracking.findOne({
+        trackingId: booking.trackingId,
+      }).session(session);
+
+      if (!tracking) {
+        logError("regenerateQRCodes — tracking not found:", booking.trackingId);
+        throw new Error(`Tracking not found: ${booking.trackingId}`);
+      }
+
+      const trackingDoc = tracking as ITrackingWithQR;
+
+      log("  → Verification status:", {
+        pickupVerified: trackingDoc.pickupVerified,
+        dropVerified: trackingDoc.dropVerified,
+      });
+
+      if (trackingDoc.pickupVerified || trackingDoc.dropVerified) {
+        logError("regenerateQRCodes — verification already started");
+        throw new Error(
+          "Cannot regenerate QR codes after verification has started",
+        );
+      }
+
+      log("  → Validating ObjectIds...");
+      const rideId = this.validateObjectId(booking._id);
+      const customerId = this.validateObjectId(booking.customerId);
+      const driverId = booking.driverId
+        ? this.validateObjectId(booking.driverId)
+        : new mongoose.Types.ObjectId();
+      log("  → ObjectIds validated");
+
+      const baseData: Omit<QRTokenData, "type"> = {
+        bookingId: booking.bookingId,
+        trackingId: booking.trackingId,
+        rideId: rideId,
+        customerId: customerId,
+        driverId: driverId,
+      };
+
+      log("  → Generating fresh QR tokens...");
+      const [pickupQR, dropQR] = await Promise.all([
+        this.generateQRToken({ ...baseData, type: "pickup" }),
+        this.generateQRToken({ ...baseData, type: "drop" }),
+      ]);
+
+      log("  → Updating tracking with new tokens...");
+      trackingDoc.pickupQRToken = pickupQR.token;
+      trackingDoc.dropQRToken = dropQR.token;
+      await trackingDoc.save({ session });
+      log("  → Tracking saved");
+
+      log("  → Committing transaction...");
+      await session.commitTransaction();
+      logSuccess("regenerateQRCodes complete");
+
+      return {
+        pickup: {
+          token: pickupQR.token,
+          qrCode: pickupQR.qrCode,
+          type: "pickup",
+        },
+        drop: {
+          token: dropQR.token,
+          qrCode: dropQR.qrCode,
+          type: "drop",
+        },
+      };
+    } catch (error) {
+      logError("regenerateQRCodes — aborting transaction", error);
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      log("  → Ending session");
+      await session.endSession();
+    }
+  }
+
+  // ============================================================
+  // VERIFY WITH RETRY
+  // ============================================================
+  async verifyQRWithRetry(
+    token: string,
+    maxRetries: number = 3,
+  ): Promise<IVerifyResult> {
+    log("📥 verifyQRWithRetry called — maxRetries:", maxRetries);
+    let lastError: Error = new Error("QR verification failed");
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      log(`  → Attempt ${attempt}/${maxRetries}`);
+      try {
+        const decoded = await this.verifyQRToken(token);
+        log("  → Decoded type:", decoded.type);
+
+        if (decoded.type === "pickup") {
+          log("  → Calling verifyPickup...");
+          return await this.verifyPickup(token);
+        } else if (decoded.type === "drop") {
+          log("  → Calling verifyDrop...");
+          return await this.verifyDrop(token);
+        } else {
+          logError("verifyQRWithRetry — unknown QR type:", decoded.type);
+          throw new Error(`Unknown QR type: ${decoded.type}`);
         }
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        logError(`verifyQRWithRetry — attempt ${attempt} failed:`, lastError.message);
+
+        if (attempt < maxRetries) {
+          const delayMs = 1000 * attempt;
+          log(`  → Retrying in ${delayMs}ms...`);
+          await this.delay(delayMs);
+          continue;
+        }
+        break;
       }
     }
 
-    // Sort by fare ascending
-    options.sort((a, b) => a.estimatedFare - b.estimatedFare);
-
-    return options;
+    logError("verifyQRWithRetry — all attempts failed");
+    throw lastError;
   }
 
-  // =====================================================
-  // validateLocation
-  //
-  // Purpose:
-  // Validates location coordinates.
-  //
-  // Called By:
-  // Internally by getRideOptions
-  // =====================================================
-
-  private validateLocation(location: any): void {
-    if (!location) {
-      throw new Error("Location is required");
-    }
-
-    if (typeof location.latitude !== "number" || isNaN(location.latitude)) {
-      throw new Error("Invalid latitude");
-    }
-
-    if (typeof location.longitude !== "number" || isNaN(location.longitude)) {
-      throw new Error("Invalid longitude");
-    }
-
-    if (location.latitude < -90 || location.latitude > 90) {
-      throw new Error("Latitude must be between -90 and 90");
-    }
-
-    if (location.longitude < -180 || location.longitude > 180) {
-      throw new Error("Longitude must be between -180 and 180");
-    }
+  // ============================================================
+  // PRIVATE HELPERS
+  // ============================================================
+  private async delay(ms: number): Promise<void> {
+    log(`⏱️ delay(${ms}ms)`);
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  // =====================================================
-  // cleanupExpiredQuotes
-  //
-  // Purpose:
-  // Deletes expired quotes from database.
-  //
-  // Called By:
-  // Background cleanup job
-  // =====================================================
+  private getTokenCacheKey(token: string): string {
+    const key = token.substring(0, 20);
+    log("🔑 getTokenCacheKey:", key);
+    return key;
+  }
 
-  async cleanupExpiredQuotes(): Promise<number> {
-    const result = await RideQuote.deleteMany({
-      expiresAt: { $lt: new Date() },
-    });
-    return result.deletedCount || 0;
+  clearVerificationCache(): void {
+    log("🧹 clearVerificationCache called — size before:", this.verificationCache.size);
+    this.verificationCache.clear();
+    logSuccess("Verification cache cleared");
+  }
+
+  private validateObjectId(
+    id: string | mongoose.Types.ObjectId | null | undefined,
+  ): mongoose.Types.ObjectId {
+    log("🔍 validateObjectId — input:", String(id));
+
+    if (!id) {
+      logError("validateObjectId — id is null/undefined");
+      throw new Error("ObjectId is required");
+    }
+
+    if (id instanceof mongoose.Types.ObjectId) {
+      log("  → Already ObjectId instance:", String(id));
+      return id;
+    }
+
+    if (typeof id === "string" && mongoose.Types.ObjectId.isValid(id)) {
+      const objId = new mongoose.Types.ObjectId(id);
+      log("  → Converted string to ObjectId:", String(objId));
+      return objId;
+    }
+
+    logError("validateObjectId — invalid ObjectId format:", String(id));
+    throw new Error(`Invalid ObjectId: ${String(id)}`);
   }
 }

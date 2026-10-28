@@ -1,7 +1,10 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+
+import { AuthRequest } from "../../../middleware/authMiddleware";
+
 import { createPaymentIntent } from "../../../services/tizzygo/paymentService";
+
 import CheckoutSession, {
   ICheckoutSession,
 } from "../../../models/tizzygo/checkout/CheckoutSession";
@@ -80,7 +83,12 @@ export const createPaymentIntentHandler = async (
       productDataId,
     } = req.body as CreatePaymentIntentRequestBody;
 
-    console.log(`👤 User ID: ${user?.userId}`);
+    // ✅ Canonical user id per authMiddleware contract (req.userId).
+    // `req.user.userId` is also populated by authMiddleware, so behavior is
+    // unchanged.
+    const userId = req.userId ?? user?.userId;
+
+    console.log(`👤 User ID: ${userId}`);
     console.log(`💳 Payment Method: ${paymentMethod}`);
     console.log(`🛒 Is Buy Now: ${isBuyNow}`);
     console.log(`📦 Product ID: ${productId || "NOT PROVIDED"}`);
@@ -88,7 +96,7 @@ export const createPaymentIntentHandler = async (
     console.log(`📋 Product Data ID: ${productDataId || "NOT PROVIDED"}`);
 
     // ✅ Validate user
-    if (!user?.userId) {
+    if (!userId) {
       await mongoSession.abortTransaction();
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
@@ -181,22 +189,35 @@ export const createPaymentIntentHandler = async (
           }));
         }
 
+        // TODO(quton-migration): `req.user` only carries
+        // `{ id, _id, userId, role }` — it has no `name` or `email`.
+        // The Quton Connect User schema also has no `email` field
+        // (only `connectAddress`, which is not guaranteed deliverable).
+        // Decide the correct source for `payer.name` / `payer.email`
+        // (e.g. a contact-email field on CheckoutSession/Order, or a
+        // deliverable Quton Connect email once one exists).
+        // Behavior below intentionally matches the old fallbacks:
+        // no new wrong data is introduced.
+        const fallbackPayerName = "Customer";
+        const fallbackPayerEmail = "";
+
         return res.status(200).json({
           success: true,
           message: "Checkout session already exists",
           checkoutSessionId: existingCheckoutSession.checkoutSessionId,
           paymentIntentId: existingCheckoutSession.paymentIntentId || null,
-          paymentMethod: existingCheckoutSession.paymentMethod || paymentMethod,
+          paymentMethod:
+            existingCheckoutSession.paymentMethod || paymentMethod,
           finalAmount:
-            existingCheckoutSession.cartSnapshot?.calculatedData?.finalAmount ||
-            0,
+            existingCheckoutSession.cartSnapshot?.calculatedData
+              ?.finalAmount || 0,
           currency: "INR",
           expiresAt: existingCheckoutSession.expiresAt,
           appName: "TizzyGo",
           payer: {
-            userId: user.userId,
-            name: user.name || "Customer",
-            email: user.email || "",
+            userId,
+            name: fallbackPayerName,
+            email: fallbackPayerEmail,
           },
           isDuplicate: true,
           ...(existingOrders.length > 0 && {
@@ -209,7 +230,7 @@ export const createPaymentIntentHandler = async (
 
     // ✅ Create payment intent
     const result = await createPaymentIntent({
-      userId: user.userId,
+      userId,
       address,
       paymentMethod,
       session: mongoSession,
@@ -258,7 +279,13 @@ export const createPaymentIntentHandler = async (
       expiresAt: result.expiresAt,
       appName: "TizzyGo",
       payer: {
-        userId: user.userId,
+        userId,
+        // TODO(quton-migration): `userDetails` is produced by
+        // `paymentService.ts`. `name` / `email` there must be sourced
+        // from the new schema (full name from firstName + lastName)
+        // and from a real contact-email field — Quton Connect User has
+        // no `email`. Left untouched here because the decision lives
+        // in the service.
         name: userDetails?.name || "Customer",
         email: userDetails?.email || "",
       },
@@ -307,10 +334,13 @@ export const getSessionStatusHandler = async (
     const user = req.user;
     const { checkoutSessionId } = req.params;
 
-    console.log(`📥 User ID: ${user?.userId}`);
+    // ✅ Canonical user id per authMiddleware contract.
+    const userId = req.userId ?? user?.userId;
+
+    console.log(`📥 User ID: ${userId}`);
     console.log(`📥 Checkout Session ID: ${checkoutSessionId}`);
 
-    if (!user?.userId) {
+    if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
@@ -322,7 +352,7 @@ export const getSessionStatusHandler = async (
 
     const session = await CheckoutSession.findOne({
       checkoutSessionId,
-      userId: user.userId,
+      userId,
     }).lean<ICheckoutSession | null>();
 
     if (!session) {

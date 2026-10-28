@@ -9,6 +9,7 @@ import { startCleanupScheduler } from "../schedulers/cleanupScheduler";
 import { logger } from "../utils/tizzyos/seller/logger";
 
 import PayoutWebhookRoutes from "../routes/tizzyos/PayoutPortal/PayoutWebhookRoutes";
+import ridePaymentRoutes from "../routes/tizzyos/cab/ridePaymentRoutes";
 
 // 🔥 IMPORT PAYOUT PORTAL ROUTES
 import PayoutPortalSetupRoutes from "../routes/tizzyos/PayoutPortal/PayoutPortalSetupRoutes";
@@ -18,7 +19,6 @@ import liveTrackingRoutes from "../routes/tizzyos/shipping/orders/deliveryTracki
 import orderfetchRoutes from "../routes/tizzyos/shipping/orders/orderRoutes";
 
 // TizzyOS Imports (If any) here
-import userRoutes from "../routes/tizzyos/user/meRoutes";
 import sellerRoutes from "../routes/tizzyos/seller/sellerRoutes";
 import sellerStatusRoutes from "../routes/tizzyos/seller/statusRoutes";
 import riderRoutes from "../routes/tizzyos/rider/riderRoutes";
@@ -52,6 +52,7 @@ import rideTrackingRoutes from "../routes/tizzyos/cab/rideTrackingRoutes";
 import rideRequestRoutes from "../routes/tizzyos/cab/rideRequestRoutes";
 import rideLiveTrackingRoutes from "../routes/tizzyos/cab/rideLiveTrackingRoutes";
 import sellerEarningRoutes from "../routes/tizzyos/PayoutPortal/SellerEarningRoutes";
+import CabQRScanner from "../routes/tizzyos/cab/rideQRScanRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -64,6 +65,10 @@ const app = express();
    ========================================================= */
 
 app.use("/api/v0/payout-portal", PayoutWebhookRoutes);
+
+// Cab/Ride Razorpay payment routes.
+// Its webhook uses express.raw() inside the router.
+app.use("/api/v0/ride", ridePaymentRoutes);
 
 /* =========================================================
    ❗ AFTER WEBHOOK — NORMAL BODY PARSERS
@@ -104,7 +109,6 @@ app.get("/", (req, res) => {
    ========================================================= */
 app.use("/api/v0/orders/tracking", liveTrackingRoutes);
 app.use("/api/v0/orders", orderfetchRoutes);
-app.use("/api/v0/user", userRoutes);
 app.use("/api/v0/seller", sellerRoutes);
 app.use("/api/v0/seller", sellerStatusRoutes);
 app.use("/api/v0/rider", riderRoutes);
@@ -138,6 +142,7 @@ app.use("/api/v0/ride", rideTrackingRoutes);
 app.use("/api/v0/ride", rideRequestRoutes);
 app.use("/api/v0/ride/live/tracking", rideLiveTrackingRoutes);
 app.use("/api/v0/seller-earnings", sellerEarningRoutes);
+app.use("/api/v0/ride", CabQRScanner);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)

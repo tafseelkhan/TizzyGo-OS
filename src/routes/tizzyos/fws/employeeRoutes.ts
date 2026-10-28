@@ -6,7 +6,7 @@ import {
   getAllEmployees,
   getEmployeeByNameAndRole,
 } from "../../../controller/tizzyos/fws/employeeController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = express.Router();
 

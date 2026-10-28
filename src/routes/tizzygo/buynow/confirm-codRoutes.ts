@@ -1,5 +1,5 @@
 import express from "express";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 import { confirmCOD } from "../../../controller/tizzygo/buynow/cod/orderController";
 
 const router = express.Router();

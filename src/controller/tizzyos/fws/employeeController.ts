@@ -1,15 +1,34 @@
 // controllers/employee.controller.ts
-import { Request, Response } from "express";
+import { Response } from "express";
 import mongoose from "mongoose";
+
 import { Employee } from "../../../models/tizzyos/fws/employee";
 import FWSWareHouse from "../../../models/tizzyos/fws/fwsWareHouse";
-import User from "../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
+
+import type { AuthRequest } from "../../../middleware/authMiddleware";
+
+/**
+ * Derive a full name from the Quton Connect user fields.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+}
 
 /**
  * Create Employee and add to FWSWarehouse
  * Employee must enter fwsCode to get added to warehouse
  */
-export const createEmployee = async (req: Request, res: Response) => {
+export const createEmployee = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   console.log("🚀 [createEmployee] ====================");
   console.log("🚀 [createEmployee] API called");
 
@@ -21,7 +40,7 @@ export const createEmployee = async (req: Request, res: Response) => {
     console.log("👤 [createEmployee] req.user:", req.user);
 
     const { name, email, phone, role, fwsCode, address } = req.body;
-    const userId = req.user?.userId; // Assuming auth middleware sets req.user
+    const userId = req.userId ?? req.user?.userId;
 
     console.log("📝 [createEmployee] Parsed data:", {
       userId,
@@ -57,8 +76,9 @@ export const createEmployee = async (req: Request, res: Response) => {
 
     console.log("✅ [createEmployee] All required fields present");
 
-    // 2. Check if user exists
+    // 2. Check if user exists (Quton Connect connection)
     console.log("🔍 [createEmployee] Checking if user exists:", userId);
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
 
     if (!user) {
@@ -73,7 +93,8 @@ export const createEmployee = async (req: Request, res: Response) => {
       });
     }
 
-    console.log("✅ [createEmployee] User found:", user.email);
+    // Quton User has no `email`; log the derived full name instead.
+    console.log("✅ [createEmployee] User found:", getFullName(user));
 
     // 3. Check if FWSWarehouse exists with given fwsCode
     console.log(
@@ -196,8 +217,14 @@ export const createEmployee = async (req: Request, res: Response) => {
     // 8. Fetch complete employee data with populated fields
     console.log("📝 [createEmployee] Fetching populated employee data...");
 
+    // TODO(quton-migration): `.populate("userId", ...)` CANNOT cross
+    // connections. `Employee` is on the default (TizzyGo) connection,
+    // `User` is on the Quton Connect connection. This call will return
+    // `null` (or throw MissingSchemaError) at runtime after migration.
+    // Resolution pending: manual join OR drop populate and rely on
+    // Employee.name/email/phone OR denormalize. Awaiting sign-off.
     const populatedEmployee = await Employee.findById(employee._id)
-      .populate("userId", "name email phone")
+      .populate("userId", "firstName lastName phone")
       .lean();
 
     console.log(
@@ -221,7 +248,6 @@ export const createEmployee = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    // Rollback transaction on error
     console.error(
       "❌ [createEmployee] Error caught, rolling back transaction...",
     );
@@ -232,7 +258,6 @@ export const createEmployee = async (req: Request, res: Response) => {
     console.error("❌ [createEmployee] Error creating employee:", error);
     console.error("❌ [createEmployee] Error stack:", error.stack);
 
-    // Handle duplicate key error
     if (error.code === 11000) {
       console.log(
         "❌ [createEmployee] Duplicate key error (userId or email already exists)",
@@ -255,10 +280,12 @@ export const createEmployee = async (req: Request, res: Response) => {
   }
 };
 
-export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
+export const checkEmployeeFormStatus = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
-    // ✅ 1. Token se userId lo
-    const userId = req.user?.userId;
+    const userId = req.userId ?? req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -272,7 +299,7 @@ export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
       userId,
     );
 
-    // ✅ 2. Check if user exists
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -281,14 +308,20 @@ export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ 3. Sirf employee check - userId se direct find
+    // TODO(quton-migration): `.populate("userId", ...)` CANNOT cross
+    // connections (Employee = default connection, User = Quton).
+    // Resolution pending — same decision as createEmployee above.
     const employee = await Employee.findOne({ userId: userId })
-      .populate("userId", "name email phone")
+      .populate("userId", "firstName lastName phone")
       .lean();
 
     console.log("📊 [Backend] Employee found:", employee ? "Yes" : "No");
 
-    // ✅ 4. Agar employee nahi hai
+    // TODO(quton-migration): Quton User has no `email`. The `user.email`
+    // below must be sourced from a contact-email field or `connectAddress`
+    // (not blindly). Awaiting decision — see message.
+    const userFullName = getFullName(user);
+
     if (!employee) {
       return res.status(200).json({
         success: true,
@@ -299,15 +332,16 @@ export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
           employee: null,
           user: {
             _id: user._id,
-            name: user.name,
-            email: user.email,
+            name: userFullName,
+            // TODO(quton-migration): `email` source undecided.
+            // Using empty string to avoid inventing data.
+            email: "",
             phone: user.phone,
           },
         },
       });
     }
 
-    // ✅ 5. Employee exists
     const isFormComplete =
       employee.name &&
       employee.email &&
@@ -343,8 +377,9 @@ export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
         },
         user: {
           _id: user._id,
-          name: user.name,
-          email: user.email,
+          name: userFullName,
+          // TODO(quton-migration): `email` source undecided.
+          email: "",
           phone: user.phone,
         },
       },
@@ -361,19 +396,20 @@ export const checkEmployeeFormStatus = async (req: Request, res: Response) => {
 /**
  * Get employees by user ID
  */
-export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
+export const getEmployeeByNameAndRole = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   console.log("🔍 [getEmployeeByNameAndRole] ====================");
   console.log("🔍 [getEmployeeByNameAndRole] API called");
 
   try {
-    // 1️⃣ Frontend se sirf name aur role lo
     const { name, role } = req.body;
     console.log("📝 [getEmployeeByNameAndRole] Request body:", req.body);
     console.log("📝 [getEmployeeByNameAndRole] Name:", name);
     console.log("📝 [getEmployeeByNameAndRole] Role:", role);
 
-    // 2️⃣ Token se userId nikaalo
-    const userId = req.user?.userId;
+    const userId = req.userId ?? req.user?.userId;
     console.log("👤 [getEmployeeByNameAndRole] User ID from token:", userId);
 
     if (!userId) {
@@ -386,7 +422,6 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate userId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       console.log("❌ [getEmployeeByNameAndRole] Invalid user ID:", userId);
       return res.status(400).json({
@@ -397,7 +432,6 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
 
     console.log("✅ [getEmployeeByNameAndRole] Valid User ID:", userId);
 
-    // 3️⃣ DB mein search karo (userId ke saath optional filters bhi)
     const query: any = {
       userId: userId,
       isActive: true,
@@ -406,9 +440,8 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
     console.log("🔍 [getEmployeeByNameAndRole] Building query...");
     console.log("📊 [getEmployeeByNameAndRole] Base query:", query);
 
-    // Agar name ya role aaya hai toh filter lagao
     if (name) {
-      query.name = { $regex: name, $options: "i" }; // Case-insensitive search
+      query.name = { $regex: name, $options: "i" };
       console.log(
         "📊 [getEmployeeByNameAndRole] Added name filter:",
         query.name,
@@ -427,12 +460,15 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
       JSON.stringify(query, null, 2),
     );
 
-    // 4️⃣ Database query execute karo
     console.log(
       "🔍 [getEmployeeByNameAndRole] Fetching employees from database...",
     );
+
+    // TODO(quton-migration): `.populate("userId", ...)` CANNOT cross
+    // connections (Employee = default connection, User = Quton).
+    // Resolution pending — same decision as createEmployee above.
     const employees = await Employee.find(query)
-      .populate("userId", "name email phone") // User ka poora data
+      .populate("userId", "firstName lastName phone")
       .lean();
 
     console.log(
@@ -446,7 +482,6 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
       );
     }
 
-    // 5️⃣ Pura data frontend ko bhejo
     console.log("📤 [getEmployeeByNameAndRole] Sending success response");
     console.log("🔍 [getEmployeeByNameAndRole] ====================");
 
@@ -471,13 +506,15 @@ export const getEmployeeByNameAndRole = async (req: Request, res: Response) => {
  * ✅ Get all employees - Token se userId lega
  * Sirf userId ke against saare employees fetch karega
  */
-export const getAllEmployees = async (req: Request, res: Response) => {
+export const getAllEmployees = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
     console.log("📦 [getAllEmployees] ====================");
     console.log("📦 [getAllEmployees] API called");
 
-    // ✅ 1. Token se userId lo
-    const userId = req.user?.userId;
+    const userId = req.userId ?? req.user?.userId;
 
     if (!userId) {
       console.log(
@@ -491,7 +528,7 @@ export const getAllEmployees = async (req: Request, res: Response) => {
 
     console.log("👤 [getAllEmployees] User ID from token:", userId);
 
-    // ✅ 2. Check if user exists
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
     if (!user) {
       console.log("❌ [getAllEmployees] User not found:", userId);
@@ -501,20 +538,22 @@ export const getAllEmployees = async (req: Request, res: Response) => {
       });
     }
 
-    console.log("✅ [getAllEmployees] User found:", user.email);
+    // Quton User has no `email`; log the derived full name instead.
+    console.log("✅ [getAllEmployees] User found:", getFullName(user));
 
-    // ✅ 3. Find all employees for this userId
+    // TODO(quton-migration): `.populate("userId", ...)` CANNOT cross
+    // connections (Employee = default connection, User = Quton).
+    // Resolution pending — same decision as createEmployee above.
     const employees = await Employee.find({
       userId: userId,
       isActive: true,
     })
-      .populate("userId", "name email phone")
-      .sort({ createdAt: -1 }) // Latest first
+      .populate("userId", "firstName lastName phone")
+      .sort({ createdAt: -1 })
       .lean();
 
     console.log(`📊 [getAllEmployees] Found ${employees.length} employees`);
 
-    // ✅ 4. Return response
     return res.status(200).json({
       success: true,
       message:

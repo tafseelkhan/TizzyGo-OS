@@ -3,7 +3,7 @@ import {
   registerRideDriver,
   getRideDriver,
 } from "../../../controller/tizzyos/cab/registerRideDriver";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

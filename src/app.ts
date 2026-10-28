@@ -15,8 +15,8 @@ import PayoutWebhookRoutes from "./routes/tizzyos/PayoutPortal/PayoutWebhookRout
 // 🔥 IMPORT PAYOUT PORTAL ROUTES
 import PayoutPortalSetupRoutes from "./routes/tizzyos/PayoutPortal/PayoutPortalSetupRoutes";
 
-import authRoutes from "./routes/tizzygo/auths/authRoutes";
-import colorRoutes from "./routes/tizzygo/auths/colorRoutes";
+import authRoutes from "./routes/tizzygo/auth/authRoutes";
+import colorRoutes from "./routes/tizzygo/auth/colorRoutes";
 import cartRoutes from "./routes/tizzygo/cart/addToCartRoutes";
 import buynowShopRoutes from "./routes/tizzygo/shop/buynowRoutes";
 import commentRoutes from "./routes/tizzygo/social/commentRoutes";

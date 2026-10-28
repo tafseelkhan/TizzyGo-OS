@@ -1,6 +1,6 @@
 import { Response } from "express";
 import mongoose from "mongoose";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import Order from "../../../models/tizzygo/checkout/order";
 
 export const getOrderById = async (req: AuthRequest, res: Response) => {

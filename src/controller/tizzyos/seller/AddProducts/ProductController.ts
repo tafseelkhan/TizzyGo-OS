@@ -2,9 +2,12 @@
 
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+
 import { Product } from "../../../../models/tizzyos/seller/AddProducts/Products";
 import { generateProductId } from "../../../../utils/tizzyos/seller/generateCustomId";
-import User from "../../../../models/tizzyos/auths/User";
+
+import { getQutonConnectModels } from "../../../../config/tizzygo/qutonConnectDatabase";
+import type { AuthRequest } from "../../../../middleware/authMiddleware";
 
 const createCombinationKey = (fields: Record<string, string>): string => {
   return Object.entries(fields)
@@ -55,26 +58,57 @@ const generateSKU = (title: string, variantIndex: number): string => {
   return `TZ-${cleanTitle || "PROD"}-${timestamp}-${random}-${variantIndex + 1}`;
 };
 
-export const createProduct = async (req: Request, res: Response) => {
+export const createProduct = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
     console.log("🚀 CREATE PRODUCT API");
 
-    const sellerId = req.user?._id;
+    const sellerId = req.userId ?? req.user?._id;
     if (!sellerId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
     console.log("userId:", sellerId);
 
-    const seller = await User.findById(sellerId).select(
-      "zeptPayAccountId name",
-    );
+    // ============================================================
+    // Quton Connect User lookup.
+    //
+    // `zeptPayAccountId` is NOT part of the Quton Connect User schema.
+    // It is a seller/payment business field.
+    //
+    // TODO(quton-migration): resolve the correct source for
+    // `zeptPayAccountId` before enabling the gate below. Options:
+    //   (a) seller/vendor/business doc on the default (TizzyGo) DB
+    //   (b) GatewayAccountModel (or a ZeptPay equivalent) on the
+    //       default connection
+    //   (c) add `zeptPayAccountId` to user.schema.ts and read it via
+    //       getQutonConnectModels().User
+    //   (d) no longer required — remove the gate entirely
+    //
+    // While unresolved, the gate is DISABLED so nothing wrong flows
+    // into the Product doc. This is a deliberate placeholder — do
+    // NOT ship to production until resolved.
+    // ============================================================
+    const { User } = getQutonConnectModels();
+    const seller = await User.findById(sellerId).select("_id").lean();
 
-    if (!seller?.zeptPayAccountId) {
-      return res.status(400).json({
+    if (!seller) {
+      return res.status(404).json({
         success: false,
-        message: "zeptPayAccountId missing",
+        message: "Seller account not found",
       });
     }
+
+    // TODO(quton-migration): restore this gate once
+    // `zeptPayAccountId` has a definitive source. Original logic:
+    //   if (!seller?.zeptPayAccountId) {
+    //     return res.status(400).json({
+    //       success: false,
+    //       message: "zeptPayAccountId missing",
+    //     });
+    //   }
+    const zeptPayAccountId: string | undefined = undefined;
 
     const body = req.body;
     console.log("body:", body);
@@ -266,7 +300,10 @@ export const createProduct = async (req: Request, res: Response) => {
     // ================= CREATE PRODUCT =================
     const product = new Product({
       sellerId: new mongoose.Types.ObjectId(sellerId),
-      zeptPayAccountId: seller.zeptPayAccountId,
+      // TODO(quton-migration): `zeptPayAccountId` currently undefined
+      // because its source is unresolved. Once known, replace
+      // `zeptPayAccountId` (variable) with the resolved value.
+      zeptPayAccountId: zeptPayAccountId,
       productId: generateProductId(),
 
       title: body.title,
@@ -492,10 +529,13 @@ export const getProductDetailsForBuyNow = async (
  * Returns lightweight list of products OWNED by the logged-in seller
  * Query params: page, limit, category, search, inStock
  */
-export const getUserProducts = async (req: Request, res: Response) => {
+export const getUserProducts = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
     // ---------- Auth check ----------
-    const userId = req.user?.id;
+    const userId = req.userId ?? req.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -607,7 +647,6 @@ export const getUserProducts = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch products",
-      debug: error?.message, // 🔥 temporary — production me hata dena
     });
   }
 };

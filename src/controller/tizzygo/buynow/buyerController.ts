@@ -1,8 +1,8 @@
 import { DELIVERY_RATE_PER_KG } from "./../../../utils/tizzygo/calculations";
 import { Response } from "express";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import { Product } from "../../../models/tizzyos/seller/AddProducts/Products";
-import User from "../../../models/tizzygo/auths/User";
+import User from "../../../models/auth/User";
 import BuyerLocation from "../../../models/tizzygo/locations/locations";
 import {
   findOrCreateCartItem,

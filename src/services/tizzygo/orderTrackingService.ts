@@ -4,7 +4,9 @@ import mongoose from "mongoose";
 import DeliveryTracking from "../../models/tizzyos/shipping/order/deliveryTracking";
 import Order from "../../models/tizzygo/checkout/order";
 import ShippingLocation from "../../models/tizzyos/shipping/fws/fwsRiderLocation";
-import User from "../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../config/tizzygo/qutonConnectDatabase";
+
 import SellerApplication from "../../models/tizzyos/seller/SellerApplication";
 import {
   ITrackingUpdate,
@@ -12,6 +14,25 @@ import {
   IAddressInfo,
   IOrderTrackingResponse,
 } from "../../types/tizzygo/tracking";
+
+/**
+ * Derive a full name from Quton Connect user fields.
+ * Returns null when no name components are present.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  displayName?: string | null;
+}): string | null {
+  const derived = [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .trim();
+
+  if (derived) return derived;
+  if (user.displayName) return user.displayName;
+  return null;
+}
 
 export class OrderTrackingService {
   /**
@@ -43,17 +64,30 @@ export class OrderTrackingService {
       throw new Error("Order not found or unauthorized");
     }
 
-    // Get seller info
+    // Quton Connect models
+    const { User } = getQutonConnectModels();
+
+    // Get seller info (Quton User)
+    // TODO(quton-migration): `sellerEmail` has no source on Quton schema.
+    // See TODO on `orderObject.sellerEmail` below.
     const seller = await User.findById(order.sellerId)
-      .select("name email phone")
+      .select("firstName lastName phone")
       .lean();
+
     const sellerApplication = await SellerApplication.findOne({
       userId: order.sellerId,
       status: "approved",
     }).lean();
 
-    // Get buyer info
-    const buyer = await User.findById(userId).select("name email phone").lean();
+    // Get buyer info (Quton User)
+    // TODO(quton-migration): `buyerEmail` has no source on Quton schema.
+    // See TODO on `orderObject.buyerEmail` below.
+    const buyer = await User.findById(userId)
+      .select("firstName lastName phone")
+      .lean();
+
+    const sellerDerivedName = seller ? getFullName(seller) : null;
+    const buyerDerivedName = buyer ? getFullName(buyer) : null;
 
     // Build order object with all details
     const orderObject = {
@@ -61,11 +95,22 @@ export class OrderTrackingService {
       orderId: order.orderId,
       buyerId: order.buyerId,
       sellerId: order.sellerId,
-      sellerName: seller?.name || order.sellerName || "Seller",
-      sellerEmail: seller?.email,
+      // Name fallback chain: derived → order.sellerName (business field)
+      // → literal "Seller".
+      sellerName:
+        sellerDerivedName || order.sellerName || "Seller",
+      // TODO(quton-migration): `sellerEmail` has no field on Quton User.
+      // Awaiting decision on contact-email source (business record vs.
+      // connectAddress). Currently undefined.
+      sellerEmail: undefined as string | undefined,
       sellerPhone: seller?.phone,
-      buyerName: buyer?.name || order.buyerName || "Customer",
-      buyerEmail: buyer?.email,
+      // Name fallback chain: derived → order.buyerName (business field)
+      // → literal "Customer".
+      buyerName:
+        buyerDerivedName || order.buyerName || "Customer",
+      // TODO(quton-migration): `buyerEmail` has no field on Quton User.
+      // Awaiting decision on contact-email source.
+      buyerEmail: undefined as string | undefined,
       buyerPhone: buyer?.phone,
       productTitle: order.productTitle || "Product",
       productImage: order.productImage || "",
@@ -198,11 +243,32 @@ export class OrderTrackingService {
     let riderRating = null;
 
     if (tracking.currentHolderType === "RIDER" && tracking.currentHolderId) {
+      // ============================================================
+      // TODO(quton-migration): VERIFY which collection
+      // `tracking.currentHolderId` refers to when holder type is
+      // "RIDER".
+      //
+      // In riderAssignment.controller.ts, the rider ID stored on
+      // orders/tracking is `Register._id` (rider business record),
+      // NOT a Quton User _id. If that is the case here too, the
+      // current Quton User lookup below would return null (same as
+      // it does today with the old default-connection User, because
+      // the ObjectIds do not match).
+      //
+      // Options (please confirm):
+      //   (a) Register.findById(tracking.currentHolderId)
+      //   (b) Quton User.findById(tracking.currentHolderId) — keep as-is
+      //   (c) Use tracking.currentHolderName and only look up phone
+      //
+      // Until resolved, the current Quton User lookup is preserved
+      // (same runtime behavior as today — riderName/riderPhone may
+      // be null), with derived name support in case (b) is correct.
+      // ============================================================
       const riderUser = await User.findById(tracking.currentHolderId)
-        .select("name phone")
+        .select("firstName lastName phone")
         .lean();
       if (riderUser) {
-        riderName = riderUser.name || null;
+        riderName = getFullName(riderUser);
         riderPhone = riderUser.phone || null;
       }
 
@@ -240,15 +306,31 @@ export class OrderTrackingService {
     // Get current shipping partner info
     let shippingPartner = null;
     if (tracking.currentShipping) {
+      // ============================================================
+      // TODO(quton-migration): VERIFY whether
+      // `tracking.currentShipping.shippingUserId` is a Quton User _id
+      // or a shipping-partner business record _id.
+      //
+      // The response already carries `tracking.currentShipping.
+      // shippingName` — if that field is authoritative, the lookup
+      // below may be unnecessary. Preserved as-is pending your answer.
+      // ============================================================
       const shippingUser = await User.findById(
         tracking.currentShipping.shippingUserId,
       )
-        .select("name phone")
+        .select("firstName lastName phone")
         .lean();
+
+      const shippingDerivedName = shippingUser
+        ? getFullName(shippingUser)
+        : null;
+
       shippingPartner = {
         id: tracking.currentShipping.shippingUserId,
         name:
-          shippingUser?.name || tracking.currentShipping.shippingName || null,
+          shippingDerivedName ||
+          tracking.currentShipping.shippingName ||
+          null,
         phone: shippingUser?.phone || null,
         type: tracking.currentShipping.shippingType || null,
         location: {

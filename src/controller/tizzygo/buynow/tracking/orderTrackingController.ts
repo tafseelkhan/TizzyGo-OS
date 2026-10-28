@@ -26,7 +26,7 @@ export class OrderTrackingController {
   async getTrackingData(req: Request, res: Response) {
     try {
       const { orderId } = req.params;
-      const userId = req.user?.id;
+      const userId = req.userId;
 
       if (!userId) {
         return res.status(401).json({

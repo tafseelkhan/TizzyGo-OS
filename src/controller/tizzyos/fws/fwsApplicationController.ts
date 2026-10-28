@@ -1,7 +1,21 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+
 import FWSWareHouse from "../../../models/tizzyos/fws/fwsWareHouse";
-import User from "../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
+
+/**
+ * Derive a full name from the Quton Connect user fields.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+}
 
 // ✅ FWS Code Generator function
 const generateFWSCodeWithTimestamp = async (
@@ -67,7 +81,8 @@ export const createWarehouse = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user exists
+    // Check if user exists (Quton Connect connection)
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
     if (!user) {
       return res
@@ -87,6 +102,18 @@ export const createWarehouse = async (req: Request, res: Response) => {
     // Generate FWS Code
     const fwsCode = await generateFWSCodeWithTimestamp(city, state, pincode);
 
+    // TODO(quton-migration): Quton User has no `email` field.
+    // Decide the warehouse fallback email source:
+    //  - `user.connectAddress` (identity, not guaranteed deliverable)
+    //  - "" (preserve key, empty value)
+    //  - require `email` from request body for warehouses
+    // Currently using "" so no invented data is stored and the field
+    // stays a string. Awaiting decision.
+    const fallbackEmail = "";
+
+    // `managerName` fallback: derive from Quton firstName + lastName.
+    const fallbackManagerName = getFullName(user);
+
     // Create warehouse
     const warehouse = new FWSWareHouse({
       userId,
@@ -99,8 +126,8 @@ export const createWarehouse = async (req: Request, res: Response) => {
       latitude,
       longitude,
       phone: phone || user.phone,
-      email: email || user.email,
-      managerName: managerName || user.name,
+      email: email || fallbackEmail,
+      managerName: managerName || fallbackManagerName,
       managerPhone: managerPhone || user.phone,
       fwsType,
       coverageKm,
@@ -128,7 +155,6 @@ export const createWarehouse = async (req: Request, res: Response) => {
 
 // ✅ 2. CHECK API - Check if user has submitted form or not
 export const checkWarehouseStatus = async (req: Request, res: Response) => {
-
   try {
     const { userId } = req.params;
 
@@ -139,6 +165,7 @@ export const checkWarehouseStatus = async (req: Request, res: Response) => {
       });
     }
 
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -147,6 +174,12 @@ export const checkWarehouseStatus = async (req: Request, res: Response) => {
       });
     }
 
+    // TODO(quton-migration): `.populate("userId", ...)` CANNOT cross
+    // connections (FWSWareHouse = default connection, User = Quton).
+    // Also: Quton User has no `name`, `email`, or `profileImage`
+    // (it has `profilePhoto`). This populate will return `null` or
+    // throw MissingSchemaError at runtime. Pending: manual join OR
+    // drop populate. Awaiting decision.
     const warehouse = await FWSWareHouse.findOne({ userId }).populate(
       "userId",
       "name email phone profileImage",
@@ -217,7 +250,8 @@ export const getWarehouseByUserId = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user exists
+    // Check if user exists (Quton Connect connection)
+    const { User } = getQutonConnectModels();
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -226,7 +260,9 @@ export const getWarehouseByUserId = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ FIX: Sirf userId populate karo, "name email role" nahi
+    // TODO(quton-migration): same cross-connection populate problem as
+    // checkWarehouseStatus. Also `name`, `email`, `profileImage` are
+    // wrong paths for the Quton schema. Awaiting decision.
     const warehouse = await FWSWareHouse.findOne({ userId }).populate(
       "userId",
       "name email phone profileImage",

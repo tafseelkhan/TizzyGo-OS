@@ -14,7 +14,9 @@ import {
 import { QRTokenService } from "../../../utils/tizzyos/cab/qrToken";
 import { generateQRCodeDataURI } from "../../../utils/tizzyos/cab/qrGenerator";
 import RideDriver from "../../../models/tizzyos/cab/rideDriver";
-import User from "../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
+
 import { GoogleRoutesService } from "../../../interfaces/route/GoogleRoutesService";
 import { FareCalculationService } from "../../../interfaces/route/fare/FareCalculationService";
 import { RideDispatchService } from "../../../services/tizzyos/cab/rideDispatchService";
@@ -98,6 +100,23 @@ interface INormalizedQuote {
     perKmRate: number;
     perMinuteRate: number;
   };
+}
+
+/**
+ * Derive a full name from Quton Connect user fields.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  displayName?: string | null;
+}): string | null {
+  const derived = [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .trim();
+  if (derived) return derived;
+  if (user.displayName) return user.displayName;
+  return null;
 }
 
 export class RideBookingService {
@@ -485,41 +504,69 @@ export class RideBookingService {
       driverId: booking.driverId,
     });
 
-    // 2️⃣ Get Customer Details from User model
-    let customerDetails = null;
-    if (booking.customerId) {
-      customerDetails = await User.findById(booking.customerId)
-        .select("name email phone image roles")
-        .lean();
+    // Quton Connect models
+    const { User } = getQutonConnectModels();
 
-      console.log("✅ Customer found:", {
-        name: customerDetails?.name,
-        phone: customerDetails?.phone,
-      });
+    // 2️⃣ Get Customer Details from Quton User
+    let customerDetails: any = null;
+    if (booking.customerId) {
+      const customerUser = (await User.findById(booking.customerId)
+        .select("firstName lastName phone displayName profilePhoto apps")
+        .lean()) as any;
+
+      if (customerUser) {
+        customerDetails = {
+          ...customerUser,
+          // Derived full name (replaces old `name`)
+          name: getFullName(customerUser),
+          // Backward compat: `image` retained, sourced from `profilePhoto`.
+          image: customerUser.profilePhoto,
+          // TODO(quton-migration): `email` source pending.
+          email: undefined as string | undefined,
+          // TODO(quton-migration): top-level `roles` was on the old
+          // User schema. On Quton it's `apps[].roles`. Do NOT flatten
+          // blindly — awaiting decision on flat projection.
+          // `apps` is preserved as-is so consumers can read the real
+          // shape today.
+        };
+
+        console.log("✅ Customer found:", {
+          name: customerDetails.name,
+          phone: customerDetails.phone,
+        });
+      }
     }
 
-    // 3️⃣ Get Driver Details from User + RideDriver models
-    let driverDetails = null;
+    // 3️⃣ Get Driver Details from Quton User + RideDriver (business)
+    let driverDetails: any = null;
     if (booking.driverId) {
-      // First get user details
-      const driverUser = await User.findById(booking.driverId)
-        .select("name email phone image roles")
-        .lean();
+      const driverUser = (await User.findById(booking.driverId)
+        .select("firstName lastName phone displayName profilePhoto apps")
+        .lean()) as any;
 
       if (driverUser) {
-        // Then get RideDriver profile
+        // RideDriver profile is on the default connection (business record).
         const rideDriver = await RideDriver.findOne({
           userId: booking.driverId,
         }).lean();
 
+        const driverFullName = getFullName(driverUser);
+
         driverDetails = {
           ...driverUser,
+          name: driverFullName,
+          // Backward compat `image` from `profilePhoto`.
+          image: driverUser.profilePhoto,
+          // TODO(quton-migration): `email` source pending.
+          email: undefined as string | undefined,
+          // TODO(quton-migration): `roles` shape pending (see
+          // customer block).
           driverProfile: rideDriver || null,
         };
 
         console.log("✅ Driver found:", {
-          name: driverUser.name,
-          phone: driverUser.phone,
+          name: driverDetails.name,
+          phone: driverDetails.phone,
           hasVehicle: !!rideDriver,
           vehicleNumber: rideDriver?.vehicle?.vehicleNumber,
         });

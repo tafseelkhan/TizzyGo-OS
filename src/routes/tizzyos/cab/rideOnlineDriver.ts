@@ -10,7 +10,7 @@ import {
   getOnlineDriversCount,
   cleanupStaleStatuses,
 } from "../../../controller/tizzyos/cab/riderOnlineDriverController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

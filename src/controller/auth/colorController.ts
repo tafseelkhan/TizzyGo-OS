@@ -1,27 +1,36 @@
-import { Request, Response } from "express";
-import User from "../../../models/tizzygo/auths/User";
+import { Response } from "express";
 
-// Extend Express Request type globally
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        _id: string;
-        [key: string]: any;
-      };
-    }
-  }
+import {
+  getQutonConnectModels,
+} from "../../config/tizzygo/qutonConnectDatabase";
+
+import type { AuthRequest } from "../../middleware/authMiddleware";
+
+/**
+ * Derive a full name from the Quton Connect user fields.
+ * Returns an empty string when neither field is present.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
 }
 
 // Private API - Save user's favorite color
-export const saveUserColor = async (req: Request, res: Response) => {
+export const saveUserColor = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   console.log("📝 [saveUserColor] Function called");
   console.log("📝 [saveUserColor] Request body:", req.body);
   console.log("📝 [saveUserColor] Auth user:", req.user);
 
   try {
     // Get userId from auth middleware instead of request body
-    const userId = req.user?._id;
+    const userId = req.userId;
     const { color } = req.body;
 
     console.log("🔍 [saveUserColor] Extracted userId:", userId);
@@ -59,11 +68,13 @@ export const saveUserColor = async (req: Request, res: Response) => {
 
     console.log("✅ [saveUserColor] Validation passed, updating user...");
 
+    const { User } = getQutonConnectModels();
+
     // Find user and update color
     const user = await User.findByIdAndUpdate(
       userId,
       { color: color.toUpperCase().trim() }, // Save in uppercase
-      { returnDocument: 'after', runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).select("-__v");
 
     console.log(
@@ -73,7 +84,7 @@ export const saveUserColor = async (req: Request, res: Response) => {
     if (user) {
       console.log("📊 [saveUserColor] Updated user data:", {
         _id: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color,
       });
     }
@@ -98,7 +109,7 @@ export const saveUserColor = async (req: Request, res: Response) => {
       message: "Color saved successfully",
       data: {
         userId: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color,
       },
     });
@@ -114,13 +125,16 @@ export const saveUserColor = async (req: Request, res: Response) => {
 };
 
 // Private API - Get user's favorite color
-export const getUserColor = async (req: Request, res: Response) => {
+export const getUserColor = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   console.log("📖 [getUserColor] Function called");
   console.log("📖 [getUserColor] Auth user:", req.user);
 
   try {
     // Get userId from auth middleware instead of params
-    const userId = req.user?._id;
+    const userId = req.userId;
 
     console.log("🔍 [getUserColor] Extracted userId:", userId);
 
@@ -134,8 +148,13 @@ export const getUserColor = async (req: Request, res: Response) => {
 
     console.log("✅ [getUserColor] Validation passed, fetching user...");
 
-    // Find user and get color
-    const user = await User.findById(userId).select("name color");
+    const { User } = getQutonConnectModels();
+
+    // Find user and get color. The new schema has no `name` field,
+    // so select the fields needed to build the full name.
+    const user = await User.findById(userId).select(
+      "firstName lastName color",
+    );
 
     console.log(
       "🔍 [getUserColor] Database query result:",
@@ -144,7 +163,7 @@ export const getUserColor = async (req: Request, res: Response) => {
     if (user) {
       console.log("📊 [getUserColor] User data:", {
         _id: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color,
       });
     }
@@ -168,7 +187,7 @@ export const getUserColor = async (req: Request, res: Response) => {
       success: true,
       data: {
         userId: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color || null, // Return null if no color is set
       },
     });
@@ -184,14 +203,17 @@ export const getUserColor = async (req: Request, res: Response) => {
 };
 
 // Private API - Update user's favorite color
-export const updateUserColor = async (req: Request, res: Response) => {
+export const updateUserColor = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   console.log("🔄 [updateUserColor] Function called");
   console.log("🔄 [updateUserColor] Request body:", req.body);
   console.log("🔄 [updateUserColor] Auth user:", req.user);
 
   try {
     // Get userId from auth middleware instead of params
-    const userId = req.user?._id;
+    const userId = req.userId;
     const { color } = req.body;
 
     console.log("🔍 [updateUserColor] Extracted userId:", userId);
@@ -230,11 +252,13 @@ export const updateUserColor = async (req: Request, res: Response) => {
 
     console.log("✅ [updateUserColor] Validation passed, updating user...");
 
+    const { User } = getQutonConnectModels();
+
     // Find user and update color
     const user = await User.findByIdAndUpdate(
       userId,
       { color: color.toUpperCase().trim() }, // Save in uppercase
-      { returnDocument: 'after', runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).select("-__v");
 
     console.log(
@@ -244,7 +268,7 @@ export const updateUserColor = async (req: Request, res: Response) => {
     if (user) {
       console.log("📊 [updateUserColor] Updated user data:", {
         _id: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color,
       });
     }
@@ -269,7 +293,7 @@ export const updateUserColor = async (req: Request, res: Response) => {
       message: "Color updated successfully",
       data: {
         userId: user._id,
-        name: user.name,
+        name: getFullName(user),
         color: user.color,
       },
     });

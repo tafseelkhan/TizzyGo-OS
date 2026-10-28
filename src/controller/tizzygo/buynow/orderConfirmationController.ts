@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Request, Response } from "express";
-import { AuthRequest } from "../../../middleware/tizzygo/authMiddleware";
+import { AuthRequest } from "../../../middleware/authMiddleware";
 import { OrderConfirmationService } from "../../../services/tizzygo/orderConfirmationService";
 
 export const getOrderConfirmation = async (req: AuthRequest, res: Response) => {

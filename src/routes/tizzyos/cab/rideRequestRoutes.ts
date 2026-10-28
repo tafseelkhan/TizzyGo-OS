@@ -9,7 +9,7 @@ import {
   getPendingRequests,
   getRequestStats,
 } from "../../../controller/tizzyos/cab/rideRequestController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

@@ -66,6 +66,10 @@ export class RideRequestService {
       throw new Error("Invalid batch number");
     }
 
+    if (!session) {
+      throw new Error("Session is required");
+    }
+
     const limitedDrivers = drivers.slice(0, this.MAX_BATCH_SIZE);
     const requests: any[] = [];
 
@@ -189,7 +193,7 @@ export class RideRequestService {
       { _id: requestId },
       { $set: sanitizedData },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );

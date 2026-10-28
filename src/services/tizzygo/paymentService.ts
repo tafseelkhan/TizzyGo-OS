@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import Order from "../../models/tizzygo/checkout/order";
 import CheckoutSession from "../../models/tizzygo/checkout/CheckoutSession";
-import User from "../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../config/tizzygo/qutonConnectDatabase";
+
 import Cart from "../../models/tizzygo/cart/Cart";
 import Transaction from "../../models/tizzygo/checkout/Transaction";
 import {
@@ -17,6 +19,23 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
+
+/**
+ * Derive a full name from Quton Connect user fields.
+ */
+function getFullName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  displayName?: string | null;
+}): string | null {
+  const derived = [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .trim();
+  if (derived) return derived;
+  if (user.displayName) return user.displayName;
+  return null;
+}
 
 interface CreatePaymentIntentParams {
   userId: string;
@@ -267,16 +286,37 @@ async function createBuyNowCheckout({
 
   const roundedFinalAmount = Math.round(finalAmount * 100) / 100;
 
-  const userDetails = (await User.findById(userId).lean()) as any;
+  const { User } = getQutonConnectModels();
+
+  // Quton User: no `name`, no `email` on the new schema.
+  const userDetails = (await User.findById(userId)
+    .select("firstName lastName phone displayName")
+    .lean()) as any;
   if (!userDetails) {
     throw new Error("User not found");
   }
 
-  let zeptPayAccountId = null;
+  const userFullName = getFullName(userDetails) || "Customer";
+  // TODO(quton-migration): `payerEmail` has no source on Quton schema.
+  // Populate from a real contact-email field once decided.
+  const userEmail = undefined as string | undefined;
+
+  // ============================================================
+  // TODO(quton-migration): `zeptPayAccountId` does not exist on
+  // the Quton Connect User schema. It is a seller/payment business
+  // field. Options: seller business record on the default DB, a
+  // gateway account record, or added to the Quton schema. It must
+  // feed BOTH `Order.zeptPayAccountId` and `Transaction.receiverAccountId`
+  // below. Currently null (no invented value).
+  // ============================================================
+  let zeptPayAccountId: string | null = null;
   if (sellerId) {
-    const sellerDetails = (await User.findById(sellerId).lean()) as any;
+    const sellerDetails = (await User.findById(sellerId)
+      .select("_id")
+      .lean()) as any;
     if (sellerDetails) {
-      zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
+      // TODO(quton-migration): source of `zeptPayAccountId` pending.
+      zeptPayAccountId = null;
     }
   }
 
@@ -295,7 +335,7 @@ async function createBuyNowCheckout({
     orderId,
     productId: customProductId,
     buyerId: userId,
-    buyerName: userDetails?.name || "Customer",
+    buyerName: userFullName,
     sellerId: sellerId,
     zeptPayAccountId: zeptPayAccountId,
     productTitle: productData.title || product.title || "Product",
@@ -375,8 +415,9 @@ async function createBuyNowCheckout({
     orderNumber: orderId,
     checkoutSessionId: checkoutSessionId,
     userId: userId,
-    payerName: userDetails?.name || "Customer",
-    payerEmail: userDetails?.email || "",
+    payerName: userFullName,
+    // TODO(quton-migration): `payerEmail` source pending.
+    payerEmail: userEmail ?? "",
     receiverName: productData.appName || "TizzyGo",
     receiverAccountId: zeptPayAccountId,
     metadata: {
@@ -564,10 +605,18 @@ async function createCartCheckout({
     "💰 [CartCheckout] Creating multi-product cart checkout with Orders...",
   );
 
-  const userDetails = (await User.findById(userId).lean()) as any;
+  const { User } = getQutonConnectModels();
+
+  const userDetails = (await User.findById(userId)
+    .select("firstName lastName phone displayName")
+    .lean()) as any;
   if (!userDetails) {
     throw new Error("User not found");
   }
+
+  const userFullName = getFullName(userDetails) || "Customer";
+  // TODO(quton-migration): `payerEmail` source pending.
+  const userEmail = undefined as string | undefined;
 
   if (paymentMethod === "cod") {
     const { Product } =
@@ -614,11 +663,21 @@ async function createCartCheckout({
     }
 
     const sellerId = productData?.sellerId;
-    let zeptPayAccountId = null;
+    // ============================================================
+    // TODO(quton-migration): `zeptPayAccountId` source pending
+    // (see createBuyNowCheckout). Kept null so no wrong value flows
+    // into Order or Transaction.
+    // The Quton User lookup here is still performed for existence
+    // parity with the old flow, but no `zeptPayAccountId` is read
+    // from it.
+    // ============================================================
+    let zeptPayAccountId: string | null = null;
     if (sellerId) {
-      const sellerDetails = (await User.findById(sellerId).lean()) as any;
+      const sellerDetails = (await User.findById(sellerId)
+        .select("_id")
+        .lean()) as any;
       if (sellerDetails) {
-        zeptPayAccountId = sellerDetails?.zeptPayAccountId || null;
+        zeptPayAccountId = null;
       }
       if (!sellerIds.includes(sellerId)) {
         sellerIds.push(sellerId);
@@ -739,7 +798,7 @@ async function createCartCheckout({
       orderId,
       productId: item.productId,
       buyerId: userId,
-      buyerName: userDetails?.name || "Customer",
+      buyerName: userFullName,
       sellerId: sellerId || null,
       zeptPayAccountId: itemProductData.zeptPayAccountId || null,
       productTitle: itemProductData.title || "Product",
@@ -825,8 +884,9 @@ async function createCartCheckout({
     orderNumber: createdOrders.map((o) => o.orderId).join(","),
     checkoutSessionId: checkoutSessionId,
     userId: userId,
-    payerName: userDetails?.name || "Customer",
-    payerEmail: userDetails?.email || "",
+    payerName: userFullName,
+    // TODO(quton-migration): `payerEmail` source pending.
+    payerEmail: userEmail ?? "",
     receiverName: "TizzyGo",
     receiverAccountId: null,
     metadata: {
@@ -986,4 +1046,4 @@ export const getOrderStatus = async (orderId: string, userId: string) => {
   }
 
   return order;
-};
+};  

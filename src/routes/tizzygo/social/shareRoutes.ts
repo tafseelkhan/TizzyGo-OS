@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { addShare, getShareStats } from "../../../controller/tizzygo/social/shareController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 import Share from "../../../models/tizzygo/social/Share";
 
 const router = Router();

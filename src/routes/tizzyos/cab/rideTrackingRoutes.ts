@@ -8,7 +8,7 @@ import {
   updateRideStatus,
   getActiveTracking,
 } from "../../../controller/tizzyos/cab/rideTrackingController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

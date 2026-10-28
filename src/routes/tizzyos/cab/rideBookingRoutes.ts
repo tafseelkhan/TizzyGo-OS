@@ -11,7 +11,7 @@ import {
   retrySearch,
   updateBookingStatus,
 } from "../../../controller/tizzyos/cab/rideBookingController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

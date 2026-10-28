@@ -19,13 +19,68 @@ import Shipping from "../../../models/tizzyos/shipping/fws/fwsRegistration";
 import ShippingLocation from "../../../models/tizzyos/shipping/fws/fwsRiderLocation";
 import SellerLocation from "../../../models/tizzyos/seller/locations/locations";
 import SellerApplication from "../../../models/tizzyos/seller/SellerApplication";
-import User, { IUser } from "../../../models/tizzygo/auths/User";
+
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
+
 import {
   generateTrackingId,
   generateDispatchId,
   addTrackingHistory,
   calculateDistance,
 } from "../../../utils/tizzyos/shippings/trackingUtils";
+
+// ============================================================
+// QUTON CONNECT HELPERS
+// ============================================================
+
+/**
+ * Derive a full name from Quton Connect user fields.
+ * Returns the fallback when no name components are present.
+ */
+function getFullName(
+  user:
+    | {
+        firstName?: string | null;
+        lastName?: string | null;
+        displayName?: string | null;
+      }
+    | null
+    | undefined,
+  fallback = "Unknown",
+): string {
+  if (!user) return fallback;
+  const derived = [user.firstName, user.lastName]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .trim();
+  if (derived) return derived;
+  if (user.displayName) return user.displayName;
+  return fallback;
+}
+
+/**
+ * Project TIZZYOS app roles from the Quton `apps` array into a
+ * flat `string[]`. Used to preserve the old
+ * `scannerUser.roles.includes("SHIPPING" | "FWS")` semantics,
+ * since roles are now nested under `apps[].roles`.
+ */
+function getTizzyosRoles(
+  apps:
+    | Array<{ app?: string; roles?: string[] }>
+    | null
+    | undefined,
+): string[] {
+  if (!Array.isArray(apps)) return [];
+  const out: string[] = [];
+  for (const entry of apps) {
+    if (entry?.app === "TIZZYOS" && Array.isArray(entry.roles)) {
+      for (const r of entry.roles) {
+        if (typeof r === "string" && !out.includes(r)) out.push(r);
+      }
+    }
+  }
+  return out;
+}
 
 // ============================================================
 // INTERFACES
@@ -334,22 +389,34 @@ export class TrackingService {
       }
 
       // ============================================================
-      // STEP 4: Validate Seller & Buyer
+      // STEP 4: Validate Seller & Buyer (Quton Connect User)
+      //
+      // Quton User lives on a different connection than Order,
+      // therefore no `.session()` here.
       // ============================================================
       console.log("\n📋 STEP 4: Validating Seller & Buyer");
-      const seller = await User.findById(sellerId).session(session);
+      const { User } = getQutonConnectModels();
+
+      const seller = await User.findById(sellerId)
+        .select("firstName lastName displayName")
+        .lean();
       if (!seller) {
         console.error(`❌ Seller not found: ${sellerId}`);
         throw new Error("Seller not found");
       }
-      console.log(`✅ Seller Validated: ${seller.email || seller.name}`);
+      console.log(`✅ Seller Validated: ${getFullName(seller, "Seller")}`);
 
-      const buyer = await User.findById(buyerId).session(session);
+      const buyer = await User.findById(buyerId)
+        .select("firstName lastName displayName")
+        .lean();
       if (!buyer) {
         console.error(`❌ Buyer not found: ${buyerId}`);
         throw new Error("Buyer not found");
       }
-      console.log(`✅ Buyer Validated: ${buyer.email || buyer.name}`);
+      console.log(`✅ Buyer Validated: ${getFullName(buyer, "Buyer")}`);
+
+      const sellerFullName = getFullName(seller, "Seller");
+      const buyerFullName = getFullName(buyer, "Buyer");
 
       // ============================================================
       // STEP 5: Get or Create Tracking
@@ -367,13 +434,13 @@ export class TrackingService {
           currentStatus: "created",
           currentHolderType: "SELLER",
           currentHolderId: sellerId,
-          currentHolderName: seller.name || "Seller",
+          currentHolderName: sellerFullName,
           routeHistory: [],
           qrOwnershipHistory: [
             {
               holderId: sellerId,
               holderType: "SELLER",
-              holderName: seller.name || "Seller",
+              holderName: sellerFullName,
               receivedAt: new Date(),
               releasedAt: null,
             },
@@ -537,15 +604,18 @@ export class TrackingService {
       console.log(`✅ Flow Validated: ${currentType} -> ${targetType}`);
 
       // ============================================================
-      // STEP 13: Fetch Scanner User
+      // STEP 13: Fetch Scanner User (Quton Connect)
       // ============================================================
       console.log("\n📋 STEP 13: Fetching Scanner User");
-      const scannerUser = await User.findById(scannerUserId).select("name");
+      const scannerUser = await User.findById(scannerUserId)
+        .select("firstName lastName displayName")
+        .lean();
       if (!scannerUser) {
         console.error(`❌ Scanner user not found: ${scannerUserId}`);
         throw new Error("Scanner user not found");
       }
-      console.log(`✅ Scanner User: ${scannerUser.name}`);
+      const scannerFullName = getFullName(scannerUser, "Scanner");
+      console.log(`✅ Scanner User: ${scannerFullName}`);
 
       // ============================================================
       // STEP 14: Store Previous Holder
@@ -726,7 +796,7 @@ export class TrackingService {
         toHolderType: target.toHolderType,
         toHolderName: target.toHolderName,
         scannedByUserId: scannerUserId,
-        scannedByName: scannerUser?.name,
+        scannedByName: scannerFullName,
         location: {
           latitude: target.location?.latitude || 0,
           longitude: target.location?.longitude || 0,
@@ -836,7 +906,7 @@ export class TrackingService {
         // Create FWSEmployeeActivity
         const activity = new FWSEmployeeActivity({
           employeeUserId: scannerUserId,
-          employeeName: scannerUser.name,
+          employeeName: scannerFullName,
           fwsUserId: target.toHolderId,
           fwsCode: target.fwsCode,
           activityType: FWSEmployeeActivityType.RECEIVED_AT_FWS,
@@ -898,7 +968,7 @@ export class TrackingService {
         note: trackingNote,
         scanInfo: {
           scannedByUserId: scannerUserId,
-          scannedByName: scannerUser?.name,
+          scannedByName: scannerFullName,
           scannedByType: target.toHolderType,
           scannedAt: new Date(),
           scanType: "HANDOVER",
@@ -1011,13 +1081,16 @@ export class TrackingService {
     console.log("Scanner User ID:", scannerUserId);
     console.log("Order ID:", orderId);
 
-    // 1. Fetch scanner user from User model with roles
-    const scannerUser = await User.findById(scannerUserId)
-      .select("name roles")
-      .session(session ?? null);
+    const { User } = getQutonConnectModels();
 
-    console.log("Scanner User:", scannerUser);
-    console.log("User Roles:", scannerUser?.roles);
+    // 1. Fetch scanner user from Quton Connect User with apps
+    //    (roles now live under `apps[].roles`, not a flat `roles`)
+    const scannerUser = await User.findById(scannerUserId)
+      .select("firstName lastName displayName apps")
+      .lean();
+
+    console.log("Scanner User:", scannerUser ? "found" : "not found");
+    console.log("Scanner Apps:", scannerUser?.apps);
 
     // 2. Check if user exists
     if (!scannerUser) {
@@ -1025,12 +1098,10 @@ export class TrackingService {
       throw new Error("Scanner user not found");
     }
 
-    // 3. Get the user's role (supports both string and array)
-    const userRoles = Array.isArray(scannerUser.roles)
-      ? scannerUser.roles
-      : [scannerUser.roles];
-
-    console.log("User Roles Array:", userRoles);
+    // 3. Project TIZZYOS app roles into a flat list
+    //    (preserves the old `roles.includes("SHIPPING" | "FWS")` checks)
+    const userRoles = getTizzyosRoles(scannerUser.apps);
+    console.log("TIZZYOS Roles Array:", userRoles);
 
     let toHolderId = "";
     let toHolderType = "";
@@ -1361,11 +1432,11 @@ export class TrackingService {
     }
 
     // 6. No valid role found
-    console.log("❌ User role not authorized:", scannerUser.roles);
+    console.log("❌ User role not authorized:", userRoles);
     console.log("================================");
 
     throw new Error(
-      `Scanner user with role "${scannerUser.roles}" is not authorized for handover. Allowed roles: SHIPPING, FWS`,
+      `Scanner user with roles [${userRoles.join(", ")}] is not authorized for handover. Allowed roles: SHIPPING, FWS`,
     );
   }
 
@@ -1839,23 +1910,36 @@ export class TrackingService {
       console.log("  - dispatchId:", dispatchId);
 
       // ============================================================
-      // STEP 2: Validate Seller and Buyer
+      // STEP 2: Validate Seller and Buyer (Quton Connect User)
+      // No `.session()` — different connection.
       // ============================================================
       console.log("\n📋 STEP 2: Validating Seller and Buyer");
 
-      const seller = await User.findById(sellerId).session(session);
+      const { User } = getQutonConnectModels();
+
+      const seller = await User.findById(sellerId)
+        .select("firstName lastName displayName phone")
+        .lean();
       if (!seller) {
         console.log("❌ Seller not found:", sellerId);
         throw new Error(`Seller not found with ID: ${sellerId}`);
       }
-      console.log("✅ Seller validated:", seller.email || seller.phone);
+      console.log(
+        "✅ Seller validated:",
+        getFullName(seller, "Seller"),
+      );
 
-      const buyer = await User.findById(buyerId).session(session);
+      const buyer = await User.findById(buyerId)
+        .select("firstName lastName displayName phone")
+        .lean();
       if (!buyer) {
         console.log("❌ Buyer not found:", buyerId);
         throw new Error(`Buyer not found with ID: ${buyerId}`);
       }
-      console.log("✅ Buyer validated:", buyer.email || buyer.phone);
+      console.log(
+        "✅ Buyer validated:",
+        getFullName(buyer, "Buyer"),
+      );
 
       // ============================================================
       // STEP 3: Find Order
@@ -1984,16 +2068,17 @@ export class TrackingService {
           );
         }
 
+        // Quton Connect User lookup (no session)
         const user = await User.findById(fwsUserId)
-          .select("name")
-          .session(session);
+          .select("firstName lastName displayName")
+          .lean();
         if (!user) {
           throw new Error("Employee user record not found");
         }
 
         scannerType = "EMPLOYEE";
         authorizedFWS = fwsWithEmployee;
-        scannedByName = user.name || "Employee";
+        scannedByName = getFullName(user, "Employee");
         scannedByRole = employee.role || "EMPLOYEE";
 
         console.log("✅ Scanner Type: EMPLOYEE");
@@ -2342,15 +2427,20 @@ export class TrackingService {
       console.log(`✅ FWS Validated: ${fws.name} (${fws.fwsCode})`);
 
       // ============================================================
-      // STEP 3: Get Performer Details
+      // STEP 3: Get Performer Details (Quton Connect User)
       // ============================================================
       console.log("\n📋 STEP 3: Getting Performer Details");
-      const performer = await User.findById(fwsUserId).select("name");
+      const { User } = getQutonConnectModels();
+
+      const performer = await User.findById(fwsUserId)
+        .select("firstName lastName displayName")
+        .lean();
       if (!performer) {
         console.error("❌ Performer not found");
         throw new Error("Performer not found");
       }
-      console.log(`✅ Performer: ${performer.name}`);
+      const performerFullName = getFullName(performer, "Performer");
+      console.log(`✅ Performer: ${performerFullName}`);
 
       // ============================================================
       // STEP 4: Find Order
@@ -2602,16 +2692,22 @@ export class TrackingService {
       }
 
       // ============================================================
-      // STEP 12: Get Shipping Partner Details
+      // STEP 12: Get Shipping Partner Details (Quton Connect User)
       // ============================================================
       console.log("\n📋 STEP 12: Getting Shipping Partner Details");
-      const shippingPartner =
-        await User.findById(assignedShippingId).select("name");
+
+      const shippingPartner = await User.findById(assignedShippingId)
+        .select("firstName lastName displayName")
+        .lean();
       if (!shippingPartner) {
         console.error(`❌ Shipping partner not found: ${assignedShippingId}`);
         throw new Error("Shipping partner not found");
       }
-      console.log(`✅ Shipping Partner: ${shippingPartner.name}`);
+      const shippingPartnerFullName = getFullName(
+        shippingPartner,
+        "Shipping Partner",
+      );
+      console.log(`✅ Shipping Partner: ${shippingPartnerFullName}`);
 
       // ============================================================
       // STEP 13: Create Assignment ID and History Entry
@@ -2701,7 +2797,7 @@ export class TrackingService {
 
       const readyActivity = new FWSEmployeeActivity({
         employeeUserId: fwsUserId,
-        employeeName: performer.name,
+        employeeName: performerFullName,
         fwsUserId: fws.userId.toString(),
         fwsCode: fws.fwsCode,
         activityType: FWSEmployeeActivityType.READY_FOR_DISPATCH,
@@ -2715,7 +2811,7 @@ export class TrackingService {
 
       const assignActivity = new FWSEmployeeActivity({
         employeeUserId: fwsUserId,
-        employeeName: performer.name,
+        employeeName: performerFullName,
         fwsUserId: fws.userId.toString(),
         fwsCode: fws.fwsCode,
         activityType: FWSEmployeeActivityType.ASSIGNED_SHIPPING,
@@ -2743,7 +2839,7 @@ export class TrackingService {
         success: true,
         assignmentId,
         shippingId: assignedShippingId,
-        shippingName: shippingPartner.name,
+        shippingName: shippingPartnerFullName,
         shippingType,
         distance,
         status: "PENDING_ACCEPTANCE",
@@ -2752,7 +2848,7 @@ export class TrackingService {
         assignActivityId: assignActivity._id,
         excludedPartners: excludedUserIds, // ✅ Return exclude list for debugging
         excludedCount: excludedUserIds.length,
-        message: `${shippingType} ${assignmentType.toLowerCase()} assigned successfully to ${shippingPartner.name}`,
+        message: `${shippingType} ${assignmentType.toLowerCase()} assigned successfully to ${shippingPartnerFullName}`,
       };
     } catch (error) {
       console.error("\n❌ ========================================");
@@ -3247,7 +3343,8 @@ export class TrackingService {
           "in_transit",
           "ready_for_dispatch",
           "assignment_sent",
-        ].includes(status) || pendingStatus === "PENDING_ACCEPTANCE"
+        ].includes(status) ||
+        pendingStatus === "PENDING_ACCEPTANCE"
       );
     });
 

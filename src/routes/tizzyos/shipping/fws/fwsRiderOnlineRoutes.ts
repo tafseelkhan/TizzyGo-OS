@@ -2,7 +2,7 @@ import express from "express";
 import {
   riderOnlineStatusController,
 } from "../../../../controller/tizzyos/shipping/fws/fwsRiderOnlineStatusController";
-import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware"; // Make sure this exists
+import { authMiddleware } from "../../../../middleware/authMiddleware"; // Make sure this exists
 
 const router = express.Router();
 

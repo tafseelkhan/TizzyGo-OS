@@ -1,6 +1,6 @@
 import express from 'express';
-import { authMiddleware, AuthRequest } from '../../../middleware/tizzygo/authMiddleware'; // <- make sure AuthRequest defines user
-import User from '../../../models/tizzygo/auths/User';
+import { authMiddleware, AuthRequest } from '../../../middleware/authMiddleware'; // <- make sure AuthRequest defines user
+import User from '../../../models/auth/User';
 
 export const router = express.Router();
 

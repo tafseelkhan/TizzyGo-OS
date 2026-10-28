@@ -68,7 +68,7 @@ export const applyRider = [
 export const getRiderStatus = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { userId } = req.user!; // JWT se populate
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, error: "Invalid user ID" });
     }
 

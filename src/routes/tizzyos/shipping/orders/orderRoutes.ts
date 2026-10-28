@@ -1,6 +1,6 @@
 import express from "express";
 import { getSellerOrders } from "../../../../controller/tizzyos/shipping/orders/orderController"; // 👈 Apne hisab se path adjust kar lena
-import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../../middleware/authMiddleware";
 
 const router = express.Router();
 

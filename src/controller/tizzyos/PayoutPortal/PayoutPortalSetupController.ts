@@ -1,9 +1,11 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import axios from "axios";
 import mongoose from "mongoose";
 import crypto, { randomInt } from "crypto";
 
-import User from "../../../models/tizzygo/auths/User";
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
+import type { AuthRequest } from "../../../middleware/authMiddleware";
+
 import GatewayAccountModel from "../../../models/tizzyos/PayOutPortal/GatewayAccount";
 import SellerEarning from "../../../models/tizzyos/PayOutPortal/sellerEarnings";
 import DeliveryChargeEarningModel from "../../../models/tizzyos/PayOutPortal/deliveryChargeEarnings";
@@ -419,24 +421,22 @@ const validateWebhookEnvironment = () => {
 // ======================================================
 
 const getAuthenticatedUserId = (
-  req: Request,
+  req: AuthRequest,
 ): string | null => {
-  const authUser: any = (req as any).user;
+  // `authMiddleware` sets both `req.userId` and `req.user.userId`
+  // (and `req.user.id` / `req.user._id`) to the JWT `sub`. Prefer
+  // the canonical `req.userId` and keep a defensive fallback.
+  const id =
+    req.userId ??
+    req.user?.userId ??
+    req.user?._id ??
+    req.user?.id;
 
-  if (!authUser) {
-    return null;
-  }
-
-  return (
-    authUser?._id?.toString?.() ||
-    authUser?.id?.toString?.() ||
-    authUser?.userId?.toString?.() ||
-    null
-  );
+  return id ? id.toString() : null;
 };
 
 const ensureUserAccess = (
-  req: Request,
+  req: AuthRequest,
   userId: string,
 ): boolean => {
   const authUserId =
@@ -541,7 +541,7 @@ const detectPayoutIdType = (
 // ======================================================
 
 export const createPayoutAccount = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   const startTime = Date.now();
@@ -655,8 +655,12 @@ export const createPayoutAccount = async (
       });
     }
 
-    const user =
-      await User.findById(userId);
+    // Quton Connect User lookup — the only Quton User read in this file.
+    // `User` is used only to verify existence and to obtain `_id`.
+    // No `name` / `email` / `phone` reads here; those come from the
+    // request body (Razorpay contact input).
+    const { User } = getQutonConnectModels();
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -908,7 +912,7 @@ const saveFundAccount = async ({
 // ======================================================
 
 export const addBankFundAccount = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   try {
@@ -1088,7 +1092,7 @@ export const addBankFundAccount = async (
 // ======================================================
 
 export const addVpaFundAccount = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   try {
@@ -1231,7 +1235,7 @@ export const addVpaFundAccount = async (
 
 export const addWalletFundAccount =
   async (
-    req: Request,
+    req: AuthRequest,
     res: Response,
   ) => {
     try {
@@ -1419,7 +1423,7 @@ export const addWalletFundAccount =
 
 export const getGatewayAccountByUserId =
   async (
-    req: Request,
+    req: AuthRequest,
     res: Response,
   ) => {
     try {
@@ -2179,11 +2183,9 @@ const saveRazorpayPayoutId = async ({
 // ======================================================
 
 export const createPayout = async (
-  req: Request<
-    {},
-    {},
-    CreatePayoutRequestBody
-  >,
+  req: AuthRequest & {
+    body: CreatePayoutRequestBody;
+  },
   res: Response,
 ) => {
   const startTime =
@@ -2885,7 +2887,7 @@ export const createPayout = async (
 // ======================================================
 
 export const getPayout = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   try {
@@ -2998,7 +3000,7 @@ export const getPayout = async (
 // ======================================================
 
 export const getFundAccount = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   try {
@@ -3104,7 +3106,7 @@ export const getFundAccount = async (
 // ======================================================
 
 export const reconcilePayout = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ) => {
   try {
@@ -3350,10 +3352,9 @@ export const razorpayXPayoutWebhook =
     try {
       validateWebhookEnvironment();
 
-      const signature =
-        req.headers[
-          "x-razorpay-signature"
-        ];
+      const signature: string | null = req.headers.get(
+        "x-razorpay-signature",
+      );
 
       if (
         !signature ||

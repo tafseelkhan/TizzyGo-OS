@@ -9,7 +9,7 @@ import {
   getQRStatus,
   regenerateQRCodes,
 } from "../../../controller/tizzyos/cab/rideQRCodeController";
-import { authMiddleware } from "../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 

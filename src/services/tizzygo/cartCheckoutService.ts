@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Cart from "../../models/tizzygo/cart/Cart";
 import BuyerLocation from "../../models/tizzygo/locations/locations";
 import { Product } from "../../models/tizzyos/seller/AddProducts/Products";
-import User from "../../models/tizzygo/auths/User";
+import User from "../../models/auth/User";
 import { calculateDelivery } from "./deliveryService";
 import { applyCoupon } from "./couponService";
 import {

@@ -6,7 +6,7 @@ import {
   getProductById,
   getProductDetailsForBuyNow,
 } from "../../../../controller/tizzyos/seller/AddProducts/ProductController";
-import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../../middleware/authMiddleware";
 
 const router = express.Router();
 

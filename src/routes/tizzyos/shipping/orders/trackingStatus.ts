@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getTrackingStatus } from "../../../../controller/tizzyos/shipping/orders/trackingStatus";
-import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../../middleware/authMiddleware";
 
 const router = Router();
 

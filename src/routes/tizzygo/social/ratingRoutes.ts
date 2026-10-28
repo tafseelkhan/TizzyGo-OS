@@ -5,7 +5,7 @@ import {
   getReviews,
   deleteRatingReview,
 } from '../../../controller/tizzygo/social/ratingController';
-import { authMiddleware } from '../../../middleware/tizzygo/authMiddleware';
+import { authMiddleware } from '../../../middleware/authMiddleware';
 
 const router = express.Router();
 

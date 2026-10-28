@@ -15,7 +15,7 @@ import {
   sellerAcceptOrder,
   getOrderById,
 } from "../../../../controller/tizzyos/shipping/orders/deliveryTrackingController";
-import { authMiddleware } from "../../../../middleware/tizzygo/authMiddleware";
+import { authMiddleware } from "../../../../middleware/authMiddleware";
 
 const router = Router();
 
