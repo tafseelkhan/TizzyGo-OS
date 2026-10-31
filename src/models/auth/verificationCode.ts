@@ -1,20 +1,35 @@
-
 import mongoose, { Document, Schema } from "mongoose";
+
+export type VerificationPurpose =
+  | "connect_verification"
+  | "phone_verification"
+  | "login_verification"
+  | "password_reset"
+  | "recovery_verification";
 
 export interface IVerificationCode extends Document {
   userId?: mongoose.Types.ObjectId;
   destination: string;
   codeHash?: string;
 
-  purpose:
-    | "connect_verification"
-    | "phone_verification"
-    | "password_reset"
-    | "recovery_verification";
+  purpose: VerificationPurpose;
 
   expiresAt: Date;
   attempts: number;
   verifiedAt?: Date;
+  consumedAt?: Date;
+
+  /** Number of times an OTP has been resent for this verification record. */
+  resendCount: number;
+  lastResentAt?: Date;
+
+  /**
+   * After a successful password_reset OTP verification we issue a short-lived
+   * single-use authorization token. Only the SHA-256 hash is stored.
+   */
+  resetTokenHash?: string;
+  resetTokenExpiresAt?: Date;
+  resetTokenUsedAt?: Date;
 
   // Temporary signup data: used only before phone OTP verification.
   signupData?: {
@@ -46,6 +61,7 @@ export const verificationCodeSchema = new Schema<IVerificationCode>(
       type: String,
       required: true,
       trim: true,
+      index: true,
     },
 
     // Optional for Twilio Verify, which manages OTP codes itself.
@@ -60,10 +76,12 @@ export const verificationCodeSchema = new Schema<IVerificationCode>(
       enum: [
         "connect_verification",
         "phone_verification",
+        "login_verification",
         "password_reset",
         "recovery_verification",
       ],
       required: true,
+      index: true,
     },
 
     expiresAt: {
@@ -78,6 +96,33 @@ export const verificationCodeSchema = new Schema<IVerificationCode>(
     },
 
     verifiedAt: {
+      type: Date,
+    },
+
+    consumedAt: {
+      type: Date,
+    },
+
+    resendCount: {
+      type: Number,
+      default: 0,
+    },
+
+    lastResentAt: {
+      type: Date,
+    },
+
+    resetTokenHash: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+
+    resetTokenExpiresAt: {
+      type: Date,
+    },
+
+    resetTokenUsedAt: {
       type: Date,
     },
 
@@ -102,3 +147,18 @@ export const verificationCodeSchema = new Schema<IVerificationCode>(
 // Automatically remove expired verification records.
 // MongoDB TTL deletion is asynchronous; service code also checks expiresAt.
 verificationCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+// Helpful compound indexes for common lookups
+verificationCodeSchema.index({
+  purpose: 1,
+  destination: 1,
+  expiresAt: 1,
+  verifiedAt: 1,
+});
+
+verificationCodeSchema.index({
+  purpose: 1,
+  userId: 1,
+  expiresAt: 1,
+  verifiedAt: 1,
+});

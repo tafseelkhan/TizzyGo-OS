@@ -18,7 +18,6 @@ import buynowShopRoutes from "../routes/tizzygo/shop/buynowRoutes";
 import commentRoutes from "../routes/tizzygo/social/commentRoutes";
 import likeRoutes from "../routes/tizzygo/social/likeRoutes";
 import ratingRoutes from "../routes/tizzygo/social/ratingRoutes";
-import profileRoutes from "../routes/tizzygo/profile/profileRoutes";
 import shareRoutes from "../routes/tizzygo/social/shareRoutes";
 import buynowRoutes from "../routes/tizzygo/buynow/buynowRoutes";
 import paymentRoutes from "../routes/tizzygo/buynow/paymentRoutes";
@@ -76,7 +75,6 @@ app.get("/", (req, res) => {
 /* =========================================================
    ROUTES
    ========================================================= */
-app.use("/api/v0/profile", profileRoutes);
 app.use("/api/v0/auth", authRoutes);
 app.use("/api/v0/fav", colorRoutes);
 app.use("/api/v0/cart", cartRoutes);

@@ -5,6 +5,11 @@ import {
   createUser,
   verifyPhoneSignup,
   loginUser,
+  verifyLoginOTP,
+  requestForgotPasswordOTP,
+  verifyForgotPasswordOTP,
+  resetPassword,
+  resendOTP,
   logoutUser,
   getCurrentUser,
   refreshAccessToken,
@@ -112,9 +117,9 @@ export async function verifyPhone(req: Request, res: Response) {
 }
 
 /**
- * LOGIN
- * Global Connect role comes from the stored user record.
- * App associations are returned by the service.
+ * LOGIN — STEP 1
+ * Validate username/connectAddress + password.
+ * On success send login OTP (no tokens yet).
  */
 export async function login(req: Request, res: Response) {
   try {
@@ -141,12 +146,10 @@ export async function login(req: Request, res: Response) {
       userAgent: req.get("user-agent"),
     });
 
+    // Step 1 always returns verificationRequired: true on success
     return res.status(200).json({
       success: true,
-      message: "Login successful.",
-      accessToken: result.accessToken,
-      sessionToken: result.sessionToken,
-      user: result.user,
+      ...result,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -155,6 +158,207 @@ export async function login(req: Request, res: Response) {
       success: false,
       message:
         error instanceof Error ? error.message : "Unable to login",
+    });
+  }
+}
+
+/**
+ * LOGIN — STEP 2
+ * Verify the login OTP and issue access + session tokens.
+ */
+export async function verifyLogin(req: Request, res: Response) {
+  try {
+    const { verificationId, code, deviceName } = req.body ?? {};
+
+    if (
+      typeof verificationId !== "string" ||
+      typeof code !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification ID and 6-digit OTP are required",
+      });
+    }
+
+    const result = await verifyLoginOTP(verificationId, code, {
+      deviceName:
+        typeof deviceName === "string" ? deviceName : undefined,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Login OTP verification error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to verify login OTP",
+    });
+  }
+}
+
+/**
+ * FORGOT PASSWORD — STEP 1
+ * Request OTP for password reset using username or connectAddress.
+ */
+export async function forgotPassword(req: Request, res: Response) {
+  try {
+    const { identifier, login: loginValue } = req.body ?? {};
+
+    // Accept either "identifier" or "login" for convenience
+    const value =
+      typeof identifier === "string"
+        ? identifier
+        : typeof loginValue === "string"
+          ? loginValue
+          : "";
+
+    if (!value.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Username or Connect address is required",
+      });
+    }
+
+    const result = await requestForgotPasswordOTP(value);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    // Still return a generic success-style message where possible
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to process password reset request",
+    });
+  }
+}
+
+/**
+ * FORGOT PASSWORD — STEP 2
+ * Verify the OTP and receive a short-lived reset authorization token.
+ */
+export async function verifyForgotPassword(req: Request, res: Response) {
+  try {
+    const { verificationId, code } = req.body ?? {};
+
+    if (
+      typeof verificationId !== "string" ||
+      typeof code !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification ID and 6-digit OTP are required",
+      });
+    }
+
+    const result = await verifyForgotPasswordOTP(verificationId, code);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Forgot password OTP verification error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to verify OTP",
+    });
+  }
+}
+
+/**
+ * FORGOT PASSWORD — STEP 3
+ * Submit the reset token together with the new password.
+ */
+export async function resetPasswordHandler(req: Request, res: Response) {
+  try {
+    const { resetToken, newPassword, confirmPassword } = req.body ?? {};
+
+    if (
+      typeof resetToken !== "string" ||
+      typeof newPassword !== "string" ||
+      typeof confirmPassword !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Reset token, new password and confirm password are required",
+      });
+    }
+
+    const result = await resetPassword(
+      resetToken,
+      newPassword,
+      confirmPassword,
+    );
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to reset password",
+    });
+  }
+}
+
+/**
+ * RESEND OTP
+ * Works for signup (phone_verification), login (login_verification)
+ * and forgot-password (password_reset).
+ * Purpose is taken from the stored verification record.
+ */
+export async function resendOtpHandler(req: Request, res: Response) {
+  try {
+    const { verificationId } = req.body ?? {};
+
+    if (typeof verificationId !== "string" || !verificationId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification ID is required",
+      });
+    }
+
+    const result = await resendOTP(verificationId);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to resend OTP",
     });
   }
 }
@@ -235,7 +439,7 @@ export async function refresh(req: Request, res: Response) {
  * LOGOUT
  * Requires authMiddleware and the matching session token.
  *
- * ✅ FIX: If the session token is already missing (e.g. user already
+ * If the session token is already missing (e.g. user already
  * logged out or session expired), return success instead of 400.
  * This matches the frontend behaviour where `x-session-token` is
  * optional on logout.
@@ -254,7 +458,7 @@ export async function logout(
 
     const sessionToken = req.headers["x-session-token"];
 
-    // ✅ Already logged out — no session to revoke.
+    // Already logged out — no session to revoke.
     if (
       typeof sessionToken !== "string" ||
       !sessionToken.trim()
