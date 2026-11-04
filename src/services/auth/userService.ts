@@ -60,6 +60,10 @@ const RESEND_COOLDOWN_MS = 4 * 60 * 1000; // 4 minutes (matches OTP expiry)
 const PASSWORD_RESET_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 const BCRYPT_ROUNDS = 12;
 
+/** Default app assigned to every new account. */
+const DEFAULT_APP: AppName = "TIZZYGO";
+const DEFAULT_APP_ROLES: AppRole[] = ["USER"];
+
 /**
  * Always obtain authentication models from the Quton Connect connection.
  * Never register authentication models on Mongoose's default connection.
@@ -178,6 +182,29 @@ function serializeApps(apps: unknown): SerializedApp[] {
   }));
 }
 
+/**
+ * Ensure the default app entry exists in the apps array.
+ * - If the user already has the default app, keep it untouched.
+ * - If the user has any app entry (or none), append the default app once.
+ * Used at signup (always adds) and login (only if missing).
+ */
+function ensureDefaultApp(apps: unknown): SerializedApp[] {
+  const current = serializeApps(apps);
+  const hasDefaultApp = current.some((entry) => entry.app === DEFAULT_APP);
+
+  if (hasDefaultApp) {
+    return current;
+  }
+
+  return [
+    ...current,
+    {
+      app: DEFAULT_APP,
+      roles: [...DEFAULT_APP_ROLES],
+    },
+  ];
+}
+
 async function createSessionForUser(
   userId: mongoose.Types.ObjectId,
   role: UserRole,
@@ -266,7 +293,7 @@ async function checkTwilioVerification(
 }
 
 // ---------------------------------------------------------------------------
-// SIGNUP (preserved behaviour)
+// SIGNUP (preserved behaviour + default app)
 // ---------------------------------------------------------------------------
 
 /**
@@ -400,6 +427,7 @@ export async function createUser(input: SignupInput) {
 /**
  * SIGNUP STEP 2
  * Verify the OTP and create the permanent Quton Connect account.
+ * Adds the default TIZZYGO app + role automatically.
  */
 export async function verifyPhoneSignup(verificationId: string, code: string) {
   const { User, UserCredentials, UserSession, VerificationCode } =
@@ -476,7 +504,8 @@ export async function verifyPhoneSignup(verificationId: string, code: string) {
     recoveryConnectVerified: false,
     termsAccepted: signup.termsAccepted,
     termsAcceptedAt: signup.termsAcceptedAt,
-    apps: [],
+    // Default app is assigned at signup
+    apps: ensureDefaultApp([]),
   });
 
   try {
@@ -543,6 +572,7 @@ export async function verifyPhoneSignup(verificationId: string, code: string) {
 /**
  * LOGIN STEP 1
  * Validate credentials, then send a login OTP.
+ * Both `pending` and `active` accounts may log in.
  * Does NOT issue tokens.
  */
 export async function loginUser(input: LoginInput) {
@@ -571,8 +601,8 @@ export async function loginUser(input: LoginInput) {
     throw new Error("Account is suspended or disabled");
   }
 
-  // Only fully active accounts may log in
-  if (user.status !== "active") {
+  // Only `pending` and `active` accounts may log in.
+  if (user.status !== "active" && user.status !== "pending") {
     throw new Error("Account is not active. Please contact support.");
   }
 
@@ -667,13 +697,15 @@ export async function loginUser(input: LoginInput) {
 /**
  * LOGIN STEP 2
  * Verify the login OTP and issue access + session tokens.
+ * Both `pending` and `active` accounts may complete login.
+ * Also ensures the default TIZZYGO app is attached (once, never duplicated).
  */
 export async function verifyLoginOTP(
   verificationId: string,
   code: string,
   metadata: SessionMetadata = {},
 ) {
-  const { User, UserCredentials, VerificationCode } = getAuthModels();
+  const { User, VerificationCode } = getAuthModels();
 
   if (!mongoose.Types.ObjectId.isValid(verificationId)) {
     throw new Error("Invalid or expired verification");
@@ -722,12 +754,24 @@ export async function verifyLoginOTP(
     throw new Error("Account is suspended or disabled");
   }
 
-  if (user.status !== "active") {
+  if (user.status !== "active" && user.status !== "pending") {
     throw new Error("Account is not active. Please contact support.");
   }
 
   if (!user.phoneVerified) {
     throw new Error("Phone number is not verified");
+  }
+
+  // Ensure default app exists (no duplicate). If user already has any apps
+  // but not TIZZYGO, TIZZYGO gets appended once.
+  const normalizedApps = ensureDefaultApp(user.apps);
+  const appsChanged =
+    normalizedApps.length !== serializeApps(user.apps).length ||
+    !serializeApps(user.apps).some((entry) => entry.app === DEFAULT_APP);
+
+  if (appsChanged) {
+    user.apps = normalizedApps;
+    await user.save();
   }
 
   // Consume the verification so it cannot be reused
@@ -769,6 +813,7 @@ export async function verifyLoginOTP(
  * FORGOT PASSWORD STEP 1
  * Look up account by username / connectAddress and send OTP to the
  * already-registered phone. Never accepts a new phone number.
+ * `pending` accounts are allowed (they can log in too).
  * Does not reveal whether the account exists.
  */
 export async function requestForgotPasswordOTP(identifier: string) {
@@ -801,7 +846,6 @@ export async function requestForgotPasswordOTP(identifier: string) {
   if (
     user.status === "suspended" ||
     user.status === "disabled" ||
-    user.status === "pending" ||
     !user.phoneVerified ||
     !user.phone
   ) {
@@ -885,7 +929,9 @@ export async function verifyForgotPasswordOTP(
   }
 
   if (verification.attempts >= MAX_OTP_ATTEMPTS) {
-    throw new Error("Too many verification attempts. Please request a new OTP.");
+    throw new Error(
+      "Too many verification attempts. Please request a new OTP.",
+    );
   }
 
   verification.attempts += 1;
@@ -1034,6 +1080,7 @@ export async function resetPassword(
 /**
  * Resend OTP for an existing verification record.
  * Purpose is taken from the stored record – never from the client.
+ * `pending` accounts may also resend login OTPs.
  */
 export async function resendOTP(verificationId: string) {
   const { User, VerificationCode } = getAuthModels();
@@ -1067,7 +1114,9 @@ export async function resendOTP(verificationId: string) {
   }
 
   if (verification.expiresAt.getTime() <= Date.now()) {
-    throw new Error("Verification has expired. Please start the process again.");
+    throw new Error(
+      "Verification has expired. Please start the process again.",
+    );
   }
 
   // Cooldown
@@ -1093,7 +1142,10 @@ export async function resendOTP(verificationId: string) {
   }
 
   // Additional eligibility checks depending on purpose
-  if (verification.purpose === "login_verification" || verification.purpose === "password_reset") {
+  if (
+    verification.purpose === "login_verification" ||
+    verification.purpose === "password_reset"
+  ) {
     if (!verification.userId) {
       throw new Error("Invalid verification");
     }
@@ -1112,13 +1164,21 @@ export async function resendOTP(verificationId: string) {
       throw new Error("Account is not eligible");
     }
 
-    if (verification.purpose === "login_verification" && user.status !== "active") {
+    // pending and active both can resend login OTP
+    if (
+      verification.purpose === "login_verification" &&
+      user.status !== "active" &&
+      user.status !== "pending"
+    ) {
       throw new Error("Account is not active");
     }
   }
 
   // For signup we also ensure the temporary data is still present
-  if (verification.purpose === "phone_verification" && !verification.signupData) {
+  if (
+    verification.purpose === "phone_verification" &&
+    !verification.signupData
+  ) {
     throw new Error("Invalid signup verification");
   }
 
@@ -1287,6 +1347,9 @@ export async function getCurrentUser(userId: string) {
         "connectAddress",
         "displayName",
         "profilePhoto",
+        "dateOfBirth", // ✅ NEW
+        "theme", // ✅ NEW
+        "color", // ✅ NEW
         "role",
         "status",
         "connectVerified",
@@ -1318,6 +1381,9 @@ export async function getCurrentUser(userId: string) {
     connectAddress: user.connectAddress,
     displayName: user.displayName,
     profilePhoto: user.profilePhoto,
+    dateOfBirth: user.dateOfBirth, // ✅ NEW
+    theme: user.theme, // ✅ NEW
+    color: user.color, // ✅ NEW
     role: getUserRole(user.role),
     status: user.status,
     connectVerified: user.connectVerified,
@@ -1338,6 +1404,7 @@ export async function getCurrentUser(userId: string) {
 
 /**
  * REFRESH ACCESS TOKEN
+ * `pending` and `active` accounts can refresh.
  */
 export async function refreshAccessToken(sessionToken: string) {
   const { User, UserSession } = getAuthModels();

@@ -1,17 +1,19 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-export const APP_NAMES = ["TIZZYGO", "TIZZYOS"] as const;
+export const APP_NAMES = ["TIZZYGO", "TIZZYOS", "LINKEDROP"] as const;
 export type AppName = (typeof APP_NAMES)[number];
 
 export const APP_ROLES = {
-  TIZZYGO: ["BUYER", "CUSTOMER"],
+  TIZZYGO: ["USER"],
   TIZZYOS: ["SELLER", "FWS", "SHIPPING", "CAB", "RENT"],
+  LINKEDROP: ["USER"],
 } as const;
 
 export type TizzyGoRole = (typeof APP_ROLES.TIZZYGO)[number];
 export type TizzyOSRole = (typeof APP_ROLES.TIZZYOS)[number];
+export type LinkedropRole = (typeof APP_ROLES.LINKEDROP)[number];
 
-export type AppRole = TizzyGoRole | TizzyOSRole;
+export type AppRole = TizzyGoRole | TizzyOSRole | LinkedropRole;
 
 export interface IUserApp {
   app: AppName;
@@ -79,6 +81,12 @@ const appSchema = new Schema<IUserApp>(
           if (appName === "TIZZYOS") {
             return roles.every((role) =>
               (APP_ROLES.TIZZYOS as readonly string[]).includes(role),
+            );
+          }
+
+          if (appName === "LINKEDROP") {
+            return roles.every((role) =>
+              (APP_ROLES.LINKEDROP as readonly string[]).includes(role),
             );
           }
 
