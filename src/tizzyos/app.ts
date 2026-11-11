@@ -19,6 +19,7 @@ import liveTrackingRoutes from "../routes/tizzyos/shipping/orders/deliveryTracki
 import orderfetchRoutes from "../routes/tizzyos/shipping/orders/orderRoutes";
 
 // TizzyOS Imports (If any) here
+import authRoutes from "../routes/tizzyos/auth/authRoutes";
 import sellerRoutes from "../routes/tizzyos/seller/sellerRoutes";
 import sellerStatusRoutes from "../routes/tizzyos/seller/statusRoutes";
 import riderRoutes from "../routes/tizzyos/rider/riderRoutes";
@@ -53,7 +54,6 @@ import rideRequestRoutes from "../routes/tizzyos/cab/rideRequestRoutes";
 import rideLiveTrackingRoutes from "../routes/tizzyos/cab/rideLiveTrackingRoutes";
 import sellerEarningRoutes from "../routes/tizzyos/PayoutPortal/SellerEarningRoutes";
 import CabQRScanner from "../routes/tizzyos/cab/rideQRScanRoutes";
-import ProfileRoutes from "../routes/auth/profileRoutes";
 
 /* =========================================================
    EXPRESS APP
@@ -108,6 +108,7 @@ app.get("/", (req, res) => {
 /* =========================================================
    ROUTES // TizzyOS Routes
    ========================================================= */
+app.use("/api/v0/auth", authRoutes);
 app.use("/api/v0/orders/tracking", liveTrackingRoutes);
 app.use("/api/v0/orders", orderfetchRoutes);
 app.use("/api/v0/seller", sellerRoutes);
@@ -144,7 +145,6 @@ app.use("/api/v0/ride", rideRequestRoutes);
 app.use("/api/v0/ride/live/tracking", rideLiveTrackingRoutes);
 app.use("/api/v0/seller-earnings", sellerEarningRoutes);
 app.use("/api/v0/ride", CabQRScanner);
-app.use("/api/v0/auth/profile", ProfileRoutes);
 
 /* =========================================================
    🕐 CRON JOB - Media Cleanup (Raat ko 12:00 AM Mumbai Time)

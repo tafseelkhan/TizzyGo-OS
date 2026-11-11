@@ -11,8 +11,7 @@ import { logger } from "../utils/tizzyos/seller/logger";
 // 🔥 IMPORT WEBHOOK FIRST
 import webhookRoutes from "../routes/tizzygo/buynow/razorpayWebhookRoutes";
 
-import authRoutes from "../routes/auth/authRoutes";
-import colorRoutes from "../routes/auth/colorRoutes";
+import authRoutes from "../routes/tizzygo/auth/authRoutes";
 import cartRoutes from "../routes/tizzygo/cart/addToCartRoutes";
 import buynowShopRoutes from "../routes/tizzygo/shop/buynowRoutes";
 import commentRoutes from "../routes/tizzygo/social/commentRoutes";
@@ -76,7 +75,6 @@ app.get("/", (req, res) => {
    ROUTES
    ========================================================= */
 app.use("/api/v0/auth", authRoutes);
-app.use("/api/v0/fav", colorRoutes);
 app.use("/api/v0/cart", cartRoutes);
 app.use("/api/v0/shop", buynowShopRoutes);
 app.use("/api/v0/comments", commentRoutes);

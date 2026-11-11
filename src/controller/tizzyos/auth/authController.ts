@@ -15,10 +15,10 @@ import {
   refreshAccessToken,
   setUserAppRoles,
   removeUserApp,
-} from "../../services/auth/userService";
+} from "../../../services/tizzyos/auth/userService";
 
-import type { AuthenticatedRequest } from "../../middleware/authMiddleware";
-import type { AppName, AppRole } from "../../models/auth/User";
+import type { AuthenticatedRequest } from "../../../middleware/authMiddleware";
+import type { AppName, AppRole } from "../../../models/auth/User";
 
 const APP_NAMES: readonly AppName[] = ["TIZZYGO", "TIZZYOS"];
 

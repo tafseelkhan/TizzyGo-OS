@@ -8,11 +8,11 @@ import {
   APP_ROLES,
   type AppName,
   type AppRole,
-} from "../../models/auth/user.schema";
+} from "../../../models/auth/user.schema";
 
-import { getQutonConnectModels } from "../../config/tizzygo/qutonConnectDatabase";
+import { getQutonConnectModels } from "../../../config/tizzygo/qutonConnectDatabase";
 
-import { generateAccessToken, type UserRole } from "../../config/tizzygo/jwt";
+import { generateAccessToken, type UserRole } from "../../../config/tizzygo/jwt";
 
 interface SignupInput {
   firstName: string;

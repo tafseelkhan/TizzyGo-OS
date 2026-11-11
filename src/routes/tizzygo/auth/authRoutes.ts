@@ -12,9 +12,9 @@ import {
   me,
   logout,
   refresh,
-} from "../../controller/auth/authController";
+} from "../../../controller/tizzygo/auth/authController";
 
-import { authMiddleware } from "../../middleware/authMiddleware";
+import { authMiddleware } from "../../../middleware/authMiddleware";
 
 const router = Router();
 
